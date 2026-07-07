@@ -103,6 +103,26 @@ patchen — fragil gegenüber Paket-Updates.
 **Konsequenzen:** Bei Produktions-Redis kann auf einen persistenten Store
 mit Tenant-Präfix (CacheTenancyBootstrapper) gewechselt werden.
 
+## ADR-009: Stammdaten pro Tenant statt zentralem Katalog (2026-07-07)
+
+**Kontext:** Marken & Kaliber (Modul 2) könnten zentral gepflegt und allen
+Mandanten bereitgestellt werden (ein Katalog, keine Duplikate) — oder pro
+Tenant-Datenbank liegen.
+
+**Entscheidung:** Stammdaten liegen in der TENANT-Datenbank. Jeder Mandant
+erhält beim Provisioning einen kuratierten Grundstock (MasterDataSeeder,
+idempotent) und kann ihn frei erweitern, ändern oder löschen.
+
+**Begründung:** Mandanten brauchen eigene Einträge (Kleinserien-Marken,
+Eigenmarken, exotische Kaliber) ohne Freigabeprozess. Ein zentraler Katalog
+würde Cross-DB-Referenzen (zentrale brand_id in Tenant-Uhren) erfordern —
+das bricht die harte Datenisolation (ADR-007) und verhindert sauberes
+Einzel-Mandanten-Backup/-Restore.
+
+**Konsequenzen:** Grundstock-Updates erreichen Bestandsmandanten nur über
+`tenants:seed` (Seeder respektiert mandantenseitige Löschungen via
+withTrashed-Lookup). Redundante Datenhaltung wird bewusst in Kauf genommen.
+
 ## ADR-006: PHP 8.2 als lokale Basis (2026-07-07)
 
 **Kontext:** XAMPP liefert PHP 8.2.12; „latest PHP" wäre 8.4.

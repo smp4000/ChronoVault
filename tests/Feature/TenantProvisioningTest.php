@@ -20,7 +20,6 @@
 
 declare(strict_types=1);
 
-use App\Actions\Tenancy\CreateTenantAction;
 use App\Actions\Tenancy\DeleteTenantAction;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
@@ -29,27 +28,8 @@ use App\Models\User;
 use Spatie\Permission\Models\Role;
 use Stancl\Tenancy\Database\Models\Domain;
 
-/**
- * Helper: Mandant über den offiziellen Weg (Action) provisionieren.
- */
-function provisionTenant(string $name = 'Test Uhrenhandel GmbH', ?string $slug = null): Tenant
-{
-    return app(CreateTenantAction::class)->execute(
-        name: $name,
-        ownerName: 'Test Owner',
-        ownerEmail: 'owner@example.test',
-        ownerPassword: 'SecurePassword!123',
-        slug: $slug,
-    );
-}
-
-/**
- * Helper: Tenant-DB-Datei wieder entfernen (Tests hinterlassen sonst Dateien).
- */
-function destroyTenant(Tenant $tenant): void
-{
-    app(DeleteTenantAction::class)->execute($tenant);
-}
+// Die Helper provisionTenant()/destroyTenant() liegen in tests/Pest.php,
+// damit auch andere Feature-Tests (z. B. MasterDataTest) sie nutzen können.
 
 it('provisions a tenant with database, domain, roles and owner user', function () {
     $tenant = provisionTenant();

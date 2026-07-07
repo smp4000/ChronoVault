@@ -4,18 +4,20 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-07 (Modul 1 — Tenancy & Benutzerverwaltung)
+> Letzte Aktualisierung: 2026-07-07 (Modul 2 — Stammdaten: Marken & Kaliber)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 1 (Tenancy & Benutzer-/Rollenverwaltung) abgeschlossen.**
-Multi-Database-Tenancy läuft end-to-end: Mandanten-Provisioning (DB +
-Migrationen + Rollen-Seed + Domain + Owner) über das zentrale Admin-Panel,
-Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 sauber.
+**Modul 2 (Stammdaten: Marken & Kaliber) abgeschlossen.**
+Erste Domänentabellen in der Tenant-DB (`brands`, `calibers`, UUID +
+SoftDeletes), Starter-Grundstock (20 Marken, 17 Kaliber) wird beim
+Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
+„Stammdaten") inkl. CalibersRelationManager und Papierkorb (Trashed-Filter
++ Restore). 15 Tests grün, PHPStan Level 6 sauber.
 
-**Nächster Schritt:** Modul 2 — Stammdaten: Marken (Brands) & Kaliber.
+**Nächster Schritt:** Modul 3 — Kernmodul: Uhren (Watches).
 
 ---
 
@@ -25,7 +27,7 @@ Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 
 |---|-------|--------|
 | 0 | Foundation (Scaffold, Pakete, Panel, Doku) | ✅ Fertig |
 | 1 | Tenancy & Benutzer-/Rollenverwaltung ([Doku](modules/module-01-tenancy.md)) | ✅ Fertig |
-| 2 | Stammdaten: Marken (Brands) & Kaliber | ⬜ Offen |
+| 2 | Stammdaten: Marken (Brands) & Kaliber ([Doku](modules/module-02-master-data.md)) | ✅ Fertig |
 | 3 | Kernmodul: Uhren (Watches) | ⬜ Offen |
 | 4 | Medienverwaltung (Fotos, Zertifikate, Dokumente) | ⬜ Offen |
 | 5 | Kauf/Verkauf & Preishistorie | ⬜ Offen |
@@ -46,11 +48,15 @@ Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 
 - `users`, `password_reset_tokens`, `sessions`
 - `cache`, `cache_locks`
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
+- `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
+- `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
 
 ## Models
 
 - `App\Models\User` — zentral UND tenant (Connection-Switch); FilamentUser + HasRoles
 - `App\Models\Tenant` — stancl BaseTenant + SoftDeletes, Custom Columns (name, slug, status)
+- `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers (Werkhersteller wie ETA sind auch Brands)
+- `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; MovementType-Cast
 
 ## Filament Resources
 
@@ -59,6 +65,8 @@ Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 
 
 **App-Panel (`/app` auf Tenant-Domains, Namespace `App\Filament\App`):**
 - `Users\UserResource` (+ UserForm, UsersTable, List/Create/Edit-Pages)
+- `Brands\BrandResource` (Gruppe „Stammdaten"; + BrandForm, BrandsTable, Pages, CalibersRelationManager, Papierkorb/Restore)
+- `Calibers\CaliberResource` (Gruppe „Stammdaten"; + CaliberForm, CalibersTable, Pages — Form/Table werden vom RelationManager wiederverwendet, `withBrand: false`)
 
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
@@ -76,6 +84,7 @@ Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 
 
 - `App\Enums\TenantStatus` (trial/active/suspended/archived, deutsche Labels, Filament-Contracts)
 - `App\Enums\UserRole` (owner/admin/employee/viewer, deutsche Labels, managementRoles())
+- `App\Enums\MovementType` (manual/automatic/quartz/solar/spring_drive, deutsche Labels, Filament-Contracts)
 
 ## Jobs
 
@@ -89,6 +98,8 @@ Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 
 
 - `App\Policies\TenantPolicy` — nur zentraler Kontext; forceDelete nur für archivierte
 - `App\Policies\UserPolicy` — permission-basiert (users.*), Selbstlöschungs- & Owner-Hierarchie-Schutz
+- `App\Policies\BrandPolicy` — master_data.*; Referenz-Schutz (Marke mit Kalibern nicht löschbar)
+- `App\Policies\CaliberPolicy` — master_data.*; Referenz-Schutz für Uhren folgt in Modul 3
 
 ## Observers
 
@@ -96,12 +107,17 @@ Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 
 
 ## Seeder / Factories
 
-- `Database\Seeders\TenantDatabaseSeeder` — Rollen + Basis-Berechtigungen (users.*, roles.manage, settings.manage); wird bei jedem Provisioning ausgeführt
-- `Database\Factories\TenantFactory` (+ UserFactory aus dem Skeleton)
+- `Database\Seeders\TenantDatabaseSeeder` — Rollen + Berechtigungen (users.*, roles.manage, settings.manage, master_data.*); ruft MasterDataSeeder auf; wird bei jedem Provisioning ausgeführt
+- `Database\Seeders\MasterDataSeeder` — Starter-Grundstock (20 Marken, 17 Kaliber), idempotent, respektiert mandantenseitige Löschungen
+- `Database\Factories\TenantFactory`, `BrandFactory`, `CaliberFactory` (+ UserFactory aus dem Skeleton)
+
+## Test-Infrastruktur
+
+- Helper `provisionTenant()` / `destroyTenant()` in `tests/Pest.php` — für alle Feature-Tests nutzbar
 
 ## Offene TODOs
 
-- [ ] Modul 2: Marken & Kaliber (Tenant-Migrationen!)
+- [ ] Modul 3: Kernmodul Uhren (Watches) — referenziert brands/calibers; CaliberPolicy dann um Referenz-Schutz erweitern
 - [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten
 - [ ] RoleResource im App-Panel (eigene Rollen pro Mandant; Berechtigung `roles.manage` existiert)
 - [ ] Suspended-Tenant-UX: Login wird verweigert (canAccessPanel), aber ohne erklärende Fehlerseite

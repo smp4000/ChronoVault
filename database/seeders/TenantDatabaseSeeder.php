@@ -51,6 +51,14 @@ class TenantDatabaseSeeder extends Seeder
         'users.delete' => [UserRole::Owner, UserRole::Admin],
         'roles.manage' => [UserRole::Owner],
         'settings.manage' => [UserRole::Owner, UserRole::Admin],
+
+        // Modul 2 — Stammdaten (Marken & Kaliber): Lesen dürfen alle,
+        // Pflegen ist operatives Arbeiten (inkl. Mitarbeiter), Löschen
+        // bleibt der Verwaltung vorbehalten.
+        'master_data.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'master_data.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'master_data.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'master_data.delete' => [UserRole::Owner, UserRole::Admin],
     ];
 
     public function run(): void
@@ -82,5 +90,8 @@ class TenantDatabaseSeeder extends Seeder
 
         // 3. Owner erhält pauschal ALLE Berechtigungen — auch zukünftige.
         $roles[UserRole::Owner->value]->givePermissionTo(Permission::all());
+
+        // 4. Stammdaten-Grundausstattung (Marken & Kaliber) — idempotent.
+        $this->call(MasterDataSeeder::class);
     }
 }
