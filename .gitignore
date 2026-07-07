@@ -27,3 +27,6 @@ Thumbs.db
 
 # sqlite-Tenant-DBs aus Testlaeufen (stancl SQLiteDatabaseManager)
 /database/cv_tenant_*
+
+# Tenant-Storage (stancl FilesystemTenancyBootstrapper) — pro Mandant, nie versionieren
+/storage/tenant*
