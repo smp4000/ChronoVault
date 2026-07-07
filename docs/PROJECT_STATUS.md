@@ -78,7 +78,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 ## Services
 
-- `App\Services\WatchReferenceLookupService` — KI-Recherche zu Referenznummern (Anthropic claude-opus-4-8 + Web-Suche); JSON-Parsing + Stammdaten-Matching; DTO `App\DataTransferObjects\WatchReferenceData`; Konfiguration über ANTHROPIC_API_KEY
+- `App\Services\WatchReferenceLookupService` — KI-Recherche zu Referenznummern: Perplexity sonar-pro (bevorzugt, Web-Suche eingebaut, citations→source_urls) mit Anthropic claude-opus-4-8 als Fallback; JSON-Parsing + Stammdaten-Matching; DTO `WatchReferenceData`; Konfiguration PERPLEXITY_API_KEY / ANTHROPIC_API_KEY
 
 ## Actions
 
@@ -131,7 +131,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - [ ] Modul 4: Medienverwaltung — Fotos/Zertifikate für Uhren (spatie/laravel-medialibrary, tenant-aware Storage!)
 - [ ] Modul 4: `livewire/upload-file`-Route tenancy-fähig machen (wie Update-Route im TenancyServiceProvider — sonst 419 bei Uploads auf Tenant-Domains)
 - [ ] Modul 4: Bild-URLs aus `watches.research_data` (KI-Lookup) in die Media Library übernehmen (Download-Job)
-- [ ] ANTHROPIC_API_KEY in Produktion setzen; KI-Lookup ggf. per Queue-Job entkoppeln (aktuell synchron mit set_time_limit 180)
+- [ ] PERPLEXITY_API_KEY in Produktion setzen (Anthropic optional als Fallback); KI-Lookup ggf. per Queue-Job entkoppeln (aktuell synchron mit set_time_limit 180)
 - [ ] Feld-Berechtigung für Einkaufspreis/Versicherungswert (z. B. watches.view_purchase_price — aktuell für alle mit watches.view sichtbar)
 - [ ] Modul 7: current_market_value/last_valuation_at/watchcharts_uuid pflegen (Spalten existieren bereits)
 - [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten

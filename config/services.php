@@ -14,8 +14,15 @@ return [
     |
     */
 
-    // Anthropic Claude API — KI-Lookup für Uhren-Referenznummern (Modul 3).
-    // Ohne Key ist das Feature deaktiviert (Button meldet fehlende Konfiguration).
+    // KI-Lookup für Uhren-Referenznummern (Modul 3): Perplexity ist der
+    // bevorzugte Provider (Web-Suche eingebaut, im Pro-Abo Guthaben
+    // enthalten), Anthropic der Fallback. Ohne Keys ist das Feature
+    // deaktiviert (Button meldet fehlende Konfiguration).
+    'perplexity' => [
+        'api_key' => env('PERPLEXITY_API_KEY'),
+        'model' => env('PERPLEXITY_MODEL', 'sonar-pro'),
+    ],
+
     'anthropic' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
     ],

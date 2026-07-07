@@ -12,20 +12,28 @@
  *   damit die Felder und speichert Bild-/Quellen-URLs in
  *   watches.research_data (Bild-Download folgt in Modul 4).
  *
+ * Provider (in dieser Reihenfolge):
+ *   1. Perplexity (sonar-pro) — bevorzugt: Web-Suche eingebaut, im
+ *      Perplexity-Pro-Abo ist monatliches API-Guthaben enthalten
+ *      (für den Auftraggeber damit faktisch kostenlos).
+ *   2. Anthropic Claude (claude-opus-4-8 + web_search-Server-Tool) —
+ *      Fallback, wenn nur ANTHROPIC_API_KEY konfiguriert ist.
+ *
  * Verantwortlichkeiten:
- *   - Messages-API-Aufruf (claude-opus-4-8 + web_search-Server-Tool)
+ *   - Provider-Aufruf; beide liefern per Prompt striktes JSON
  *   - Robustes JSON-Parsing der Antwort (parseResponseJson)
  *   - Matching der KI-Markennamen gegen die Tenant-Stammdaten
  *     (resolveBrand/resolveCaliber) — es werden NIE automatisch neue
  *     Stammdaten angelegt (Berechtigungs- und Qualitätsfrage)
  *
- * WARUM kein strukturiertes Output-Format (output_config.format):
- *   Die Web-Suche erzeugt Citations, die mit Structured Outputs
- *   inkompatibel sind. Stattdessen: striktes JSON per Prompt + defensives
- *   Parsing (Markdown-Fences, umgebender Text).
+ * WARUM striktes JSON per Prompt statt Structured Outputs:
+ *   Bei Anthropic erzeugt die Web-Suche Citations (inkompatibel mit
+ *   Structured Outputs); bei Perplexity ist JSON-Schema tier-abhängig.
+ *   Der gemeinsame Nenner: JSON im Prompt + defensives Parsing.
  *
  * Konfiguration:
- *   services.anthropic.api_key (ANTHROPIC_API_KEY). Ohne Key wirft
+ *   services.perplexity.api_key (PERPLEXITY_API_KEY) und/oder
+ *   services.anthropic.api_key (ANTHROPIC_API_KEY). Ohne Keys wirft
  *   lookup() eine RuntimeException mit deutscher Meldung — die UI zeigt
  *   sie als Notification.
  * =========================================================================
@@ -48,6 +56,7 @@ use App\Enums\WatchFunction;
 use App\Enums\WatchGender;
 use App\Models\Brand;
 use App\Models\Caliber;
+use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class WatchReferenceLookupService
@@ -74,15 +83,76 @@ class WatchReferenceLookupService
      */
     public function lookup(string $referenceNumber, ?string $brandHint = null): WatchReferenceData
     {
-        $client = $this->client ?? $this->makeClient();
-
         // Web-Recherche + Antwortsynthese können deutlich länger dauern
         // als das PHP-Standard-Limit (30 s unter XAMPP).
         set_time_limit(180);
 
+        $prompt = $this->buildPrompt($referenceNumber, $brandHint);
+
+        // Injizierter Anthropic-Client (Tests) hat Vorrang.
+        if ($this->client !== null) {
+            return $this->lookupViaAnthropic($this->client, $prompt);
+        }
+
+        $perplexityKey = config('services.perplexity.api_key');
+
+        if (is_string($perplexityKey) && $perplexityKey !== '') {
+            return $this->lookupViaPerplexity($perplexityKey, $prompt);
+        }
+
+        return $this->lookupViaAnthropic($this->makeClient(), $prompt);
+    }
+
+    /**
+     * Perplexity Chat Completions (OpenAI-kompatibel): Sonar-Modelle
+     * recherchieren automatisch im Web; die genutzten Quellen kommen als
+     * "citations" zurück und werden in source_urls gemerged.
+     */
+    private function lookupViaPerplexity(string $apiKey, string $prompt): WatchReferenceData
+    {
+        $response = Http::withToken($apiKey)
+            ->timeout(150)
+            ->post('https://api.perplexity.ai/chat/completions', [
+                'model' => (string) config('services.perplexity.model', 'sonar-pro'),
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'Du bist ein Uhren-Experte für einen Fachhändler. Antworte ausschließlich mit dem angeforderten JSON-Objekt — ohne Markdown-Zäune, ohne Begleittext.',
+                    ],
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+            ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                'Perplexity-Anfrage fehlgeschlagen (HTTP '.$response->status().'). API-Key und Guthaben prüfen.'
+            );
+        }
+
+        $data = self::parseResponseJson((string) $response->json('choices.0.message.content', ''));
+
+        // Von Perplexity tatsächlich genutzte Quellen ergänzen.
+        $citations = array_values(array_filter(
+            (array) $response->json('citations', []),
+            fn ($url): bool => is_string($url) && str_starts_with($url, 'http'),
+        ));
+
+        $data['source_urls'] = array_values(array_unique(array_merge(
+            is_array($data['source_urls'] ?? null) ? $data['source_urls'] : [],
+            $citations,
+        )));
+
+        return WatchReferenceData::fromArray($data);
+    }
+
+    /**
+     * Anthropic Messages API mit web_search-Server-Tool (Fallback-Provider).
+     */
+    private function lookupViaAnthropic(Client $client, string $prompt): WatchReferenceData
+    {
         $messages = [[
             'role' => 'user',
-            'content' => $this->buildPrompt($referenceNumber, $brandHint),
+            'content' => $prompt,
         ]];
 
         $response = $client->messages->create(
@@ -203,7 +273,7 @@ class WatchReferenceLookupService
 
         if (! is_string($apiKey) || $apiKey === '') {
             throw new RuntimeException(
-                'KI-Lookup ist nicht konfiguriert: ANTHROPIC_API_KEY in der .env hinterlegen.'
+                'KI-Lookup ist nicht konfiguriert: PERPLEXITY_API_KEY (oder ANTHROPIC_API_KEY) in der .env hinterlegen.'
             );
         }
 

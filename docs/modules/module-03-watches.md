@@ -146,10 +146,15 @@ Gehäuse & Ausstattung → Notizen); die **Referenznummer steht an erster
 Stelle**. Ihre Suffix-Action (✨) startet den
 `WatchReferenceLookupService`:
 
-- **Anthropic Claude API** (`claude-opus-4-8`) mit Web-Suche
-  (`web_search_20260209`) recherchiert die Referenz und liefert JSON
-  (Marke, Modell, Kaliber, Baujahr, Gehäuse, Zifferblatt, Band,
-  Kurzbeschreibung, Bild-/Quellen-URLs).
+- **Provider-Reihenfolge:** 1. **Perplexity** (`sonar-pro`, Web-Suche
+  eingebaut; im Perplexity-Pro-Abo ist monatliches API-Guthaben enthalten —
+  für den Auftraggeber faktisch kostenlos; genutzte Quellen kommen als
+  citations und werden in source_urls gemerged) · 2. **Anthropic Claude**
+  (`claude-opus-4-8` + `web_search_20260209`) als Fallback. Beide liefern
+  JSON (Marke, Modell, Kaliber, Aufzug, Baujahr, Gehäuse, Zifferblatt,
+  Band, Funktionen, Kurzbeschreibung, Bild-/Quellen-URLs).
+- Live verifiziert mit TAG Heuer CBZ208B.BF0009 (Formula 1 x Gulf):
+  korrekte Daten, Enum-Codes, Stammdaten-Match, 2 Bild- + 10 Quellen-URLs.
 - **Kein Structured-Output-Format möglich** (Web-Suche erzeugt Citations,
   die damit inkompatibel sind) → striktes JSON per Prompt + defensives
   Parsing (`parseResponseJson`, testbar ohne API).
@@ -158,9 +163,10 @@ Stelle**. Ihre Suffix-Action (✨) startet den
   Stammdaten angelegt. Ohne Treffer → Hinweis in der Notification.
 - **`watches.research_data`** (JSON): Beschreibung + Bild-/Quellen-URLs
   des Lookups. **Modul 4 lädt daraus die Fotos in die Media Library.**
-- Konfiguration: `ANTHROPIC_API_KEY` in `.env`
-  (`config/services.php → anthropic`). Ohne Key: deutsche Fehlermeldung
-  als Notification, Feature ansonsten inert.
+- Konfiguration: `PERPLEXITY_API_KEY` (+ optional `PERPLEXITY_MODEL`,
+  Default `sonar-pro`) und/oder `ANTHROPIC_API_KEY` in `.env`
+  (`config/services.php`). Ohne Keys: deutsche Fehlermeldung als
+  Notification, Feature ansonsten inert.
 - `set_time_limit(180)` im Service — Web-Recherche überschreitet sonst
   das PHP-Limit (XAMPP: 30 s); `pause_turn` der Server-Tool-Schleife
   wird bis zu 3× fortgesetzt.

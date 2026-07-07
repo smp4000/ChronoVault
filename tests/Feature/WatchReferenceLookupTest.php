@@ -26,6 +26,7 @@ use App\Enums\WatchColor;
 use App\Enums\WatchGender;
 use App\Models\Brand;
 use App\Services\WatchReferenceLookupService;
+use Illuminate\Support\Facades\Http;
 
 it('parses pure json, fenced json and json with surrounding text', function () {
     $pure = '{"brand_name": "Rolex"}';
@@ -127,7 +128,59 @@ it('resolves brands and calibers against tenant master data', function () {
 });
 
 it('fails with a helpful message when no api key is configured', function () {
+    config()->set('services.perplexity.api_key', null);
     config()->set('services.anthropic.api_key', null);
 
     (new WatchReferenceLookupService)->lookup('126610LN');
-})->throws(RuntimeException::class, 'ANTHROPIC_API_KEY');
+})->throws(RuntimeException::class, 'PERPLEXITY_API_KEY');
+
+it('looks up watch data via perplexity and merges citations', function () {
+    config()->set('services.perplexity.api_key', 'pplx-test');
+
+    Http::fake([
+        'api.perplexity.ai/*' => Http::response([
+            'choices' => [[
+                'message' => [
+                    'content' => json_encode([
+                        'brand_name' => 'TAG Heuer',
+                        'model_name' => 'Formula 1 Chronograph x Gulf',
+                        'movement_type' => 'quartz',
+                        'case_material' => 'steel',
+                        'case_diameter_mm' => 43,
+                        'functions' => ['chronograph', 'date'],
+                        'description' => 'Sondermodell in Gulf-Lackierung.',
+                        'image_urls' => ['https://example.com/gulf.jpg'],
+                        'source_urls' => ['https://www.tagheuer.com/x'],
+                    ]),
+                ],
+            ]],
+            'citations' => ['https://www.chrono24.de/y', 'https://www.tagheuer.com/x'],
+        ]),
+    ]);
+
+    $data = (new WatchReferenceLookupService)->lookup('CBZ208B.BF0009');
+
+    expect($data->brandName)->toBe('TAG Heuer')
+        ->and($data->movementType)->toBe(MovementType::Quartz)
+        ->and($data->caseMaterial)->toBe(CaseMaterial::Steel)
+        ->and($data->functions)->toBe(['chronograph', 'date'])
+        ->and($data->imageUrls)->toBe(['https://example.com/gulf.jpg'])
+        // citations werden dedupliziert in die Quellen gemerged
+        ->and($data->sourceUrls)->toBe(['https://www.tagheuer.com/x', 'https://www.chrono24.de/y']);
+
+    Http::assertSent(function ($request): bool {
+        return str_contains($request->url(), 'api.perplexity.ai')
+            && $request->hasHeader('Authorization', 'Bearer pplx-test')
+            && str_contains((string) $request->body(), 'CBZ208B.BF0009');
+    });
+});
+
+it('reports perplexity api errors with a german message', function () {
+    config()->set('services.perplexity.api_key', 'pplx-test');
+
+    Http::fake([
+        'api.perplexity.ai/*' => Http::response(['error' => 'unauthorized'], 401),
+    ]);
+
+    (new WatchReferenceLookupService)->lookup('126610LN');
+})->throws(RuntimeException::class, 'Perplexity-Anfrage fehlgeschlagen (HTTP 401)');
