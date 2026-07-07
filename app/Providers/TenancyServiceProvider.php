@@ -8,6 +8,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
@@ -104,6 +105,39 @@ class TenancyServiceProvider extends ServiceProvider
         $this->mapRoutes();
 
         $this->makeTenancyMiddlewareHighestPriority();
+        $this->configureUniversalLivewireUpdateRoute();
+    }
+
+    /**
+     * Livewire-Update-Route tenancy-fähig machen.
+     *
+     * WARUM: Livewire registriert seine POST-Update-Route selbst — nur mit
+     * 'web'-Middleware, OHNE Tenancy. Auf Tenant-Domains lag die Session
+     * dadurch beim GET in der Tenant-DB, beim Livewire-POST wurde sie aber
+     * in der ZENTRALEN DB gesucht → CSRF-Fehler 419 („This page has
+     * expired") in Endlosschleife; Login im Tenant-Panel unmöglich.
+     *
+     * Lösung (stancl-Doku "Integrations > Livewire"):
+     * - Gleicher Pfad wie die Default-Route (ersetzt sie in der Collection),
+     *   zusätzlich InitializeTenancyByDomain.
+     * - 'universal'-Flag + UniversalRoutes-Feature (config/tenancy.php):
+     *   Auf ZENTRALEN Domains schlägt die Tenant-Identifikation fehl und
+     *   die Route läuft dann bewusst OHNE Tenancy weiter — das zentrale
+     *   Admin-Panel nutzt dieselbe Route.
+     * - Livewire ergänzt RequireLivewireHeaders + Routennamen selbst.
+     */
+    protected function configureUniversalLivewireUpdateRoute(): void
+    {
+        // Leere Middleware-Gruppe als "universal"-Flag für stancl.
+        Route::middlewareGroup('universal', []);
+
+        Livewire::setUpdateRoute(function ($handle, string $path) {
+            return Route::post($path, $handle)->middleware([
+                'web',
+                'universal',
+                Middleware\InitializeTenancyByDomain::class,
+            ]);
+        });
     }
 
     protected function bootEvents(): void

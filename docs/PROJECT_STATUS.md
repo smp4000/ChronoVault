@@ -126,6 +126,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 ## Offene TODOs
 
 - [ ] Modul 4: Medienverwaltung — Fotos/Zertifikate für Uhren (spatie/laravel-medialibrary, tenant-aware Storage!)
+- [ ] Modul 4: `livewire/upload-file`-Route tenancy-fähig machen (wie Update-Route im TenancyServiceProvider — sonst 419 bei Uploads auf Tenant-Domains)
 - [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten
 - [ ] RoleResource im App-Panel (eigene Rollen pro Mandant; Berechtigung `roles.manage` existiert)
 - [ ] Suspended-Tenant-UX: Login wird verweigert (canAccessPanel), aber ohne erklärende Fehlerseite

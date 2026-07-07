@@ -82,6 +82,13 @@ Die automatische DB-Löschung wurde aus der stancl-Event-Pipeline **entfernt**
 
 ## Bekannte Stolperfallen (dokumentiert für die Zukunft)
 
+- **Livewire-Update-Route braucht Tenancy** (gefixt): Livewire registriert
+  seine POST-Route nur mit `web`-Middleware. Auf Tenant-Domains lag die
+  Session beim GET in der Tenant-DB, beim POST wurde sie zentral gesucht →
+  419-Endlosschleife beim Login. Fix: `Livewire::setUpdateRoute` mit
+  `universal` + `InitializeTenancyByDomain` (TenancyServiceProvider) und
+  UniversalRoutes-Feature. **Gleiche Behandlung braucht die
+  `livewire/upload-file`-Route, sobald Datei-Uploads kommen (Modul 4)!**
 - **Zentrale `/`-Routen müssen an `central_domains` gebunden werden**
   (`Route::domain(...)` in `routes/web.php`), sonst überschreibt die
   Tenant-`/`-Route sie (gleiche URI!).
