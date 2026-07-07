@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Resources\Brands\Schemas;
 
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -57,6 +58,14 @@ class BrandForm
                             ->url()
                             ->maxLength(255)
                             ->placeholder('https://…'),
+
+                        SpatieMediaLibraryFileUpload::make('logo')
+                            ->label('Logo')
+                            ->collection('logo')
+                            ->image()
+                            ->maxSize(5120)
+                            ->helperText('Ein Bild — ein neuer Upload ersetzt das vorhandene Logo.')
+                            ->columnSpanFull(),
 
                         Textarea::make('description')
                             ->label('Beschreibung')

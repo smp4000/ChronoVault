@@ -38,6 +38,7 @@ use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
 use App\Enums\OwnershipStatus;
+use App\Enums\PhotoSlot;
 use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
 use App\Enums\WatchFunction;
@@ -55,13 +56,16 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use RuntimeException;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Throwable;
 
 class WatchForm
@@ -375,27 +379,47 @@ class WatchForm
                         Tab::make('Fotos & Dokumente')
                             ->icon('heroicon-m-photo')
                             ->components([
-                                SpatieMediaLibraryFileUpload::make('photos')
-                                    ->label('Fotos')
-                                    ->collection('photos')
-                                    ->image()
-                                    ->multiple()
-                                    ->reorderable()
-                                    ->maxFiles(20)
-                                    ->maxSize(10240)
-                                    ->panelLayout('grid')
-                                    ->helperText('Eigene Fotos hochladen — die KI-Bildquellen werden beim Speichern automatisch ergänzt, solange noch keine Fotos vorhanden sind.'),
+                                Section::make('Geführter Foto-Upload')
+                                    ->description('Die Standard-Perspektiven für ein vollständiges Inserat — ein Foto je Slot.')
+                                    ->icon('heroicon-m-camera')
+                                    ->columns(3)
+                                    ->collapsible()
+                                    ->components(self::photoSlotUploads()),
 
-                                SpatieMediaLibraryFileUpload::make('documents')
-                                    ->label('Zertifikate & Dokumente')
-                                    ->collection('documents')
-                                    ->multiple()
-                                    ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
-                                    ->maxFiles(20)
-                                    ->maxSize(20480)
-                                    ->downloadable()
-                                    ->openable()
-                                    ->helperText('Zertifikate, Kaufbelege, Servicehefte (PDF oder Bild).'),
+                                Section::make('Weitere Fotos')
+                                    ->icon('heroicon-m-photo')
+                                    ->collapsible()
+                                    ->components([
+                                        SpatieMediaLibraryFileUpload::make('photos')
+                                            ->hiddenLabel()
+                                            ->collection('photos')
+                                            // Nur Fotos OHNE Slot (Slots haben eigene Felder oben).
+                                            ->filterMediaUsing(fn (Collection $media): Collection => $media
+                                                ->filter(fn (Media $item): bool => blank($item->getCustomProperty('slot'))))
+                                            ->image()
+                                            ->multiple()
+                                            ->reorderable()
+                                            ->maxFiles(20)
+                                            ->maxSize(10240)
+                                            ->panelLayout('grid')
+                                            ->helperText('Zusätzliche Bilder — die KI-Bildquellen werden beim Speichern automatisch ergänzt, solange noch keine Fotos vorhanden sind.'),
+                                    ]),
+
+                                Section::make('Zertifikate & Dokumente')
+                                    ->icon('heroicon-m-document-text')
+                                    ->collapsible()
+                                    ->components([
+                                        SpatieMediaLibraryFileUpload::make('documents')
+                                            ->hiddenLabel()
+                                            ->collection('documents')
+                                            ->multiple()
+                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                                            ->maxFiles(20)
+                                            ->maxSize(20480)
+                                            ->downloadable()
+                                            ->openable()
+                                            ->helperText('Zertifikate, Kaufbelege, Servicehefte (PDF oder Bild).'),
+                                    ]),
                             ]),
 
                         Tab::make('Beschreibung & Notizen')
@@ -413,6 +437,30 @@ class WatchForm
                             ]),
                     ]),
             ]);
+    }
+
+    /**
+     * Ein Upload-Feld je Foto-Slot (geführter Upload). Alle Slots teilen
+     * sich die photos-Collection; die Zuordnung läuft über die
+     * custom_property "slot". deleteAbandonedFiles() der Komponente
+     * respektiert den Media-Filter — die Felder löschen sich nicht
+     * gegenseitig die Bilder weg.
+     *
+     * @return array<int, SpatieMediaLibraryFileUpload>
+     */
+    private static function photoSlotUploads(): array
+    {
+        return array_map(
+            fn (PhotoSlot $slot): SpatieMediaLibraryFileUpload => SpatieMediaLibraryFileUpload::make('photo_slot_'.$slot->value)
+                ->label($slot->getLabel())
+                ->collection('photos')
+                ->customProperties(['slot' => $slot->value])
+                ->filterMediaUsing(fn (Collection $media): Collection => $media
+                    ->filter(fn (Media $item): bool => $item->getCustomProperty('slot') === $slot->value))
+                ->image()
+                ->maxSize(10240),
+            PhotoSlot::cases(),
+        );
     }
 
     /**

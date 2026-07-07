@@ -25,6 +25,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -36,6 +37,12 @@ class BrandsTable
     {
         return $table
             ->columns([
+                SpatieMediaLibraryImageColumn::make('logo')
+                    ->label('')
+                    ->collection('logo')
+                    ->imageSize(32)
+                    ->toggleable(),
+
                 TextColumn::make('name')
                     ->label('Name')
                     ->searchable()

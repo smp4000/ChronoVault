@@ -36,13 +36,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Brand extends Model
+class Brand extends Model implements HasMedia
 {
     /** @use HasFactory<BrandFactory> */
     use HasFactory;
 
     use HasUuids;
+    use InteractsWithMedia;
     use SoftDeletes;
 
     protected $fillable = [
@@ -63,6 +66,17 @@ class Brand extends Model
             'founded_year' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Medien-Collection: Markenlogo (genau EIN Bild — singleFile ersetzt
+     * beim Upload automatisch das vorherige Logo).
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('logo')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
     }
 
     /**

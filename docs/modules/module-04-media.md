@@ -1,6 +1,6 @@
 # Modul 4 — Medienverwaltung (Fotos, Zertifikate, Dokumente)
 
-> Stand: 2026-07-07 · Status: ✅ Kern fertig (geführter Foto-Upload offen)
+> Stand: 2026-07-07 · Status: ✅ Fertig (Conversions/Thumbnails folgen mit Queue-Worker)
 
 ## Überblick
 
@@ -55,11 +55,31 @@ php artisan tenants:run watches:migrate-photos
   Dokumente: downloadbar/öffnbar, max 20×20 MB)
 - Bestandsliste: `SpatieMediaLibraryImageColumn` (erstes Foto als Thumbnail)
 
-## Offen (Modul-4-Rest)
+## Geführter Foto-Upload (photo_slots-Konzept)
 
-- **Geführter Foto-Upload** (photo_slots aus der Vorgänger-App:
-  Slot-Checkliste Front/Rücken/Schließe/…)
-- Markenlogos (Brand-Collection)
+Sechs Standard-Perspektiven als eigene Upload-Felder (PhotoSlot-Enum:
+Vorderseite, Rückseite/Gehäuseboden, Seite & Krone, Schließe, Armband,
+Lieferumfang) + „Weitere Fotos" (Mehrfach-Upload). Alle teilen sich die
+photos-Collection; die Zuordnung läuft über die custom_property `slot`:
+
+- Slot-Felder: `customProperties(['slot' => …])` +
+  `filterMediaUsing()` auf den eigenen Slot
+- Weitere Fotos: Filter auf Medien OHNE slot (dort landen auch die
+  KI-Downloads)
+- WICHTIG: `deleteAbandonedFiles()` der Plugin-Komponente respektiert
+  den Media-Filter — mehrere gefilterte Felder auf derselben Collection
+  löschen sich NICHT gegenseitig die Bilder weg (geprüft im Plugin-Code).
+- Die Alt-Spalte `watches.photo_slots` (Vorgänger-Konzept) wird dadurch
+  nicht mehr gebraucht → mit `watches.photos` zusammen später entfernen.
+
+## Markenlogos
+
+Brand hat die singleFile-Collection `logo` (neuer Upload ersetzt das
+alte Logo automatisch); Upload im BrandForm, Anzeige als Spalte in der
+Markenliste.
+
+## Offen
+
 - Bild-Conversions/Thumbnails (aktuell Originale; Conversions erst mit
   Queue-Worker sinnvoll — queue_conversions_by_default beachten)
 

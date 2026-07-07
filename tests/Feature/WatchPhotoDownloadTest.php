@@ -14,6 +14,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\PhotoSlot;
 use App\Models\Brand;
 use App\Models\Watch;
 use Illuminate\Support\Facades\File;
@@ -91,6 +92,64 @@ it('serves stored photos through the tenant asset route', function () {
 
         // Tenant-Storage-Verzeichnis wieder aufräumen (destroyTenant löscht nur die DB)
         File::deleteDirectory(storage_path('tenant'.$tenant->id));
+        destroyTenant($tenant);
+    }
+});
+
+it('stores slotted photos and keeps slots separate from free photos', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            Storage::fake('public');
+            Http::fake();
+
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+            ]);
+
+            // Slot-Foto (geführter Upload) + freies Foto in derselben Collection
+            $watch->addMediaFromString(tinyGif())
+                ->usingFileName('front.gif')
+                ->withCustomProperties(['slot' => PhotoSlot::Front->value])
+                ->toMediaCollection('photos');
+
+            $watch->addMediaFromString(tinyGif())
+                ->usingFileName('frei.gif')
+                ->toMediaCollection('photos');
+
+            $media = $watch->getMedia('photos');
+            $slotted = $media->filter(fn ($m): bool => $m->getCustomProperty('slot') === 'front');
+            $free = $media->filter(fn ($m): bool => blank($m->getCustomProperty('slot')));
+
+            expect($media)->toHaveCount(2)
+                ->and($slotted)->toHaveCount(1)
+                ->and($free)->toHaveCount(1)
+                ->and($slotted->first()->file_name)->toBe('front.gif');
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('replaces the brand logo because the collection is single file', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            Storage::fake('public');
+
+            $brand = Brand::where('name', 'Rolex')->firstOrFail();
+
+            $brand->addMediaFromString(tinyGif())->usingFileName('logo-alt.gif')->toMediaCollection('logo');
+            $brand->addMediaFromString(tinyGif())->usingFileName('logo-neu.gif')->toMediaCollection('logo');
+
+            $logos = $brand->getMedia('logo');
+
+            expect($logos)->toHaveCount(1)
+                ->and($logos->first()->file_name)->toBe('logo-neu.gif');
+        });
+    } finally {
         destroyTenant($tenant);
     }
 });
