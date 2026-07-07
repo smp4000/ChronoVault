@@ -44,6 +44,7 @@ use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
 use App\Enums\WatchColor;
+use App\Enums\WatchFunction;
 use App\Enums\WatchGender;
 use App\Models\Brand;
 use App\Models\Caliber;
@@ -223,6 +224,7 @@ class WatchReferenceLookupService
         $numerals = implode('|', array_column(DialNumerals::cases(), 'value'));
         $braceletMaterials = implode('|', array_column(BraceletMaterial::cases(), 'value'));
         $clasps = implode('|', array_column(ClaspType::cases(), 'value'));
+        $functions = implode('|', array_column(WatchFunction::cases(), 'value'));
 
         return <<<PROMPT
             Du bist ein Uhren-Experte für einen Fachhändler. Recherchiere die Armbanduhr mit der Referenznummer "{$referenceNumber}".{$hint}
@@ -252,6 +254,7 @@ class WatchReferenceLookupService
               "clasp_type": "{$clasps}",
               "clasp_material": "{$materials}",
               "lug_width_mm": Bandanstoßbreite in mm als ganze Zahl oder null,
+              "functions": Array mit zutreffenden Codes aus {$functions} — leer lassen, wenn unbekannt,
               "description": "2-3 Sätze Kurzbeschreibung der Uhr auf Deutsch oder null",
               "image_urls": ["https://...", "..."],
               "source_urls": ["https://...", "..."]

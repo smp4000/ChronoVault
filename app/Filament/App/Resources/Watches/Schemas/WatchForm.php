@@ -37,14 +37,17 @@ use App\Enums\ClaspType;
 use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
+use App\Enums\OwnershipStatus;
 use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
+use App\Enums\WatchFunction;
 use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
 use App\Models\Brand;
 use App\Models\Watch;
 use App\Services\WatchReferenceLookupService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -134,6 +137,13 @@ class WatchForm
                                     ->label('Geschlecht')
                                     ->options(WatchGender::class),
 
+                                Select::make('functions')
+                                    ->label('Funktionen')
+                                    ->options(WatchFunction::class)
+                                    ->multiple()
+                                    ->searchable()
+                                    ->helperText('Komplikationen wie Chronograph, GMT, Mondphase …'),
+
                                 TextInput::make('production_year')
                                     ->label('Herstellungsjahr')
                                     ->numeric()
@@ -155,6 +165,23 @@ class WatchForm
                                     ->maxLength(255)
                                     ->unique(ignoreRecord: true)
                                     ->helperText('Interne Nummer Ihres Betriebs — muss eindeutig sein.'),
+
+                                Toggle::make('is_limited_edition')
+                                    ->label('Limited Edition')
+                                    ->inline(false)
+                                    ->live(),
+
+                                TextInput::make('limited_edition_number')
+                                    ->label('Editionsnummer')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->visible(fn (Get $get): bool => (bool) $get('is_limited_edition')),
+
+                                TextInput::make('limited_edition_total')
+                                    ->label('Auflage gesamt')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->visible(fn (Get $get): bool => (bool) $get('is_limited_edition')),
 
                                 // KI-Rechercheergebnis (Beschreibung, Bild-/Quellen-URLs);
                                 // wird von der Lookup-Action gesetzt und als JSON persistiert.
@@ -181,6 +208,79 @@ class WatchForm
 
                                 Toggle::make('has_papers')
                                     ->label('Papiere vorhanden'),
+
+                                Select::make('ownership_status')
+                                    ->label('Eigentumsverhältnis')
+                                    ->options(OwnershipStatus::class)
+                                    ->default(OwnershipStatus::Owned)
+                                    ->required()
+                                    ->live(),
+
+                                TextInput::make('storage_location')
+                                    ->label('Lagerort')
+                                    ->maxLength(255)
+                                    ->placeholder('z. B. Tresor 2, Fach 14'),
+
+                                TextInput::make('owner_name')
+                                    ->label('Eigentümer')
+                                    ->maxLength(255)
+                                    ->visible(fn (Get $get): bool => $get('ownership_status') !== OwnershipStatus::Owned->value
+                                        && $get('ownership_status') !== OwnershipStatus::Owned),
+
+                                Textarea::make('owner_address')
+                                    ->label('Anschrift Eigentümer')
+                                    ->rows(2)
+                                    ->visible(fn (Get $get): bool => $get('ownership_status') !== OwnershipStatus::Owned->value
+                                        && $get('ownership_status') !== OwnershipStatus::Owned),
+                            ]),
+
+                        Tab::make('Kauf & Versicherung')
+                            ->icon('heroicon-m-banknotes')
+                            ->columns(2)
+                            ->components([
+                                TextInput::make('purchase_price')
+                                    ->label('Einkaufspreis')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->prefix('€')
+                                    ->helperText('Verkäufe & Preishistorie folgen in Modul 5.'),
+
+                                DatePicker::make('purchase_date')
+                                    ->label('Kaufdatum')
+                                    ->maxDate(now()),
+
+                                TextInput::make('purchase_location')
+                                    ->label('Gekauft bei')
+                                    ->maxLength(255)
+                                    ->placeholder('z. B. Privatankauf, Auktionshaus X'),
+
+                                Textarea::make('delivery_scope')
+                                    ->label('Lieferumfang')
+                                    ->rows(2)
+                                    ->placeholder('z. B. Umkarton, 3 Ersatzglieder, Kaufbeleg 2021')
+                                    ->helperText('Zubehör über Box & Papiere hinaus.'),
+
+                                TextInput::make('insurance_company')
+                                    ->label('Versicherung')
+                                    ->maxLength(255),
+
+                                TextInput::make('insurance_policy_number')
+                                    ->label('Policennummer')
+                                    ->maxLength(255),
+
+                                TextInput::make('insurance_value')
+                                    ->label('Versicherungswert')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->prefix('€'),
+
+                                DatePicker::make('insurance_valid_until')
+                                    ->label('Versichert bis'),
+
+                                Textarea::make('insurance_notes')
+                                    ->label('Versicherungs-Notizen')
+                                    ->rows(2)
+                                    ->columnSpanFull(),
                             ]),
 
                         Tab::make('Gehäuse')
@@ -271,13 +371,18 @@ class WatchForm
                                     ->suffix('mm'),
                             ]),
 
-                        Tab::make('Notizen')
+                        Tab::make('Beschreibung & Notizen')
                             ->icon('heroicon-m-pencil-square')
                             ->components([
+                                Textarea::make('description')
+                                    ->label('Beschreibung')
+                                    ->rows(5)
+                                    ->helperText('Öffentlicher Text (später Inserat-Basis). Der KI-Lookup ergänzt hier die Kurzbeschreibung.'),
+
                                 Textarea::make('notes')
                                     ->label('Interne Notizen')
-                                    ->rows(6)
-                                    ->helperText('Nur für Ihr Team sichtbar. Der KI-Lookup ergänzt hier die Kurzbeschreibung.'),
+                                    ->rows(4)
+                                    ->helperText('Nur für Ihr Team sichtbar.'),
                             ]),
                     ]),
             ]);
@@ -395,10 +500,17 @@ class WatchForm
             $set('is_production_year_approximate', true);
         }
 
-        // Kurzbeschreibung in die Notizen — vorhandene Notizen nie überschreiben.
-        if ($data->description !== null && blank($get('notes'))) {
-            $set('notes', $data->description);
-            $filled[] = 'Notizen';
+        // Funktionen/Komplikationen (Mehrfachauswahl aus Enum-Codes).
+        if ($data->functions !== []) {
+            $set('functions', $data->functions);
+            $filled[] = 'Funktionen';
+        }
+
+        // Kurzbeschreibung in die öffentliche Beschreibung —
+        // vorhandene Texte nie überschreiben.
+        if ($data->description !== null && blank($get('description'))) {
+            $set('description', $data->description);
+            $filled[] = 'Beschreibung';
         }
 
         $set('research_data', $data->toResearchData());

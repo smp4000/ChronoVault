@@ -111,6 +111,34 @@ Dev-Daten). **Inserat-spezifisches** (Titel-Ergänzung, Preis, Standort,
 Versand) gehört bewusst NICHT hierher — das ist Modul 5 (Verkauf/Inserat);
 die Uhr ist der Lagerbestand.
 
+## Kauf-, Eigentums- und Verwaltungsfelder (Nachtrag)
+
+Übernahme der bewährten Felder aus der Vorgänger-Anwendung des
+Auftraggebers (dort direkt am Watch-Model):
+
+- **Eigentum:** `ownership_status` (Enum: Eigenbestand/Kommission/
+  Kundeneigentum) + `owner_name`/`owner_address` (nur bei Fremdeigentum
+  sichtbar) — wichtig für Kommissionsgeschäft. `storage_location` (Lagerort).
+- **Kauf:** `purchase_price/date/location`, `delivery_scope` (Zubehör über
+  Box & Papiere hinaus). Verkäufe + Preishistorie bleiben Modul 5.
+- **Funktionen:** `functions` (JSON-Array aus `WatchFunction`-Codes,
+  15 Komplikationen, Mehrfachauswahl) — auch vom KI-Lookup befüllt.
+- **Limited Edition:** `is_limited_edition` + Nummer/Auflage (Toggle-abhängig).
+- **Beschreibung vs. Notizen:** `description` (öffentlich, spätere
+  Inserat-Basis; KI-Kurzbeschreibung landet HIER) getrennt von `notes` (intern).
+- **Versicherung:** `insurance_company/policy_number/value/valid_until/notes`.
+- **Erfasser:** `created_by_user_id` (FK users, automatisch via booted()).
+- **Vorhalte-Spalten:** `photo_slots` (Modul 4, geführter Foto-Upload),
+  `watchcharts_uuid`/`current_market_value`/`last_valuation_at` (Modul 7).
+- **Kaliber:** `calibers.base_caliber` (Grundkaliber, z. B. ETA 2892-A2).
+
+Neue Tabs: „Kauf & Versicherung"; „Zustand & Status" um Eigentum/Lagerort
+erweitert; „Notizen" → „Beschreibung & Notizen".
+
+**TODO Sicherheit:** Einkaufspreis/Versicherungswert sind aktuell für alle
+Rollen mit watches.view sichtbar — Feld-Berechtigung (z. B.
+`watches.view_purchase_price`) folgt.
+
 ## KI-Referenz-Lookup (Nachtrag)
 
 Das Uhren-Formular ist ein **Tab-Layout** (Uhr → Zustand & Status →

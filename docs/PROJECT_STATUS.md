@@ -51,7 +51,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
-- `watches` (UUID, brand_id FK, caliber_id FK nullable, model/reference/serial/stock_number, condition, status, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], research_data JSON [KI-Lookup], SoftDeletes)
+- `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
 
 ## Models
 
@@ -93,6 +93,8 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `App\Enums\WatchCondition` (new/unworn/very_good/good/fair, deutsche Labels, Filament-Contracts)
 - `App\Enums\WatchStatus` (in_stock/reserved/in_service/consignment/sold, deutsche Labels, sellableStatuses())
 - Chrono24-Katalog: `CaseMaterial` (19), `WatchColor` (20), `BraceletMaterial` (18), `GlassType`, `ClaspType`, `DialNumerals`, `WatchGender` — standardisierte Inserat-Attribute statt Freitext
+- `App\Enums\OwnershipStatus` (owned/commission/customer_property — Kommissionsgeschäft)
+- `App\Enums\WatchFunction` (15 Komplikationen, Mehrfachauswahl als JSON-Array)
 
 ## Jobs
 
@@ -130,6 +132,8 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - [ ] Modul 4: `livewire/upload-file`-Route tenancy-fähig machen (wie Update-Route im TenancyServiceProvider — sonst 419 bei Uploads auf Tenant-Domains)
 - [ ] Modul 4: Bild-URLs aus `watches.research_data` (KI-Lookup) in die Media Library übernehmen (Download-Job)
 - [ ] ANTHROPIC_API_KEY in Produktion setzen; KI-Lookup ggf. per Queue-Job entkoppeln (aktuell synchron mit set_time_limit 180)
+- [ ] Feld-Berechtigung für Einkaufspreis/Versicherungswert (z. B. watches.view_purchase_price — aktuell für alle mit watches.view sichtbar)
+- [ ] Modul 7: current_market_value/last_valuation_at/watchcharts_uuid pflegen (Spalten existieren bereits)
 - [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten
 - [ ] RoleResource im App-Panel (eigene Rollen pro Mandant; Berechtigung `roles.manage` existiert)
 - [ ] Suspended-Tenant-UX: Login wird verweigert (canAccessPanel), aber ohne erklärende Fehlerseite

@@ -36,6 +36,7 @@ use App\Enums\ClaspType;
 use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
+use App\Enums\OwnershipStatus;
 use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
 use App\Enums\WatchGender;
@@ -63,7 +64,18 @@ class Watch extends Model
      */
     protected $table = 'watches';
 
+    /**
+     * Model-seitige Defaults — der DB-Default greift nur in der Datenbank,
+     * nicht am frisch erstellten Model-Objekt.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'ownership_status' => 'owned',
+    ];
+
     protected $fillable = [
+        'created_by_user_id',
         'brand_id',
         'caliber_id',
         'movement_type',
@@ -92,8 +104,30 @@ class Watch extends Model
         'clasp_type',
         'clasp_material',
         'lug_width_mm',
+        'functions',
+        'ownership_status',
+        'owner_name',
+        'owner_address',
+        'storage_location',
+        'purchase_price',
+        'purchase_date',
+        'purchase_location',
+        'delivery_scope',
+        'is_limited_edition',
+        'limited_edition_number',
+        'limited_edition_total',
+        'description',
         'notes',
         'research_data',
+        'insurance_company',
+        'insurance_policy_number',
+        'insurance_value',
+        'insurance_valid_until',
+        'insurance_notes',
+        'photo_slots',
+        'watchcharts_uuid',
+        'current_market_value',
+        'last_valuation_at',
     ];
 
     /**
@@ -124,10 +158,44 @@ class Watch extends Model
             'clasp_type' => ClaspType::class,
             'clasp_material' => CaseMaterial::class,
             'lug_width_mm' => 'integer',
+            // Funktionen als Array von WatchFunction-Codes (Mehrfachauswahl)
+            'functions' => 'array',
+            'ownership_status' => OwnershipStatus::class,
+            'purchase_price' => 'decimal:2',
+            'purchase_date' => 'date',
+            'is_limited_edition' => 'boolean',
+            'limited_edition_number' => 'integer',
+            'limited_edition_total' => 'integer',
+            'insurance_value' => 'decimal:2',
+            'insurance_valid_until' => 'date',
+            // Modul 7 (Bewertungen) pflegt diese Felder
+            'current_market_value' => 'decimal:2',
+            'last_valuation_at' => 'datetime',
+            // Modul 4 (geführter Foto-Upload) nutzt diese Slots
+            'photo_slots' => 'array',
             // KI-Rechercheergebnis (Beschreibung, Bild-/Quellen-URLs) —
             // Bild-Übernahme in die Media Library folgt in Modul 4.
             'research_data' => 'array',
         ];
+    }
+
+    /**
+     * Erfasser automatisch setzen (Tenant-Benutzer) — analog zum
+     * user_id-Feld der Vorgänger-Anwendung, aber nur dokumentierend.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Watch $watch): void {
+            $watch->created_by_user_id ??= auth()->id();
+        });
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     /**

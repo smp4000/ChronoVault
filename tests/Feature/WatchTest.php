@@ -20,6 +20,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\OwnershipStatus;
 use App\Enums\UserRole;
 use App\Enums\WatchCondition;
 use App\Enums\WatchStatus;
@@ -48,8 +49,24 @@ it('creates watches with relations, casts and soft deletes', function () {
                 ->and($watch->status)->toBe(WatchStatus::InStock)
                 ->and($watch->condition)->toBeInstanceOf(WatchCondition::class)
                 ->and($watch->has_box)->toBeTrue()
+                ->and($watch->ownership_status)->toBe(OwnershipStatus::Owned)
                 ->and($watch->fullName())->toBe('Rolex Submariner Date (126610LN)')
                 ->and($brand->watches()->count())->toBe(1);
+
+            // Sammler-Felder: Kauf, Funktionen, Limited Edition
+            $watch->update([
+                'purchase_price' => '12500.00',
+                'purchase_date' => '2024-03-01',
+                'functions' => ['chronograph', 'date'],
+                'is_limited_edition' => true,
+                'limited_edition_number' => 88,
+                'limited_edition_total' => 500,
+            ]);
+
+            expect($watch->refresh()->purchase_price)->toBe('12500.00')
+                ->and($watch->functions)->toBe(['chronograph', 'date'])
+                ->and($watch->is_limited_edition)->toBeTrue()
+                ->and($watch->limited_edition_number)->toBe(88);
 
             // SoftDelete: verschwindet aus Standard-Queries, bleibt wiederherstellbar
             $watch->delete();

@@ -75,6 +75,7 @@ it('maps enum codes from the ai response and discards unknown codes', function (
         'clasp_type' => 'folding_clasp',
         'water_resistance_bar' => '20',
         'lug_width_mm' => 21,
+        'functions' => ['chronograph', 'date', 'quantensprung'], // unbekannte Codes fliegen raus
         // Unbekannte Codes dürfen nicht crashen, sondern werden verworfen
         'bracelet_color' => 'regenbogen',
         'clasp_material' => 'unobtainium',
@@ -91,6 +92,7 @@ it('maps enum codes from the ai response and discards unknown codes', function (
         ->and($data->claspType)->toBe(ClaspType::FoldingClasp)
         ->and($data->waterResistanceBar)->toBe(20)
         ->and($data->lugWidthMm)->toBe(21)
+        ->and($data->functions)->toBe(['chronograph', 'date'])
         ->and($data->braceletColor)->toBeNull()
         ->and($data->claspMaterial)->toBeNull();
 });

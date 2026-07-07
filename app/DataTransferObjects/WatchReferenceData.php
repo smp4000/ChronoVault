@@ -33,6 +33,7 @@ use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
 use App\Enums\WatchColor;
+use App\Enums\WatchFunction;
 use App\Enums\WatchGender;
 
 readonly class WatchReferenceData
@@ -63,6 +64,8 @@ readonly class WatchReferenceData
         public ?CaseMaterial $claspMaterial,
         public ?int $lugWidthMm,
         public ?string $description,
+        /** @var array<int, string> Gültige WatchFunction-Codes */
+        public array $functions = [],
         public array $imageUrls = [],
         public array $sourceUrls = [],
     ) {}
@@ -122,6 +125,10 @@ readonly class WatchReferenceData
             claspMaterial: $enum(CaseMaterial::class, 'clasp_material'),
             lugWidthMm: $int('lug_width_mm'),
             description: $string('description'),
+            functions: array_values(array_filter(
+                is_array($data['functions'] ?? null) ? $data['functions'] : [],
+                fn ($code): bool => is_string($code) && WatchFunction::tryFrom(mb_strtolower($code)) !== null,
+            )),
             imageUrls: $stringList('image_urls'),
             sourceUrls: $stringList('source_urls'),
         );

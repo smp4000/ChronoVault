@@ -45,6 +45,7 @@ class Caliber extends Model
     protected $fillable = [
         'brand_id',
         'name',
+        'base_caliber',
         'movement_type',
         'power_reserve_hours',
         'frequency_vph',

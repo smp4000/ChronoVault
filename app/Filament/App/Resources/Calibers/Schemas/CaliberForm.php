@@ -97,6 +97,12 @@ class CaliberForm
                             ->options(MovementType::class)
                             ->required(),
 
+                        TextInput::make('base_caliber')
+                            ->label('Grundkaliber')
+                            ->maxLength(255)
+                            ->placeholder('z. B. ETA 2892-A2')
+                            ->helperText('Nur bei modifizierten Werken.'),
+
                         Toggle::make('is_active')
                             ->label('Aktiv')
                             ->default(true)
