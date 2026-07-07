@@ -73,6 +73,12 @@ Die automatische DB-Löschung wurde aus der stancl-Event-Pipeline **entfernt**
   Policy-Checks pro Datensatz umgehen).
 - Permission-Cache auf `array`-Store (ADR-008): kein Cache-Bleed zwischen
   Mandanten.
+- `User::checkPermissionTo()` mit Tenant-Kontext-Guard: Der globale
+  Gate::before-Hook von spatie ruft die Methode bei JEDEM Gate-Check auf —
+  auch im zentralen Panel, wo keine permission-Tabellen existieren. Ohne
+  Guard crasht dort jeder Policy-Check („Table 'chronovault.permissions'
+  doesn't exist"); mit Guard entscheiden zentral allein die Policies
+  (Regressionstest: CentralAuthorizationTest).
 
 ## Bekannte Stolperfallen (dokumentiert für die Zukunft)
 

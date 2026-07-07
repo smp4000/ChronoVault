@@ -53,7 +53,7 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 
 ## Models
 
-- `App\Models\User` — zentral UND tenant (Connection-Switch); FilamentUser + HasRoles
+- `App\Models\User` — zentral UND tenant (Connection-Switch); FilamentUser + HasRoles; checkPermissionTo() mit Tenant-Kontext-Guard (zentral entscheiden allein die Policies)
 - `App\Models\Tenant` — stancl BaseTenant + SoftDeletes, Custom Columns (name, slug, status)
 - `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers (Werkhersteller wie ETA sind auch Brands)
 - `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; MovementType-Cast

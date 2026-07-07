@@ -42,12 +42,19 @@ use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, Notifiable;
+
+    use HasRoles {
+        // Original-Methode unter neuem Namen verfügbar halten — die
+        // Überschreibung unten ergänzt nur den Tenant-Kontext-Guard.
+        checkPermissionTo as protected spatieCheckPermissionTo;
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -109,5 +116,30 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return false;
+    }
+
+    /**
+     * Berechtigungsprüfung nur im Tenant-Kontext.
+     *
+     * spatie/laravel-permission registriert einen globalen Gate::before-
+     * Hook, der diese Methode bei JEDEM Gate-Check aufruft — auch im
+     * zentralen Admin-Panel. Die permission-Tabellen existieren aber nur
+     * in Tenant-Datenbanken; ohne diesen Guard crasht jeder zentrale
+     * Policy-Check mit "Table 'chronovault.permissions' doesn't exist".
+     *
+     * Zentrale Benutzer haben keine spatie-Berechtigungen (false) — der
+     * Gate::before-Hook wertet false als "keine Aussage" und fällt auf
+     * die Policies zurück (TenantPolicy etc.), genau wie beabsichtigt.
+     *
+     * @param  \BackedEnum|string|int|Permission  $permission
+     * @param  string|null  $guardName
+     */
+    public function checkPermissionTo($permission, $guardName = null): bool
+    {
+        if (! tenancy()->initialized) {
+            return false;
+        }
+
+        return $this->spatieCheckPermissionTo($permission, $guardName);
     }
 }
