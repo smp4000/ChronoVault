@@ -155,6 +155,10 @@ it('looks up watch data via perplexity and merges citations', function () {
                 ],
             ]],
             'citations' => ['https://www.chrono24.de/y', 'https://www.tagheuer.com/x'],
+            'images' => [
+                ['image_url' => 'https://haendler.example.com/echt-1.jpg', 'origin_url' => 'https://haendler.example.com/produkt'],
+                ['image_url' => 'https://haendler.example.com/echt-2.jpg'],
+            ],
         ]),
     ]);
 
@@ -164,7 +168,12 @@ it('looks up watch data via perplexity and merges citations', function () {
         ->and($data->movementType)->toBe(MovementType::Quartz)
         ->and($data->caseMaterial)->toBe(CaseMaterial::Steel)
         ->and($data->functions)->toBe(['chronograph', 'date'])
-        ->and($data->imageUrls)->toBe(['https://example.com/gulf.jpg'])
+        // Echte Such-Bilder VOR den vom Modell genannten URLs
+        ->and($data->imageUrls)->toBe([
+            'https://haendler.example.com/echt-1.jpg',
+            'https://haendler.example.com/echt-2.jpg',
+            'https://example.com/gulf.jpg',
+        ])
         // citations werden dedupliziert in die Quellen gemerged
         ->and($data->sourceUrls)->toBe(['https://www.tagheuer.com/x', 'https://www.chrono24.de/y']);
 

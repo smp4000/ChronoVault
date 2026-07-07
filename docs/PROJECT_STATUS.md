@@ -51,7 +51,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
-- `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
+- `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
 
 ## Models
 
@@ -84,6 +84,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 - `App\Actions\Tenancy\CreateTenantAction` — komplettes Provisioning
 - `App\Actions\Tenancy\DeleteTenantAction` — archive() (Soft) / execute() (endgültig + DB-Löschung)
+- `App\Actions\Watches\DownloadWatchPhotosAction` — lädt KI-Bildquellen als Uhrenfotos (public-Disk, tenant-isoliert; max 4; nur image/*)
 
 ## Enums
 
@@ -115,6 +116,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 ## Observers
 
 - `App\Observers\TenantObserver` — Slug-Generierung + Kollisionsauflösung (creating)
+- `App\Observers\WatchObserver` — Foto-Download nach dem Speichern (saved; nur wenn KI-Bildquellen vorhanden und noch keine Fotos)
 
 ## Seeder / Factories
 
@@ -130,7 +132,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 - [ ] Modul 4: Medienverwaltung — Fotos/Zertifikate für Uhren (spatie/laravel-medialibrary, tenant-aware Storage!)
 - [ ] Modul 4: `livewire/upload-file`-Route tenancy-fähig machen (wie Update-Route im TenancyServiceProvider — sonst 419 bei Uploads auf Tenant-Domains)
-- [ ] Modul 4: Bild-URLs aus `watches.research_data` (KI-Lookup) in die Media Library übernehmen (Download-Job)
+- [x] ~~Bild-URLs aus research_data herunterladen~~ → umgesetzt (DownloadWatchPhotosAction + WatchObserver + Fotos-Tab); Modul 4 migriert `photos` in die Media Library und ergänzt manuellen/geführten Upload
 - [ ] PERPLEXITY_API_KEY in Produktion setzen (Anthropic optional als Fallback); KI-Lookup ggf. per Queue-Job entkoppeln (aktuell synchron mit set_time_limit 180)
 - [ ] Feld-Berechtigung für Einkaufspreis/Versicherungswert (z. B. watches.view_purchase_price — aktuell für alle mit watches.view sichtbar)
 - [ ] Modul 7: current_market_value/last_valuation_at/watchcharts_uuid pflegen (Spalten existieren bereits)

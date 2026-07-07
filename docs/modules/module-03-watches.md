@@ -171,6 +171,31 @@ Stelle**. Ihre Suffix-Action (✨) startet den
   das PHP-Limit (XAMPP: 30 s); `pause_turn` der Server-Tool-Schleife
   wird bis zu 3× fortgesetzt.
 
+## Automatischer Foto-Download (Nachtrag)
+
+Nach dem Speichern einer Uhr mit KI-Rechercheergebnis lädt der
+`WatchObserver` (saved) über die `DownloadWatchPhotosAction` bis zu
+4 Bildquellen herunter:
+
+- **Nur echte Bilder** (Content-Type image/*) — HTML-Produktseiten und
+  tote Links werden übersprungen; Fehler pro URL sind unkritisch.
+- **Speicherort:** public-Disk `watches/{uuid}/ai-N.{ext}` —
+  tenant-isoliert (FilesystemTenancyBootstrapper), ausgeliefert über
+  die stancl-Asset-Route `/tenancy/assets/{path}` (`tenant_asset()`).
+- **Anzeige:** Fotos-Tab (Galerie, nur bei vorhandenen Fotos) +
+  Thumbnail-Spalte in der Bestandsliste.
+- **WICHTIG — Bildquellen:** Vom LLM im JSON genannte Bild-URLs sind
+  häufig **halluziniert** (plausible, aber tote CDN-Pfade). Deshalb holt
+  `fetchSearchImages()` echte Bilder über einen zweiten, günstigen
+  Perplexity-Aufruf (`sonar` + `return_images: true`, natürliche
+  Suchanfrage — beim JSON-Prompt liefert die API keine Bilder!) und
+  stellt sie im DTO VOR die Modell-URLs.
+- Synchron im Request (lokal kein Queue-Worker); bei Produktions-Redis
+  in einen ShouldQueue-Job auslagern (TODO).
+- Test-Stolperfalle: Nach `$this->get()` auf eine Tenant-Domain bleibt
+  die Tenancy initialisiert → im Test `tenancy()->end()` im finally,
+  sonst räumt PHPUnit auf der Tenant-Verbindung auf.
+
 ## Bekannte Stolperfallen (dokumentiert für die Zukunft)
 
 - **Kein Auto-Seed von Uhren**: watches sind Bewegungs-/Geschäftsdaten,

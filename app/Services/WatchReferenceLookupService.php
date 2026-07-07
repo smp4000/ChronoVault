@@ -58,6 +58,7 @@ use App\Models\Brand;
 use App\Models\Caliber;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Throwable;
 
 class WatchReferenceLookupService
 {
@@ -97,7 +98,7 @@ class WatchReferenceLookupService
         $perplexityKey = config('services.perplexity.api_key');
 
         if (is_string($perplexityKey) && $perplexityKey !== '') {
-            return $this->lookupViaPerplexity($perplexityKey, $prompt);
+            return $this->lookupViaPerplexity($perplexityKey, $prompt, $referenceNumber, $brandHint);
         }
 
         return $this->lookupViaAnthropic($this->makeClient(), $prompt);
@@ -108,7 +109,7 @@ class WatchReferenceLookupService
      * recherchieren automatisch im Web; die genutzten Quellen kommen als
      * "citations" zurück und werden in source_urls gemerged.
      */
-    private function lookupViaPerplexity(string $apiKey, string $prompt): WatchReferenceData
+    private function lookupViaPerplexity(string $apiKey, string $prompt, string $referenceNumber, ?string $brandHint): WatchReferenceData
     {
         $response = Http::withToken($apiKey)
             ->timeout(150)
@@ -142,7 +143,52 @@ class WatchReferenceLookupService
             $citations,
         )));
 
+        // Echte Bilder aus den Suchergebnissen VOR die (oft halluzinierten)
+        // Modell-URLs stellen — der Foto-Download nimmt die ersten Treffer.
+        $data['image_urls'] = array_values(array_unique(array_merge(
+            $this->fetchSearchImages($apiKey, $referenceNumber, $brandHint),
+            is_array($data['image_urls'] ?? null) ? $data['image_urls'] : [],
+        )));
+
         return WatchReferenceData::fromArray($data);
+    }
+
+    /**
+     * Zweiter, günstiger Perplexity-Aufruf NUR für echte Produktfotos:
+     * return_images liefert Bilder aus den Suchergebnissen — aber nur bei
+     * natürlichen Suchanfragen zuverlässig, nicht beim JSON-Extraktions-
+     * Prompt (empirisch: dort kommt ein leeres images-Array). Fehler sind
+     * unkritisch — dann gibt es eben keine Fotos.
+     *
+     * @return array<int, string>
+     */
+    private function fetchSearchImages(string $apiKey, string $referenceNumber, ?string $brandHint): array
+    {
+        try {
+            $response = Http::withToken($apiKey)
+                ->timeout(60)
+                ->post('https://api.perplexity.ai/chat/completions', [
+                    'model' => 'sonar', // bewusst das kleine Modell — nur die Such-Bilder zählen
+                    'return_images' => true,
+                    'messages' => [[
+                        'role' => 'user',
+                        'content' => trim(($brandHint ?? '')." {$referenceNumber} Armbanduhr Produktfotos"),
+                    ]],
+                ]);
+
+            if ($response->failed()) {
+                return [];
+            }
+
+            return array_values(array_filter(array_map(
+                fn ($image): ?string => is_array($image) ? ($image['image_url'] ?? null) : (is_string($image) ? $image : null),
+                (array) $response->json('images', []),
+            ), fn (?string $url): bool => is_string($url) && str_starts_with($url, 'http')));
+        } catch (Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**

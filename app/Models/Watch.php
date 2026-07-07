@@ -41,7 +41,9 @@ use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
 use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
+use App\Observers\WatchObserver;
 use Database\Factories\WatchFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -49,6 +51,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
 
+#[ObservedBy([WatchObserver::class])]
 class Watch extends Model
 {
     /** @use HasFactory<WatchFactory> */
@@ -125,6 +128,7 @@ class Watch extends Model
         'insurance_valid_until',
         'insurance_notes',
         'photo_slots',
+        'photos',
         'watchcharts_uuid',
         'current_market_value',
         'last_valuation_at',
@@ -173,6 +177,8 @@ class Watch extends Model
             'last_valuation_at' => 'datetime',
             // Modul 4 (geführter Foto-Upload) nutzt diese Slots
             'photo_slots' => 'array',
+            // Gespeicherte Fotos (Pfade auf der tenant-isolierten public-Disk)
+            'photos' => 'array',
             // KI-Rechercheergebnis (Beschreibung, Bild-/Quellen-URLs) —
             // Bild-Übernahme in die Media Library folgt in Modul 4.
             'research_data' => 'array',
@@ -226,6 +232,28 @@ class Watch extends Model
         return $this->reference_number !== null
             ? $name.' ('.$this->reference_number.')'
             : $name;
+    }
+
+    /**
+     * Öffentliche URLs der gespeicherten Fotos (stancl-Asset-Route,
+     * tenant-isoliert). Leeres Array, wenn keine Fotos vorliegen.
+     *
+     * @return array<int, string>
+     */
+    public function photoUrls(): array
+    {
+        return array_map(
+            fn (string $path): string => tenant_asset($path),
+            $this->photos ?? [],
+        );
+    }
+
+    /**
+     * URL des ersten Fotos — für Listen-Thumbnails.
+     */
+    public function firstPhotoUrl(): ?string
+    {
+        return $this->photoUrls()[0] ?? null;
     }
 
     /**
