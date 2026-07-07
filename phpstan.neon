@@ -1,0 +1,27 @@
+# =========================================================================
+# PHPStan-Konfiguration für ChronoVault
+#
+# Zweck:
+#   Statische Code-Analyse über Larastan (PHPStan-Erweiterung für Laravel).
+#   Findet Typfehler, tote Codepfade und falsche Methodenaufrufe, BEVOR
+#   sie in Produktion landen.
+#
+# Nutzung:
+#   vendor/bin/phpstan analyse
+#
+# Erweiterungen:
+#   - Level schrittweise erhöhen (Ziel: Level 8+), sobald die Codebasis
+#     stabil typisiert ist.
+#   - Bei Altlasten eine Baseline erzeugen: vendor/bin/phpstan analyse
+#     --generate-baseline
+# =========================================================================
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/
+
+    # Level 6 als Start: streng genug für echte Fehler, locker genug,
+    # um die frühe Entwicklungsphase nicht auszubremsen.
+    level: 6
