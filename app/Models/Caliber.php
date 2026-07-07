@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Caliber extends Model
@@ -76,5 +77,15 @@ class Caliber extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    /**
+     * Uhren mit diesem Werk im Bestand (Modul 3).
+     *
+     * @return HasMany<Watch, $this>
+     */
+    public function watches(): HasMany
+    {
+        return $this->hasMany(Watch::class);
     }
 }

@@ -59,6 +59,13 @@ class TenantDatabaseSeeder extends Seeder
         'master_data.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'master_data.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'master_data.delete' => [UserRole::Owner, UserRole::Admin],
+
+        // Modul 3 — Uhrenbestand: gleiche Semantik wie Stammdaten
+        // (Pflege ist operatives Arbeiten, Löschen bleibt der Verwaltung).
+        'watches.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'watches.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'watches.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'watches.delete' => [UserRole::Owner, UserRole::Admin],
     ];
 
     public function run(): void

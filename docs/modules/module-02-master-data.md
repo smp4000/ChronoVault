@@ -96,7 +96,7 @@ tenants:migrate` + `tenants:seed` (Seeder ist idempotent).
 
 ## Mögliche Erweiterungen
 
-- Referenz-Schutz in CaliberPolicy, sobald Uhren Kaliber referenzieren (Modul 3)
+- ~~Referenz-Schutz in CaliberPolicy~~ → in Modul 3 umgesetzt (inkl. BrandPolicy für Uhren)
 - Markenlogos über die Medienverwaltung (Modul 4)
 - Scout-Searchable für Marken/Kaliber (mit Modul 3, ADR-003)
 - Weitere Werktypen (Kinetic, Mecaquartz) bei Bedarf

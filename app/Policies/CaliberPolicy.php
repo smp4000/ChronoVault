@@ -10,10 +10,9 @@
  *   Berechtigungen (Tenant-DB) — identisch zur BrandPolicy, da beide
  *   Entitäten denselben Stammdaten-Bereich bilden.
  *
- * Hinweis:
- *   Ab Modul 3 (Watches) kommt hier ein Referenz-Schutz analog zur
- *   BrandPolicy hinzu: Kaliber, die von Uhren referenziert werden,
- *   dürfen nicht gelöscht werden.
+ * Schutzregel (nicht per Berechtigung abbildbar):
+ *   Kaliber, die von Uhren referenziert werden, dürfen nicht gelöscht
+ *   werden (Modul 3) — analog zum Referenz-Schutz der BrandPolicy.
  * =========================================================================
  */
 
@@ -48,7 +47,8 @@ class CaliberPolicy
 
     public function delete(User $user, Caliber $caliber): bool
     {
-        return $user->can('master_data.delete');
+        return $this->hasNoReferences($caliber)
+            && $user->can('master_data.delete');
     }
 
     public function restore(User $user, Caliber $caliber): bool
@@ -58,6 +58,17 @@ class CaliberPolicy
 
     public function forceDelete(User $user, Caliber $caliber): bool
     {
-        return $user->can('master_data.delete');
+        return $this->hasNoReferences($caliber)
+            && $user->can('master_data.delete');
+    }
+
+    /**
+     * Referenz-Schutz: Kaliber mit Uhren dürfen nicht gelöscht werden.
+     * withTrashed: auch soft-gelöschte Uhren zählen, ihre caliber_id-
+     * Referenz existiert physisch weiter.
+     */
+    private function hasNoReferences(Caliber $caliber): bool
+    {
+        return ! $caliber->watches()->withTrashed()->exists();
     }
 }

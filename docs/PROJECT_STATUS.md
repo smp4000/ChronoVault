@@ -4,20 +4,21 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-07 (Modul 2 — Stammdaten: Marken & Kaliber)
+> Letzte Aktualisierung: 2026-07-07 (Modul 3 — Kernmodul: Uhren)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 2 (Stammdaten: Marken & Kaliber) abgeschlossen.**
-Erste Domänentabellen in der Tenant-DB (`brands`, `calibers`, UUID +
-SoftDeletes), Starter-Grundstock (20 Marken, 17 Kaliber) wird beim
-Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
-„Stammdaten") inkl. CalibersRelationManager und Papierkorb (Trashed-Filter
-+ Restore). 15 Tests grün, PHPStan Level 6 sauber.
+**Modul 3 (Kernmodul: Uhren) abgeschlossen.**
+Bestandstabelle `watches` (UUID + SoftDeletes, FKs auf brands/calibers),
+Enums WatchCondition/WatchStatus, watches.*-Berechtigungen, WatchResource
+in neuer Gruppe „Bestand" (abhängiges Kaliber-Select, Full-Set-Filter,
+Papierkorb), WatchStatsWidget auf dem Tenant-Dashboard, Scout-Volltextsuche
+(database-Driver, ADR-003), Referenz-Schutz in Brand-/CaliberPolicy
+erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
-**Nächster Schritt:** Modul 3 — Kernmodul: Uhren (Watches).
+**Nächster Schritt:** Modul 4 — Medienverwaltung (Fotos, Zertifikate, Dokumente).
 
 ---
 
@@ -28,7 +29,7 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 | 0 | Foundation (Scaffold, Pakete, Panel, Doku) | ✅ Fertig |
 | 1 | Tenancy & Benutzer-/Rollenverwaltung ([Doku](modules/module-01-tenancy.md)) | ✅ Fertig |
 | 2 | Stammdaten: Marken (Brands) & Kaliber ([Doku](modules/module-02-master-data.md)) | ✅ Fertig |
-| 3 | Kernmodul: Uhren (Watches) | ⬜ Offen |
+| 3 | Kernmodul: Uhren (Watches) ([Doku](modules/module-03-watches.md)) | ✅ Fertig |
 | 4 | Medienverwaltung (Fotos, Zertifikate, Dokumente) | ⬜ Offen |
 | 5 | Kauf/Verkauf & Preishistorie | ⬜ Offen |
 | 6 | Service-Historie & Wartung | ⬜ Offen |
@@ -50,13 +51,15 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
+- `watches` (UUID, brand_id FK, caliber_id FK nullable, model/reference/serial/stock_number, condition, status, Ausstattung, SoftDeletes)
 
 ## Models
 
 - `App\Models\User` — zentral UND tenant (Connection-Switch); FilamentUser + HasRoles; checkPermissionTo() mit Tenant-Kontext-Guard (zentral entscheiden allein die Policies)
 - `App\Models\Tenant` — stancl BaseTenant + SoftDeletes, Custom Columns (name, slug, status)
-- `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers (Werkhersteller wie ETA sind auch Brands)
-- `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; MovementType-Cast
+- `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers/Watches (Werkhersteller wie ETA sind auch Brands)
+- `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; hasMany Watches; MovementType-Cast
+- `App\Models\Watch` — Tenant; HasUuids + SoftDeletes + Scout Searchable; belongsTo Brand/Caliber; fullName()
 
 ## Filament Resources
 
@@ -67,9 +70,11 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 - `Users\UserResource` (+ UserForm, UsersTable, List/Create/Edit-Pages)
 - `Brands\BrandResource` (Gruppe „Stammdaten"; + BrandForm, BrandsTable, Pages, CalibersRelationManager, Papierkorb/Restore)
 - `Calibers\CaliberResource` (Gruppe „Stammdaten"; + CaliberForm, CalibersTable, Pages — Form/Table werden vom RelationManager wiederverwendet, `withBrand: false`)
+- `Watches\WatchResource` (Gruppe „Bestand"; + WatchForm mit abhängigem Kaliber-Select, WatchesTable mit Full-Set-Filter, Pages, Papierkorb/Restore)
 
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
+- `App\Widgets\WatchStatsWidget` (Bestandskennzahlen, Tenant-Dashboard; canView nur mit watches.view)
 
 ## Services
 
@@ -85,6 +90,8 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 - `App\Enums\TenantStatus` (trial/active/suspended/archived, deutsche Labels, Filament-Contracts)
 - `App\Enums\UserRole` (owner/admin/employee/viewer, deutsche Labels, managementRoles())
 - `App\Enums\MovementType` (manual/automatic/quartz/solar/spring_drive, deutsche Labels, Filament-Contracts)
+- `App\Enums\WatchCondition` (new/unworn/very_good/good/fair, deutsche Labels, Filament-Contracts)
+- `App\Enums\WatchStatus` (in_stock/reserved/in_service/consignment/sold, deutsche Labels, sellableStatuses())
 
 ## Jobs
 
@@ -98,8 +105,9 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 
 - `App\Policies\TenantPolicy` — nur zentraler Kontext; forceDelete nur für archivierte
 - `App\Policies\UserPolicy` — permission-basiert (users.*), Selbstlöschungs- & Owner-Hierarchie-Schutz
-- `App\Policies\BrandPolicy` — master_data.*; Referenz-Schutz (Marke mit Kalibern nicht löschbar)
-- `App\Policies\CaliberPolicy` — master_data.*; Referenz-Schutz für Uhren folgt in Modul 3
+- `App\Policies\BrandPolicy` — master_data.*; Referenz-Schutz (Kaliber & Uhren, inkl. soft-gelöschter)
+- `App\Policies\CaliberPolicy` — master_data.*; Referenz-Schutz (Uhren, inkl. soft-gelöschter)
+- `App\Policies\WatchPolicy` — permission-basiert (watches.*)
 
 ## Observers
 
@@ -107,9 +115,9 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 
 ## Seeder / Factories
 
-- `Database\Seeders\TenantDatabaseSeeder` — Rollen + Berechtigungen (users.*, roles.manage, settings.manage, master_data.*); ruft MasterDataSeeder auf; wird bei jedem Provisioning ausgeführt
+- `Database\Seeders\TenantDatabaseSeeder` — Rollen + Berechtigungen (users.*, roles.manage, settings.manage, master_data.*, watches.*); ruft MasterDataSeeder auf; wird bei jedem Provisioning ausgeführt
 - `Database\Seeders\MasterDataSeeder` — Starter-Grundstock (20 Marken, 17 Kaliber), idempotent, respektiert mandantenseitige Löschungen
-- `Database\Factories\TenantFactory`, `BrandFactory`, `CaliberFactory` (+ UserFactory aus dem Skeleton)
+- `Database\Factories\TenantFactory`, `BrandFactory`, `CaliberFactory`, `WatchFactory` (+ UserFactory aus dem Skeleton)
 
 ## Test-Infrastruktur
 
@@ -117,7 +125,7 @@ Provisioning idempotent geseedet, zwei Filament-Resources (Gruppe
 
 ## Offene TODOs
 
-- [ ] Modul 3: Kernmodul Uhren (Watches) — referenziert brands/calibers; CaliberPolicy dann um Referenz-Schutz erweitern
+- [ ] Modul 4: Medienverwaltung — Fotos/Zertifikate für Uhren (spatie/laravel-medialibrary, tenant-aware Storage!)
 - [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten
 - [ ] RoleResource im App-Panel (eigene Rollen pro Mandant; Berechtigung `roles.manage` existiert)
 - [ ] Suspended-Tenant-UX: Login wird verweigert (canAccessPanel), aber ohne erklärende Fehlerseite

@@ -11,6 +11,8 @@ declare(strict_types=1);
 use App\Enums\MovementType;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
+use App\Enums\WatchCondition;
+use App\Enums\WatchStatus;
 
 it('keeps stable role values with german labels', function () {
     expect(UserRole::Owner->value)->toBe('owner')
@@ -32,6 +34,26 @@ it('keeps stable movement type values with german labels', function () {
         ->and(MovementType::Quartz->getLabel())->toBe('Quarz')
         ->and(MovementType::Solar->getLabel())->toBe('Solar')
         ->and(MovementType::SpringDrive->getLabel())->toBe('Spring Drive');
+});
+
+it('keeps stable watch condition values with german labels', function () {
+    expect(WatchCondition::New->value)->toBe('new')
+        ->and(WatchCondition::VeryGood->value)->toBe('very_good')
+        ->and(WatchCondition::New->getLabel())->toBe('Neu')
+        ->and(WatchCondition::Unworn->getLabel())->toBe('Ungetragen')
+        ->and(WatchCondition::VeryGood->getLabel())->toBe('Sehr gut')
+        ->and(WatchCondition::Good->getLabel())->toBe('Gut')
+        ->and(WatchCondition::Fair->getLabel())->toBe('Getragen');
+});
+
+it('keeps stable watch status values with german labels and sellable semantics', function () {
+    expect(WatchStatus::InStock->value)->toBe('in_stock')
+        ->and(WatchStatus::InStock->getLabel())->toBe('An Lager')
+        ->and(WatchStatus::Reserved->getLabel())->toBe('Reserviert')
+        ->and(WatchStatus::InService->getLabel())->toBe('Im Service')
+        ->and(WatchStatus::Consignment->getLabel())->toBe('Kommission')
+        ->and(WatchStatus::Sold->getLabel())->toBe('Verkauft')
+        ->and(WatchStatus::sellableStatuses())->toBe([WatchStatus::InStock, WatchStatus::Consignment]);
 });
 
 it('keeps stable tenant status values with german labels', function () {

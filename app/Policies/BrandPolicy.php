@@ -53,12 +53,8 @@ class BrandPolicy
 
     public function delete(User $user, Brand $brand): bool
     {
-        // Referenz-Schutz: Marken mit Kalibern dürfen nicht gelöscht werden.
-        if ($brand->calibers()->exists()) {
-            return false;
-        }
-
-        return $user->can('master_data.delete');
+        return $this->hasNoReferences($brand)
+            && $user->can('master_data.delete');
     }
 
     public function restore(User $user, Brand $brand): bool
@@ -70,10 +66,19 @@ class BrandPolicy
     {
         // Referenz-Schutz wie bei delete — zusätzlich greift auf DB-Ebene
         // restrictOnDelete (letzte Verteidigungslinie).
-        if ($brand->calibers()->exists()) {
-            return false;
-        }
+        return $this->hasNoReferences($brand)
+            && $user->can('master_data.delete');
+    }
 
-        return $user->can('master_data.delete');
+    /**
+     * Referenz-Schutz: Marken mit Kalibern oder Uhren dürfen nicht
+     * gelöscht werden — abhängige Datensätze würden ihren Hersteller
+     * verlieren. withTrashed: auch soft-gelöschte Uhren zählen, ihre
+     * brand_id-Referenz existiert physisch weiter.
+     */
+    private function hasNoReferences(Brand $brand): bool
+    {
+        return ! $brand->calibers()->withTrashed()->exists()
+            && ! $brand->watches()->withTrashed()->exists();
     }
 }

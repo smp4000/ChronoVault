@@ -74,4 +74,14 @@ class Brand extends Model
     {
         return $this->hasMany(Caliber::class);
     }
+
+    /**
+     * Uhren dieser Marke im Bestand (Modul 3).
+     *
+     * @return HasMany<Watch, $this>
+     */
+    public function watches(): HasMany
+    {
+        return $this->hasMany(Watch::class);
+    }
 }
