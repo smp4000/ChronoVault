@@ -30,7 +30,9 @@ class WatchObserver
     {
         $imageSources = (array) data_get($watch->research_data, 'image_urls', []);
 
-        if ($imageSources !== [] && blank($watch->photos)) {
+        // Nur wenn noch keine Fotos existieren — weder in der Media Library
+        // noch in der Alt-Spalte photos (bis watches:migrate-photos lief).
+        if ($imageSources !== [] && blank($watch->photos) && $watch->getMedia('photos')->isEmpty()) {
             app(DownloadWatchPhotosAction::class)->execute($watch);
         }
     }

@@ -50,14 +50,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[ObservedBy([WatchObserver::class])]
-class Watch extends Model
+class Watch extends Model implements HasMedia
 {
     /** @use HasFactory<WatchFactory> */
     use HasFactory;
 
     use HasUuids;
+    use InteractsWithMedia;
     use Searchable;
     use SoftDeletes;
 
@@ -235,13 +238,36 @@ class Watch extends Model
     }
 
     /**
-     * Öffentliche URLs der gespeicherten Fotos (stancl-Asset-Route,
-     * tenant-isoliert). Leeres Array, wenn keine Fotos vorliegen.
+     * Medien-Collections (Modul 4):
+     * - photos    : Uhrenfotos (nur Bilder; KI-Download + manueller Upload)
+     * - documents : Zertifikate, Kaufbelege, Servicehefte (PDF + Bilder)
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('photos')
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif']);
+
+        $this->addMediaCollection('documents')
+            ->acceptsMimeTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+    }
+
+    /**
+     * Öffentliche URLs der Fotos (Media Library, tenant-isolierte
+     * Auslieferung via TenantMediaUrlGenerator). Fallback auf die
+     * Alt-Spalte photos (JSON-Pfade), bis watches:migrate-photos lief.
      *
      * @return array<int, string>
      */
     public function photoUrls(): array
     {
+        $mediaUrls = $this->getMedia('photos')
+            ->map(fn ($media): string => $media->getUrl())
+            ->all();
+
+        if ($mediaUrls !== []) {
+            return $mediaUrls;
+        }
+
         return array_map(
             fn (string $path): string => tenant_asset($path),
             $this->photos ?? [],

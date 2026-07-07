@@ -27,7 +27,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -43,9 +43,10 @@ class WatchesTable
             // Eager Loading der Marke — verhindert N+1 in der Spalte.
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('brand'))
             ->columns([
-                ImageColumn::make('photo')
+                SpatieMediaLibraryImageColumn::make('photo')
                     ->label('')
-                    ->state(fn (Watch $record): ?string => $record->firstPhotoUrl())
+                    ->collection('photos')
+                    ->limit(1)
                     ->imageSize(40)
                     ->extraImgAttributes(['style' => 'border-radius: 0.5rem; object-fit: cover;'])
                     ->toggleable(),

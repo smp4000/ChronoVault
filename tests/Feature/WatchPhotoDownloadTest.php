@@ -20,6 +20,13 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
+// Kleinstes gültiges GIF (1×1) — die Media-Collection prüft den ECHTEN
+// Datei-MIME, Fake-Text-Bytes würden abgelehnt.
+function tinyGif(): string
+{
+    return base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+}
+
 it('downloads ai image sources as photos after saving', function () {
     $tenant = provisionTenant();
 
@@ -27,7 +34,7 @@ it('downloads ai image sources as photos after saving', function () {
         $tenant->run(function () {
             Storage::fake('public');
             Http::fake([
-                'cdn.example.com/*' => Http::response('fake-jpeg-bytes', 200, ['Content-Type' => 'image/jpeg']),
+                'cdn.example.com/*' => Http::response(tinyGif(), 200, ['Content-Type' => 'image/gif']),
                 'shop.example.com/*' => Http::response('<html>Produktseite</html>', 200, ['Content-Type' => 'text/html; charset=utf-8']),
                 'kaputt.example.com/*' => Http::response('', 404),
             ]);
@@ -45,11 +52,14 @@ it('downloads ai image sources as photos after saving', function () {
             ]);
 
             $watch->refresh();
+            $media = $watch->getMedia('photos');
 
-            expect($watch->photos)->toHaveCount(2)
-                ->and($watch->photos[0])->toBe("watches/{$watch->id}/ai-1.jpg")
-                ->and($watch->photos[1])->toBe("watches/{$watch->id}/ai-4.jpg")
-                ->and(Storage::disk('public')->exists($watch->photos[0]))->toBeTrue()
+            expect($media)->toHaveCount(2)
+                ->and($media[0]->file_name)->toBe('ai-1.gif')
+                ->and($media[1]->file_name)->toBe('ai-4.gif')
+                ->and($media[0]->getCustomProperty('origin'))->toBe('ai_lookup')
+                ->and($media[0]->getCustomProperty('source_url'))->toBe('https://cdn.example.com/a.jpg')
+                ->and(Storage::disk('public')->exists($media[0]->getPathRelativeToRoot()))->toBeTrue()
                 ->and($watch->firstPhotoUrl())->toContain('/tenancy/assets/');
         });
     } finally {
@@ -91,19 +101,23 @@ it('does not download again when photos already exist', function () {
     try {
         $tenant->run(function () {
             Storage::fake('public');
-            Http::fake();
+            Http::fake([
+                'cdn.example.com/*' => Http::response(tinyGif(), 200, ['Content-Type' => 'image/gif']),
+            ]);
 
+            // Erste Speicherung lädt herunter …
             $watch = Watch::factory()->create([
                 'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
-                'photos' => ['watches/x/ai-1.jpg'],
                 'research_data' => ['image_urls' => ['https://cdn.example.com/a.jpg']],
             ]);
 
-            // Erneutes Speichern darf keinen Download auslösen
+            expect($watch->getMedia('photos'))->toHaveCount(1);
+
+            // … erneutes Speichern löst KEINEN weiteren Download aus.
             $watch->update(['notes' => 'geändert']);
 
-            Http::assertNothingSent();
-            expect($watch->refresh()->photos)->toBe(['watches/x/ai-1.jpg']);
+            expect($watch->refresh()->getMedia('photos'))->toHaveCount(1);
+            Http::assertSentCount(1);
         });
     } finally {
         destroyTenant($tenant);

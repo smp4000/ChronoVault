@@ -49,8 +49,8 @@ use App\Services\WatchReferenceLookupService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -61,7 +61,6 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\HtmlString;
 use RuntimeException;
 use Throwable;
 
@@ -373,16 +372,30 @@ class WatchForm
                                     ->suffix('mm'),
                             ]),
 
-                        Tab::make('Fotos')
+                        Tab::make('Fotos & Dokumente')
                             ->icon('heroicon-m-photo')
-                            // Nur zeigen, wenn bereits Fotos vorliegen (Anlage: erst
-                            // speichern → Observer lädt die KI-Bildquellen herunter).
-                            ->visible(fn (?Watch $record): bool => filled($record?->photos))
                             ->components([
-                                Placeholder::make('photo_gallery')
-                                    ->hiddenLabel()
-                                    ->content(fn (?Watch $record): HtmlString => self::photoGallery($record))
-                                    ->helperText('Automatisch aus den KI-Bildquellen geladen. Manueller Upload folgt mit Modul 4 (Medienverwaltung).'),
+                                SpatieMediaLibraryFileUpload::make('photos')
+                                    ->label('Fotos')
+                                    ->collection('photos')
+                                    ->image()
+                                    ->multiple()
+                                    ->reorderable()
+                                    ->maxFiles(20)
+                                    ->maxSize(10240)
+                                    ->panelLayout('grid')
+                                    ->helperText('Eigene Fotos hochladen — die KI-Bildquellen werden beim Speichern automatisch ergänzt, solange noch keine Fotos vorhanden sind.'),
+
+                                SpatieMediaLibraryFileUpload::make('documents')
+                                    ->label('Zertifikate & Dokumente')
+                                    ->collection('documents')
+                                    ->multiple()
+                                    ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                                    ->maxFiles(20)
+                                    ->maxSize(20480)
+                                    ->downloadable()
+                                    ->openable()
+                                    ->helperText('Zertifikate, Kaufbelege, Servicehefte (PDF oder Bild).'),
                             ]),
 
                         Tab::make('Beschreibung & Notizen')
@@ -400,24 +413,6 @@ class WatchForm
                             ]),
                     ]),
             ]);
-    }
-
-    /**
-     * Foto-Galerie (schreibgeschützt) — Fotos liegen auf der tenant-
-     * isolierten public-Disk und werden über tenant_asset() ausgeliefert.
-     */
-    private static function photoGallery(?Watch $record): HtmlString
-    {
-        $images = collect($record?->photoUrls() ?? [])
-            ->map(fn (string $url): string => '<a href="'.e($url).'" target="_blank" rel="noopener">'
-                .'<img src="'.e($url).'" alt="Uhrenfoto" loading="lazy" '
-                .'style="width: 11rem; height: 11rem; object-fit: cover; border-radius: 0.75rem;" />'
-                .'</a>')
-            ->implode('');
-
-        return new HtmlString(
-            '<div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">'.$images.'</div>'
-        );
     }
 
     /**

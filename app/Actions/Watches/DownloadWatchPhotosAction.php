@@ -7,22 +7,20 @@
  *
  * Zweck:
  *   Lädt die vom KI-Referenz-Lookup gesammelten Bild-URLs
- *   (watches.research_data → image_urls) herunter und speichert sie als
- *   Fotos der Uhr auf der public-Disk. Die Disk ist durch den
- *   FilesystemTenancyBootstrapper tenant-isoliert; ausgeliefert werden
- *   die Dateien über die stancl-Asset-Route (tenant_asset()).
+ *   (watches.research_data → image_urls) herunter und legt sie als
+ *   Media-Library-Einträge in der photos-Collection der Uhr ab
+ *   (public-Disk, tenant-isoliert; URLs via TenantMediaUrlGenerator).
  *
  * Verantwortlichkeiten:
  *   - Nur echte Bilder übernehmen (Content-Type image/*) — die KI liefert
  *     gelegentlich Produktseiten-URLs, die werden übersprungen
  *   - Fehlertoleranz pro URL (Timeout, 404, …) — ein kaputter Link darf
  *     den Rest nicht verhindern
- *   - Ergebnis via saveQuietly persistieren (KEINE Model-Events —
- *     der WatchObserver ruft diese Action aus saved() auf)
+ *   - Herkunft dokumentieren (custom_properties: source_url, origin)
  *
  * Aufrufer:
  *   - App\Observers\WatchObserver (automatisch nach dem Speichern)
- *   - Modul 4 kann die Action für Re-Downloads wiederverwenden
+ *   - watches:migrate-photos nutzt die Collection ebenfalls (Alt-Daten)
  * =========================================================================
  */
 
@@ -32,7 +30,6 @@ namespace App\Actions\Watches;
 
 use App\Models\Watch;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class DownloadWatchPhotosAction
@@ -50,8 +47,8 @@ class DownloadWatchPhotosAction
     ];
 
     /**
-     * Lädt die KI-Bildquellen der Uhr herunter und speichert die Pfade
-     * in watches.photos. Liefert die Anzahl gespeicherter Fotos.
+     * Lädt die KI-Bildquellen der Uhr in die photos-Media-Collection.
+     * Liefert die Anzahl gespeicherter Fotos.
      */
     public function execute(Watch $watch): int
     {
@@ -62,7 +59,7 @@ class DownloadWatchPhotosAction
             return 0;
         }
 
-        $paths = [];
+        $stored = 0;
 
         foreach ($urls as $index => $url) {
             if (! is_string($url) || ! str_starts_with($url, 'http')) {
@@ -87,10 +84,12 @@ class DownloadWatchPhotosAction
                     continue;
                 }
 
-                $path = "watches/{$watch->id}/ai-".($index + 1).".{$extension}";
+                $watch->addMediaFromString($response->body())
+                    ->usingFileName('ai-'.($index + 1).'.'.$extension)
+                    ->withCustomProperties(['origin' => 'ai_lookup', 'source_url' => $url])
+                    ->toMediaCollection('photos');
 
-                Storage::disk('public')->put($path, $response->body());
-                $paths[] = $path;
+                $stored++;
             } catch (Throwable $e) {
                 report($e);
 
@@ -98,12 +97,6 @@ class DownloadWatchPhotosAction
             }
         }
 
-        if ($paths !== []) {
-            // saveQuietly: der Observer ruft diese Action aus saved() auf —
-            // normale Events würden eine Endlosschleife auslösen.
-            $watch->forceFill(['photos' => $paths])->saveQuietly();
-        }
-
-        return count($paths);
+        return $stored;
     }
 }

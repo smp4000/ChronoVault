@@ -4,21 +4,24 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-07 (Modul 3 — Kernmodul: Uhren)
+> Letzte Aktualisierung: 2026-07-07 (Modul 4 — Medienverwaltung, Kern)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 3 (Kernmodul: Uhren) abgeschlossen.**
-Bestandstabelle `watches` (UUID + SoftDeletes, FKs auf brands/calibers),
-Enums WatchCondition/WatchStatus, watches.*-Berechtigungen, WatchResource
-in neuer Gruppe „Bestand" (abhängiges Kaliber-Select, Full-Set-Filter,
-Papierkorb), WatchStatsWidget auf dem Tenant-Dashboard, Scout-Volltextsuche
-(database-Driver, ADR-003), Referenz-Schutz in Brand-/CaliberPolicy
-erweitert. 23 Tests grün, PHPStan Level 6 sauber.
+**Modul 4 (Medienverwaltung) Kern abgeschlossen** — auf Modul 3 mit allen
+Nachträgen (Chrono24-Attributkatalog, Vorgänger-Felder, KI-Referenz-Lookup
+via Perplexity + Anthropic-Fallback, automatischer Foto-Download):
+spatie/laravel-medialibrary pro Tenant-DB (uuidMorphs!), Collections
+photos/documents an Watch, TenantMediaUrlGenerator (tenant_asset),
+Livewire-Upload-/Preview-Routen tenancy-fähig, Filament-Upload-Felder
+(Fotos sortierbar + Zertifikate/Dokumente), Thumbnail-Spalte,
+Alt-Fotos migriert (watches:migrate-photos). 35 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 4 — Medienverwaltung (Fotos, Zertifikate, Dokumente).
+**Nächster Schritt:** Modul-4-Rest (geführter Foto-Upload/photo_slots,
+Markenlogos) ODER Modul 5 — Kauf/Verkauf & Preishistorie.
+Design-Referenz für den späteren Shop: docs/DESIGN.md (grimmeissen.de in Blau).
 
 ---
 
@@ -30,7 +33,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 | 1 | Tenancy & Benutzer-/Rollenverwaltung ([Doku](modules/module-01-tenancy.md)) | ✅ Fertig |
 | 2 | Stammdaten: Marken (Brands) & Kaliber ([Doku](modules/module-02-master-data.md)) | ✅ Fertig |
 | 3 | Kernmodul: Uhren (Watches) ([Doku](modules/module-03-watches.md)) | ✅ Fertig |
-| 4 | Medienverwaltung (Fotos, Zertifikate, Dokumente) | ⬜ Offen |
+| 4 | Medienverwaltung ([Doku](modules/module-04-media.md)) | 🟨 Kern fertig (geführter Upload offen) |
 | 5 | Kauf/Verkauf & Preishistorie | ⬜ Offen |
 | 6 | Service-Historie & Wartung | ⬜ Offen |
 | 7 | Bewertungen & Marktwert | ⬜ Offen |
@@ -49,6 +52,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `users`, `password_reset_tokens`, `sessions`
 - `cache`, `cache_locks`
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
+- `media` (spatie/laravel-medialibrary, uuidMorphs — Collections photos/documents an Watch)
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
 - `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
@@ -130,9 +134,9 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 ## Offene TODOs
 
-- [ ] Modul 4: Medienverwaltung — Fotos/Zertifikate für Uhren (spatie/laravel-medialibrary, tenant-aware Storage!)
-- [ ] Modul 4: `livewire/upload-file`-Route tenancy-fähig machen (wie Update-Route im TenancyServiceProvider — sonst 419 bei Uploads auf Tenant-Domains)
-- [x] ~~Bild-URLs aus research_data herunterladen~~ → umgesetzt (DownloadWatchPhotosAction + WatchObserver + Fotos-Tab); Modul 4 migriert `photos` in die Media Library und ergänzt manuellen/geführten Upload
+- [ ] Modul 4 Rest: geführter Foto-Upload (photo_slots-Checkliste), Markenlogos, Bild-Conversions (braucht Queue-Worker)
+- [x] ~~Medienverwaltung Kern~~ → umgesetzt (medialibrary pro Tenant, Upload-Routen tenancy-fähig, Upload-UI, watches:migrate-photos)
+- [ ] Alt-Spalte watches.photos entfernen, sobald alle Tenants migriert sind (Fallback in photoUrls() dann ebenfalls)
 - [ ] PERPLEXITY_API_KEY in Produktion setzen (Anthropic optional als Fallback); KI-Lookup ggf. per Queue-Job entkoppeln (aktuell synchron mit set_time_limit 180)
 - [ ] Feld-Berechtigung für Einkaufspreis/Versicherungswert (z. B. watches.view_purchase_price — aktuell für alle mit watches.view sichtbar)
 - [ ] Modul 7: current_market_value/last_valuation_at/watchcharts_uuid pflegen (Spalten existieren bereits)

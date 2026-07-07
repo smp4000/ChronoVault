@@ -8,6 +8,7 @@ use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Features\SupportFileUploads\FilePreviewController;
 use Livewire\Livewire;
 use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Events;
@@ -138,6 +139,16 @@ class TenancyServiceProvider extends ServiceProvider
                 Middleware\InitializeTenancyByDomain::class,
             ]);
         });
+
+        // Datei-VORSCHAU (GET) der Livewire-Uploads: liest aus dem
+        // tenant-gesuffixten Temp-Storage → braucht ebenfalls Tenancy.
+        // Die Upload-Route (POST) wird über config/livewire.php →
+        // temporary_file_upload.middleware tenancy-fähig gemacht.
+        FilePreviewController::$middleware = [
+            'web',
+            'universal',
+            Middleware\InitializeTenancyByDomain::class,
+        ];
     }
 
     protected function bootEvents(): void
