@@ -4,16 +4,18 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-07 (Modul 0 — Foundation)
+> Letzte Aktualisierung: 2026-07-07 (Modul 1 — Tenancy & Benutzerverwaltung)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 0 (Foundation) abgeschlossen.** Laravel 12 + Filament + Basispakete
-installiert, Umgebung konfiguriert, Admin-Panel eingerichtet, Doku-Struktur steht.
+**Modul 1 (Tenancy & Benutzer-/Rollenverwaltung) abgeschlossen.**
+Multi-Database-Tenancy läuft end-to-end: Mandanten-Provisioning (DB +
+Migrationen + Rollen-Seed + Domain + Owner) über das zentrale Admin-Panel,
+Tenant-Panel unter `{slug}.localhost:8000/app`, 10 Tests grün, PHPStan Level 6 sauber.
 
-**Nächster Schritt:** Modul 1 — Tenancy & Benutzer-/Rollenverwaltung.
+**Nächster Schritt:** Modul 2 — Stammdaten: Marken (Brands) & Kaliber.
 
 ---
 
@@ -22,7 +24,7 @@ installiert, Umgebung konfiguriert, Admin-Panel eingerichtet, Doku-Struktur steh
 | # | Modul | Status |
 |---|-------|--------|
 | 0 | Foundation (Scaffold, Pakete, Panel, Doku) | ✅ Fertig |
-| 1 | Tenancy & Benutzer-/Rollenverwaltung | ⬜ Offen |
+| 1 | Tenancy & Benutzer-/Rollenverwaltung ([Doku](modules/module-01-tenancy.md)) | ✅ Fertig |
 | 2 | Stammdaten: Marken (Brands) & Kaliber | ⬜ Offen |
 | 3 | Kernmodul: Uhren (Watches) | ⬜ Offen |
 | 4 | Medienverwaltung (Fotos, Zertifikate, Dokumente) | ⬜ Offen |
@@ -35,65 +37,85 @@ installiert, Umgebung konfiguriert, Admin-Panel eingerichtet, Doku-Struktur steh
 
 ## Datenbanktabellen
 
-- Standard-Laravel: `users`, `password_reset_tokens`, `sessions`, `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`
-- Noch keine Domänentabellen (folgen ab Modul 1)
+**Zentral (MariaDB `chronovault`):**
+- `tenants` (UUID, name, slug, status, data, SoftDeletes), `domains`
+- `users` (Plattform-Betreiber), `password_reset_tokens`, `sessions`
+- `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`, `telescope_*`
+
+**Pro Tenant (`cv_tenant_<uuid>`, Migrationen in `database/migrations/tenant/`):**
+- `users`, `password_reset_tokens`, `sessions`
+- `cache`, `cache_locks`
+- `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
 
 ## Models
 
-- `App\Models\User` (Standard, wird in Modul 1 erweitert; Admin-User angelegt: monor5000@gmail.com)
+- `App\Models\User` — zentral UND tenant (Connection-Switch); FilamentUser + HasRoles
+- `App\Models\Tenant` — stancl BaseTenant + SoftDeletes, Custom Columns (name, slug, status)
 
 ## Filament Resources
 
-- _Noch keine_ (Admin-Panel-Provider vorhanden: `App\Providers\Filament\AdminPanelProvider`)
+**Central-Panel (`/admin`, Namespace `App\Filament\Central`):**
+- `Tenants\TenantResource` (+ TenantForm, TenantsTable, List/Create/Edit-Pages)
+
+**App-Panel (`/app` auf Tenant-Domains, Namespace `App\Filament\App`):**
+- `Users\UserResource` (+ UserForm, UsersTable, List/Create/Edit-Pages)
+
+**Widgets:**
+- `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
 
 ## Services
 
-- _Noch keine_
+- _Noch keine_ (bisher reichten Actions)
 
 ## Actions
 
-- _Noch keine_
+- `App\Actions\Tenancy\CreateTenantAction` — komplettes Provisioning
+- `App\Actions\Tenancy\DeleteTenantAction` — archive() (Soft) / execute() (endgültig + DB-Löschung)
 
 ## Enums
 
-- _Noch keine_
+- `App\Enums\TenantStatus` (trial/active/suspended/archived, deutsche Labels, Filament-Contracts)
+- `App\Enums\UserRole` (owner/admin/employee/viewer, deutsche Labels, managementRoles())
 
 ## Jobs
 
-- _Noch keine_
+- _Eigene: keine._ Genutzt werden stancl-Jobs: CreateDatabase, MigrateDatabase, SeedDatabase, DeleteDatabase
 
 ## Events
 
-- _Noch keine_
+- _Eigene: keine._ stancl-Events via TenancyServiceProvider (TenantCreated-Pipeline; TenantDeleted bewusst OHNE DB-Löschung)
 
 ## Policies
 
-- _Noch keine_
+- `App\Policies\TenantPolicy` — nur zentraler Kontext; forceDelete nur für archivierte
+- `App\Policies\UserPolicy` — permission-basiert (users.*), Selbstlöschungs- & Owner-Hierarchie-Schutz
 
 ## Observers
 
-- _Noch keine_
+- `App\Observers\TenantObserver` — Slug-Generierung + Kollisionsauflösung (creating)
+
+## Seeder / Factories
+
+- `Database\Seeders\TenantDatabaseSeeder` — Rollen + Basis-Berechtigungen (users.*, roles.manage, settings.manage); wird bei jedem Provisioning ausgeführt
+- `Database\Factories\TenantFactory` (+ UserFactory aus dem Skeleton)
 
 ## Offene TODOs
 
-- [ ] Modul 1: stancl/tenancy konfigurieren (Tenant-Model, Domains, zentrale vs. Tenant-Migrationen)
-- [ ] Modul 1: spatie/laravel-permission einrichten (Rollen: Admin, Dealer, Collector, Auctioneer)
-- [ ] Redis lokal nicht verfügbar → Horizon erst in Produktion (Linux) möglich (benötigt `pcntl`/`posix`, existiert unter Windows nicht); lokal `database`-Queue
-- [ ] Meilisearch lokal installieren, Scout von `database`- auf Meilisearch-Driver umstellen
-- [ ] PostgreSQL als Produktions-DB dokumentieren; lokale Entwicklung läuft auf MariaDB (XAMPP) → Migrationen DB-agnostisch halten
-- [ ] Laravel Pulse konfigurieren (Dashboard, Storage) — Paket installiert, noch nicht publiziert/migriert
-- [ ] Telescope in Produktion deaktivieren (`TELESCOPE_ENABLED=false`) bzw. Provider nur lokal registrieren
-- [x] Pest-Testsuite aufgesetzt (PHPUnit ersetzt), 3 Smoke-Tests grün; PHPStan Level 6 via `phpstan.neon`
-- [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen erwägen
-- [ ] Filament-Theme: eigenes Theme-CSS (`->viteTheme()`) für Premium-Feinschliff — Dark Mode default + Amber/Zinc bereits aktiv
+- [ ] Modul 2: Marken & Kaliber (Tenant-Migrationen!)
+- [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten
+- [ ] RoleResource im App-Panel (eigene Rollen pro Mandant; Berechtigung `roles.manage` existiert)
+- [ ] Suspended-Tenant-UX: Login wird verweigert (canAccessPanel), aber ohne erklärende Fehlerseite
+- [ ] Willkommens-E-Mail für neue Mandanten-Owner (statt Initialpasswort-Übergabe)
+- [ ] Redis in Produktion: CacheTenancyBootstrapper aktivieren, permission-Cache zurück auf persistent (ADR-008), Horizon (ADR-002)
+- [ ] Meilisearch lokal installieren, Scout-Driver umstellen (ADR-003)
+- [ ] Laravel Pulse konfigurieren; Telescope in Produktion deaktivieren
+- [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen
+- [ ] Eigenes Filament-Theme-CSS (`->viteTheme()`) für Premium-Feinschliff
 
 ## Mögliche zukünftige Verbesserungen
 
-- Kunden-Portal (separates Filament-Panel oder Livewire-Frontend) für Endkunden von Händlern
-- Öffentliche Watch-Marktplatz-Ansicht mit SEO-Landingpages
-- KI-gestützte Preisbewertung (Marktdaten-Anbindung, Chrono24-Preisvergleich)
-- Mobile App über API (Sanctum-Tokens bereits eingeplant)
-- Mehrsprachigkeit der UI über spatie/laravel-translatable + Sprachumschalter (aktuell: Deutsch fix)
-- Audit-Export (Aktivitätslog als PDF/CSV für Versicherungen)
-- Barcode-/QR-Etiketten für physische Uhrenlagerung
-- Webhooks für Drittsysteme (Warenwirtschaft, Buchhaltung)
+- Self-Service-Registrierung + Onboarding-Wizard für neue Mandanten
+- User Impersonation (stancl Feature) für Support
+- Kunden-Portal / öffentlicher Marktplatz, KI-Preisbewertung, Mobile-API
+- Audit-Exporte (Versicherung), QR-Etiketten fürs Lager, Webhooks
+- Backup vor endgültiger Tenant-Löschung; Lösch-Karenzzeit

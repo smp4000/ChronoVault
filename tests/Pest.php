@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
 /**
  * =========================================================================
  * Pest.php — Zentrale Pest-Testkonfiguration
@@ -23,5 +26,7 @@
  *   - Eigene Expectations (expect()->extend(...)) für Domänenobjekte
  * =========================================================================
  */
-
-pest()->extend(Tests\TestCase::class)->in('Feature');
+pest()->extend(TestCase::class)
+    // Zentrale Test-DB (sqlite :memory:) vor jedem Test frisch migrieren.
+    ->use(RefreshDatabase::class)
+    ->in('Feature');

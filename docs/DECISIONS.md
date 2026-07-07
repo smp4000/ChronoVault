@@ -67,6 +67,42 @@ central/tenant) ist der Kern von Modul 1 — VOR allen Domänenmodulen.
 **Konsequenzen:** Alle Domänentabellen ab Modul 2 entstehen als
 Tenant-Migrationen. Zentrale Tabellen: Tenants, Domains, zentrale User.
 
+## ADR-007: Multi-Database-Tenancy mit Domain-Identifikation (2026-07-07)
+
+**Kontext:** ChronoVault bedient Händler/Juweliere/Auktionshäuser mit
+hochsensiblen Daten (Einkaufspreise, Kundenlisten, Versicherungswerte).
+
+**Entscheidung:** stancl/tenancy im Multi-Database-Modus: eine physische
+Datenbank pro Mandant (`cv_tenant_<uuid>`), Identifikation über die volle
+Domain (`InitializeTenancyByDomain`, Tabelle `domains`).
+
+**Begründung:** Harte Datenisolation (kein vergessener `tenant_id`-Scope
+kann je Daten leaken), einfaches Einzel-Mandanten-Backup/-Restore/-Export
+(DSGVO), Verkaufsargument im Enterprise-Segment. Volle Domain statt
+Subdomain-Matching, damit Custom-Domains später ohne Umbau möglich sind.
+
+**Konsequenzen:** Alle Domänen-Migrationen ab Modul 2 nach
+`database/migrations/tenant/`; zentrale `/`-Routen müssen an
+`central_domains` gebunden werden; Jobs laufen über die zentrale Queue
+(`DB_QUEUE_CONNECTION`), stancl macht sie tenant-aware. Zwei Panels:
+`App\Filament\Central` (admin) und `App\Filament\App` (app).
+
+## ADR-008: Spatie-Permission-Cache auf array-Store (2026-07-07)
+
+**Kontext:** spatie/laravel-permission cached Rollen/Berechtigungen unter
+einem GLOBALEN Cache-Key. Bei Multi-DB-Tenancy würden sich die Rollen
+verschiedener Mandanten über einen geteilten persistenten Cache vermischen.
+
+**Entscheidung:** `config/permission.php → cache.store = 'array'`
+(nur Request-Lebensdauer).
+
+**Begründung:** Korrektheit vor Mikro-Optimierung; die Rollen-Query pro
+Request ist vernachlässigbar. Alternative (verworfen): Cache-Key pro Tenant
+patchen — fragil gegenüber Paket-Updates.
+
+**Konsequenzen:** Bei Produktions-Redis kann auf einen persistenten Store
+mit Tenant-Präfix (CacheTenancyBootstrapper) gewechselt werden.
+
 ## ADR-006: PHP 8.2 als lokale Basis (2026-07-07)
 
 **Kontext:** XAMPP liefert PHP 8.2.12; „latest PHP" wäre 8.4.
