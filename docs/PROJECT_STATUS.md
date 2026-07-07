@@ -40,7 +40,7 @@ installiert, Umgebung konfiguriert, Admin-Panel eingerichtet, Doku-Struktur steh
 
 ## Models
 
-- `App\Models\User` (Standard, wird in Modul 1 erweitert)
+- `App\Models\User` (Standard, wird in Modul 1 erweitert; Admin-User angelegt: monor5000@gmail.com)
 
 ## Filament Resources
 
@@ -81,11 +81,11 @@ installiert, Umgebung konfiguriert, Admin-Panel eingerichtet, Doku-Struktur steh
 - [ ] Redis lokal nicht verfügbar → Horizon erst in Produktion (Linux) möglich (benötigt `pcntl`/`posix`, existiert unter Windows nicht); lokal `database`-Queue
 - [ ] Meilisearch lokal installieren, Scout von `database`- auf Meilisearch-Driver umstellen
 - [ ] PostgreSQL als Produktions-DB dokumentieren; lokale Entwicklung läuft auf MariaDB (XAMPP) → Migrationen DB-agnostisch halten
-- [ ] Laravel Pulse konfigurieren (Dashboard, Storage)
-- [ ] Telescope nur in `local` registrieren
-- [ ] Pest-Testsuite aufsetzen (PHPUnit ersetzen), PHPStan-Baseline (larastan) einrichten
+- [ ] Laravel Pulse konfigurieren (Dashboard, Storage) — Paket installiert, noch nicht publiziert/migriert
+- [ ] Telescope in Produktion deaktivieren (`TELESCOPE_ENABLED=false`) bzw. Provider nur lokal registrieren
+- [x] Pest-Testsuite aufgesetzt (PHPUnit ersetzt), 3 Smoke-Tests grün; PHPStan Level 6 via `phpstan.neon`
 - [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen erwägen
-- [ ] Filament-Theme: Dark-Mode-first, Premium-Look (eigenes Theme-CSS)
+- [ ] Filament-Theme: eigenes Theme-CSS (`->viteTheme()`) für Premium-Feinschliff — Dark Mode default + Amber/Zinc bereits aktiv
 
 ## Mögliche zukünftige Verbesserungen
 
