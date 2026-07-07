@@ -6,16 +6,18 @@
  * =========================================================================
  *
  * Zweck:
- *   Anlage & Bearbeitung von Uhren in einem Tab-Layout:
- *   Uhr → Zustand & Status → Gehäuse & Ausstattung → Notizen.
+ *   Anlage & Bearbeitung von Uhren in einem Tab-Layout nach
+ *   Chrono24-Vorbild — standardisierte Auswahlfelder (Enums) statt
+ *   Freitext, damit Filter, Auswertungen und der spätere Inserat-Export
+ *   sauber funktionieren:
+ *   Uhr → Zustand & Status → Gehäuse → Zifferblatt & Band → Notizen.
  *
  * KI-Referenz-Lookup:
  *   Die Referenznummer steht bewusst an ERSTER Stelle. Ihre Suffix-Action
  *   ruft den WatchReferenceLookupService (Anthropic Claude + Web-Suche):
- *   Felder werden befüllt, Marke/Kaliber gegen die Stammdaten aufgelöst
- *   (NIE automatisch angelegt), Bild-/Quellen-URLs landen im Hidden-Feld
- *   research_data (Bild-Übernahme in die Media Library folgt in Modul 4).
- *   Die eigentliche Logik liegt im Service — hier nur UI-Verdrahtung.
+ *   Felder werden befüllt (Enum-Codes), Marke/Kaliber gegen die
+ *   Stammdaten aufgelöst (NIE automatisch angelegt), Bild-/Quellen-URLs
+ *   landen im Hidden-Feld research_data (Media Library folgt in Modul 4).
  *
  * Abhängiges Kaliber-Feld:
  *   Die Kaliber-Auswahl zeigt nur Werke der gewählten Marke — die
@@ -29,7 +31,15 @@ declare(strict_types=1);
 namespace App\Filament\App\Resources\Watches\Schemas;
 
 use App\DataTransferObjects\WatchReferenceData;
+use App\Enums\BraceletMaterial;
+use App\Enums\CaseMaterial;
+use App\Enums\ClaspType;
+use App\Enums\DialNumerals;
+use App\Enums\GlassType;
+use App\Enums\MovementType;
+use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
+use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
 use App\Models\Brand;
 use App\Models\Watch;
@@ -66,7 +76,7 @@ class WatchForm
                                 TextInput::make('reference_number')
                                     ->label('Referenznummer')
                                     ->maxLength(255)
-                                    ->placeholder('z. B. 126610LN')
+                                    ->placeholder('z. B. 126610LN oder CBZ208B.BF0009')
                                     ->autofocus()
                                     ->suffixAction(self::aiLookupAction())
                                     ->helperText('Referenz eingeben und ✨ klicken — die KI recherchiert Daten und Bildquellen.'),
@@ -90,6 +100,12 @@ class WatchForm
                                     // Manueller Markenwechsel: fremdes Kaliber zurücksetzen.
                                     ->afterStateUpdated(fn (Set $set) => $set('caliber_id', null)),
 
+                                TextInput::make('model_name')
+                                    ->label('Modell')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->placeholder('z. B. Formula 1 Chronograph x Gulf'),
+
                                 Select::make('caliber_id')
                                     ->label('Kaliber')
                                     ->relationship(
@@ -109,27 +125,36 @@ class WatchForm
                                     ->disabled(fn (Get $get): bool => blank($get('brand_id')))
                                     ->helperText('Optional — Auswahl erscheint nach Wahl der Marke.'),
 
-                                TextInput::make('model_name')
-                                    ->label('Modell')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->placeholder('z. B. Submariner Date'),
+                                Select::make('movement_type')
+                                    ->label('Aufzug')
+                                    ->options(MovementType::class)
+                                    ->helperText('Falls kein Kaliber erfasst ist.'),
+
+                                Select::make('gender')
+                                    ->label('Geschlecht')
+                                    ->options(WatchGender::class),
+
+                                TextInput::make('production_year')
+                                    ->label('Herstellungsjahr')
+                                    ->numeric()
+                                    ->minValue(1700)
+                                    ->maxValue(now()->year),
+
+                                Toggle::make('is_production_year_approximate')
+                                    ->label('Ungefähre Angabe')
+                                    ->inline(false)
+                                    ->helperText('Jahr ist geschätzt (z. B. aus der Seriennummer abgeleitet).'),
 
                                 TextInput::make('serial_number')
                                     ->label('Seriennummer')
-                                    ->maxLength(255),
+                                    ->maxLength(255)
+                                    ->helperText('Wird nie veröffentlicht — nur interne Dokumentation.'),
 
                                 TextInput::make('stock_number')
                                     ->label('Bestandsnummer')
                                     ->maxLength(255)
                                     ->unique(ignoreRecord: true)
                                     ->helperText('Interne Nummer Ihres Betriebs — muss eindeutig sein.'),
-
-                                TextInput::make('production_year')
-                                    ->label('Baujahr')
-                                    ->numeric()
-                                    ->minValue(1700)
-                                    ->maxValue(now()->year),
 
                                 // KI-Rechercheergebnis (Beschreibung, Bild-/Quellen-URLs);
                                 // wird von der Lookup-Action gesetzt und als JSON persistiert.
@@ -158,32 +183,92 @@ class WatchForm
                                     ->label('Papiere vorhanden'),
                             ]),
 
-                        Tab::make('Gehäuse & Ausstattung')
+                        Tab::make('Gehäuse')
                             ->icon('heroicon-m-squares-2x2')
                             ->columns(2)
                             ->components([
-                                TextInput::make('case_material')
-                                    ->label('Gehäusematerial')
-                                    ->maxLength(255)
-                                    ->placeholder('z. B. Edelstahl, Gelbgold 18k'),
+                                Select::make('case_material')
+                                    ->label('Material Gehäuse')
+                                    ->options(CaseMaterial::class)
+                                    ->searchable(),
+
+                                Select::make('glass_type')
+                                    ->label('Glas')
+                                    ->options(GlassType::class),
 
                                 TextInput::make('case_diameter_mm')
-                                    ->label('Gehäusedurchmesser')
+                                    ->label('Durchmesser')
                                     ->numeric()
                                     ->minValue(0)
                                     ->maxValue(100)
                                     ->step(0.1)
                                     ->suffix('mm'),
 
-                                TextInput::make('dial_color')
-                                    ->label('Zifferblatt')
-                                    ->maxLength(255)
-                                    ->placeholder('z. B. Schwarz, Sunburst-Blau'),
+                                TextInput::make('case_height_mm')
+                                    ->label('Durchmesser (2. Dimension)')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->step(0.1)
+                                    ->suffix('mm')
+                                    ->helperText('Nur bei nicht-runden Gehäusen (Breite × Höhe).'),
 
-                                TextInput::make('bracelet_material')
-                                    ->label('Band')
-                                    ->maxLength(255)
-                                    ->placeholder('z. B. Oyster-Band Edelstahl, Leder'),
+                                Select::make('bezel_material')
+                                    ->label('Material Lünette')
+                                    ->options(CaseMaterial::class)
+                                    ->searchable(),
+
+                                Select::make('bezel_color')
+                                    ->label('Farbe der Lünette')
+                                    ->options(WatchColor::class)
+                                    ->searchable(),
+
+                                TextInput::make('water_resistance_bar')
+                                    ->label('Wasserdichtigkeit')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(200)
+                                    ->suffix('bar'),
+                            ]),
+
+                        Tab::make('Zifferblatt & Band')
+                            ->icon('heroicon-m-swatch')
+                            ->columns(2)
+                            ->components([
+                                Select::make('dial_color')
+                                    ->label('Farbe Zifferblatt')
+                                    ->options(WatchColor::class)
+                                    ->searchable(),
+
+                                Select::make('dial_numerals')
+                                    ->label('Zifferblatt-Zahlen')
+                                    ->options(DialNumerals::class),
+
+                                Select::make('bracelet_material')
+                                    ->label('Material Armband')
+                                    ->options(BraceletMaterial::class)
+                                    ->searchable(),
+
+                                Select::make('bracelet_color')
+                                    ->label('Farbe Armband')
+                                    ->options(WatchColor::class)
+                                    ->searchable(),
+
+                                Select::make('clasp_type')
+                                    ->label('Schließe')
+                                    ->options(ClaspType::class),
+
+                                Select::make('clasp_material')
+                                    ->label('Material Schließe')
+                                    ->options(CaseMaterial::class)
+                                    ->searchable(),
+
+                                TextInput::make('lug_width_mm')
+                                    ->label('Bandanstoßbreite')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(50)
+                                    ->suffix('mm'),
                             ]),
 
                         Tab::make('Notizen')
@@ -250,7 +335,7 @@ class WatchForm
     /**
      * Überträgt das Rechercheergebnis in die Formularfelder.
      * Es werden nur belegte Werte gesetzt; Marke/Kaliber nur bei
-     * eindeutigem Stammdaten-Treffer.
+     * eindeutigem Stammdaten-Treffer; Enum-Felder als Codes.
      */
     private static function applyLookupResult(
         WatchReferenceData $data,
@@ -279,11 +364,23 @@ class WatchForm
 
         $fieldMap = [
             'model_name' => ['Modell', $data->modelName],
-            'production_year' => ['Baujahr', $data->productionYearFrom],
-            'case_material' => ['Gehäusematerial', $data->caseMaterial],
+            'movement_type' => ['Aufzug', $data->movementType?->value],
+            'production_year' => ['Herstellungsjahr', $data->productionYearFrom],
+            'gender' => ['Geschlecht', $data->gender?->value],
+            'case_material' => ['Gehäusematerial', $data->caseMaterial?->value],
             'case_diameter_mm' => ['Durchmesser', $data->caseDiameterMm],
-            'dial_color' => ['Zifferblatt', $data->dialColor],
-            'bracelet_material' => ['Band', $data->braceletMaterial],
+            'case_height_mm' => ['2. Dimension', $data->caseHeightMm],
+            'glass_type' => ['Glas', $data->glassType?->value],
+            'bezel_material' => ['Lünettenmaterial', $data->bezelMaterial?->value],
+            'bezel_color' => ['Lünettenfarbe', $data->bezelColor?->value],
+            'water_resistance_bar' => ['Wasserdichtigkeit', $data->waterResistanceBar],
+            'dial_color' => ['Zifferblattfarbe', $data->dialColor?->value],
+            'dial_numerals' => ['Zifferblatt-Zahlen', $data->dialNumerals?->value],
+            'bracelet_material' => ['Armbandmaterial', $data->braceletMaterial?->value],
+            'bracelet_color' => ['Armbandfarbe', $data->braceletColor?->value],
+            'clasp_type' => ['Schließe', $data->claspType?->value],
+            'clasp_material' => ['Schließenmaterial', $data->claspMaterial?->value],
+            'lug_width_mm' => ['Bandanstoß', $data->lugWidthMm],
         ];
 
         foreach ($fieldMap as $field => [$label, $value]) {
@@ -291,6 +388,11 @@ class WatchForm
                 $set($field, $value);
                 $filled[] = $label;
             }
+        }
+
+        // KI-Jahresangaben sind Produktionszeiträume — als "ungefähr" markieren.
+        if ($data->productionYearFrom !== null) {
+            $set('is_production_year_approximate', true);
         }
 
         // Kurzbeschreibung in die Notizen — vorhandene Notizen nie überschreiben.

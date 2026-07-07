@@ -51,7 +51,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
-- `watches` (UUID, brand_id FK, caliber_id FK nullable, model/reference/serial/stock_number, condition, status, Ausstattung, research_data JSON [KI-Lookup], SoftDeletes)
+- `watches` (UUID, brand_id FK, caliber_id FK nullable, model/reference/serial/stock_number, condition, status, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], research_data JSON [KI-Lookup], SoftDeletes)
 
 ## Models
 
@@ -89,9 +89,10 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 - `App\Enums\TenantStatus` (trial/active/suspended/archived, deutsche Labels, Filament-Contracts)
 - `App\Enums\UserRole` (owner/admin/employee/viewer, deutsche Labels, managementRoles())
-- `App\Enums\MovementType` (manual/automatic/quartz/solar/spring_drive, deutsche Labels, Filament-Contracts)
+- `App\Enums\MovementType` (manual/automatic/quartz/solar/spring_drive/smartwatch, deutsche Labels, Filament-Contracts)
 - `App\Enums\WatchCondition` (new/unworn/very_good/good/fair, deutsche Labels, Filament-Contracts)
 - `App\Enums\WatchStatus` (in_stock/reserved/in_service/consignment/sold, deutsche Labels, sellableStatuses())
+- Chrono24-Katalog: `CaseMaterial` (19), `WatchColor` (20), `BraceletMaterial` (18), `GlassType`, `ClaspType`, `DialNumerals`, `WatchGender` — standardisierte Inserat-Attribute statt Freitext
 
 ## Jobs
 

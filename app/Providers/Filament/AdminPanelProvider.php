@@ -81,7 +81,7 @@ class AdminPanelProvider extends PanelProvider
             ->defaultThemeMode(ThemeMode::Dark)
             ->colors([
                 // Gold/Amber als Markenfarbe der Luxusuhren-Plattform
-                'primary' => Color::Amber,
+                'primary' => Color::Zinc,
                 'gray' => Color::Zinc,
             ])
             ->spa()

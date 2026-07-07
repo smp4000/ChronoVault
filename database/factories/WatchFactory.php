@@ -16,7 +16,11 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\BraceletMaterial;
+use App\Enums\CaseMaterial;
+use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
+use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
 use App\Models\Brand;
 use App\Models\Watch;
@@ -41,12 +45,13 @@ class WatchFactory extends Factory
             'production_year' => fake()->numberBetween(1970, (int) date('Y')),
             'condition' => fake()->randomElement(WatchCondition::cases()),
             'status' => WatchStatus::InStock,
+            'gender' => fake()->randomElement(WatchGender::cases()),
             'has_box' => fake()->boolean(70),
             'has_papers' => fake()->boolean(70),
-            'case_material' => fake()->randomElement(['Edelstahl', 'Gelbgold 18k', 'Roségold 18k', 'Titan', 'Platin']),
+            'case_material' => fake()->randomElement(CaseMaterial::cases()),
             'case_diameter_mm' => fake()->randomFloat(1, 28, 45),
-            'dial_color' => fake()->randomElement(['Schwarz', 'Weiß', 'Blau', 'Silber', 'Grün']),
-            'bracelet_material' => fake()->randomElement(['Edelstahl', 'Leder', 'Kautschuk', 'Gold/Stahl']),
+            'dial_color' => fake()->randomElement(WatchColor::cases()),
+            'bracelet_material' => fake()->randomElement(BraceletMaterial::cases()),
         ];
     }
 

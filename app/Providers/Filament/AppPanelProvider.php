@@ -64,7 +64,7 @@ class AppPanelProvider extends PanelProvider
             ->favicon(asset('favicon.ico'))
             ->defaultThemeMode(ThemeMode::Dark)
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Blue,
                 'gray' => Color::Zinc,
             ])
             ->spa()

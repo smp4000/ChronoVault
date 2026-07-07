@@ -83,6 +83,34 @@ sichert `restrictOnDelete` als letzte Verteidigungslinie.
   LIKE-Suche auf der Tenant-Connection — tenant-safe ohne Zusatzaufwand.
 - Meilisearch-Umstieg (Produktion) bleibt reiner Driver-Wechsel.
 
+## Chrono24-Attributkatalog (Nachtrag)
+
+Das Uhren-Formular bildet den Chrono24-Inserat-Katalog ab —
+**standardisierte Enums statt Freitext** (Basis für Filter, Auswertungen
+und den späteren Inserat-Export):
+
+| Attribut | Spalte | Enum |
+|---|---|---|
+| Aufzug | `movement_type` | `MovementType` (+ Smartwatch) |
+| Geschlecht | `gender` | `WatchGender` |
+| Baujahr ungefähr | `is_production_year_approximate` | bool |
+| Material Gehäuse/Lünette/Schließe | `case_material`, `bezel_material`, `clasp_material` | `CaseMaterial` (19 Werte) |
+| Farben Zifferblatt/Lünette/Armband | `dial_color`, `bezel_color`, `bracelet_color` | `WatchColor` (20 Werte) |
+| Glas | `glass_type` | `GlassType` |
+| Zifferblatt-Zahlen | `dial_numerals` | `DialNumerals` |
+| Material Armband | `bracelet_material` | `BraceletMaterial` (18 Werte) |
+| Schließe | `clasp_type` | `ClaspType` |
+| Durchmesser 2D | `case_diameter_mm` × `case_height_mm` | decimal |
+| Wasserdichtigkeit | `water_resistance_bar` | tinyint |
+| Bandanstoß | `lug_width_mm` | tinyint |
+
+Die früheren Freitext-Spalten (`case_material`, `dial_color`,
+`bracelet_material`) wurden per Migration auf Enum-Codes konvertiert
+(bekannte deutsche Begriffe gemappt, Unbekanntes genullt — es gab nur
+Dev-Daten). **Inserat-spezifisches** (Titel-Ergänzung, Preis, Standort,
+Versand) gehört bewusst NICHT hierher — das ist Modul 5 (Verkauf/Inserat);
+die Uhr ist der Lagerbestand.
+
 ## KI-Referenz-Lookup (Nachtrag)
 
 Das Uhren-Formular ist ein **Tab-Layout** (Uhr → Zustand & Status →

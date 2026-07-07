@@ -39,6 +39,7 @@ enum MovementType: string implements HasColor, HasIcon, HasLabel
     case Quartz = 'quartz';
     case Solar = 'solar';
     case SpringDrive = 'spring_drive';
+    case Smartwatch = 'smartwatch';
 
     public function getLabel(): string
     {
@@ -48,6 +49,7 @@ enum MovementType: string implements HasColor, HasIcon, HasLabel
             self::Quartz => 'Quarz',
             self::Solar => 'Solar',
             self::SpringDrive => 'Spring Drive',
+            self::Smartwatch => 'Smartwatch',
         };
     }
 
@@ -59,6 +61,7 @@ enum MovementType: string implements HasColor, HasIcon, HasLabel
             self::Quartz => 'info',
             self::Solar => 'primary',
             self::SpringDrive => 'gray',
+            self::Smartwatch => 'gray',
         };
     }
 
@@ -70,6 +73,7 @@ enum MovementType: string implements HasColor, HasIcon, HasLabel
             self::Quartz => 'heroicon-m-bolt',
             self::Solar => 'heroicon-m-sun',
             self::SpringDrive => 'heroicon-m-cog-6-tooth',
+            self::Smartwatch => 'heroicon-m-device-phone-mobile',
         };
     }
 }

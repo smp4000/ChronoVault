@@ -16,6 +16,14 @@
 declare(strict_types=1);
 
 use App\DataTransferObjects\WatchReferenceData;
+use App\Enums\BraceletMaterial;
+use App\Enums\CaseMaterial;
+use App\Enums\ClaspType;
+use App\Enums\DialNumerals;
+use App\Enums\GlassType;
+use App\Enums\MovementType;
+use App\Enums\WatchColor;
+use App\Enums\WatchGender;
 use App\Models\Brand;
 use App\Services\WatchReferenceLookupService;
 
@@ -52,6 +60,39 @@ it('builds the dto defensively from partial data', function () {
         ->and($data->braceletMaterial)->toBeNull()
         ->and($data->imageUrls)->toBe(['https://example.com/a.jpg'])
         ->and($data->toResearchData())->toHaveKeys(['description', 'image_urls', 'source_urls', 'looked_up_at']);
+});
+
+it('maps enum codes from the ai response and discards unknown codes', function () {
+    $data = WatchReferenceData::fromArray([
+        'movement_type' => 'automatic',
+        'gender' => 'MENS', // Groß-/Kleinschreibung tolerieren
+        'case_material' => 'steel',
+        'glass_type' => 'sapphire',
+        'bezel_color' => 'black',
+        'dial_color' => 'blue',
+        'dial_numerals' => 'indices',
+        'bracelet_material' => 'rubber',
+        'clasp_type' => 'folding_clasp',
+        'water_resistance_bar' => '20',
+        'lug_width_mm' => 21,
+        // Unbekannte Codes dürfen nicht crashen, sondern werden verworfen
+        'bracelet_color' => 'regenbogen',
+        'clasp_material' => 'unobtainium',
+    ]);
+
+    expect($data->movementType)->toBe(MovementType::Automatic)
+        ->and($data->gender)->toBe(WatchGender::Mens)
+        ->and($data->caseMaterial)->toBe(CaseMaterial::Steel)
+        ->and($data->glassType)->toBe(GlassType::Sapphire)
+        ->and($data->bezelColor)->toBe(WatchColor::Black)
+        ->and($data->dialColor)->toBe(WatchColor::Blue)
+        ->and($data->dialNumerals)->toBe(DialNumerals::Indices)
+        ->and($data->braceletMaterial)->toBe(BraceletMaterial::Rubber)
+        ->and($data->claspType)->toBe(ClaspType::FoldingClasp)
+        ->and($data->waterResistanceBar)->toBe(20)
+        ->and($data->lugWidthMm)->toBe(21)
+        ->and($data->braceletColor)->toBeNull()
+        ->and($data->claspMaterial)->toBeNull();
 });
 
 it('resolves brands and calibers against tenant master data', function () {

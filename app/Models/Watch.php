@@ -30,7 +30,15 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BraceletMaterial;
+use App\Enums\CaseMaterial;
+use App\Enums\ClaspType;
+use App\Enums\DialNumerals;
+use App\Enums\GlassType;
+use App\Enums\MovementType;
+use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
+use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
 use Database\Factories\WatchFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -58,19 +66,32 @@ class Watch extends Model
     protected $fillable = [
         'brand_id',
         'caliber_id',
+        'movement_type',
         'model_name',
         'reference_number',
         'serial_number',
         'stock_number',
         'production_year',
+        'is_production_year_approximate',
+        'gender',
         'condition',
         'status',
         'has_box',
         'has_papers',
         'case_material',
         'case_diameter_mm',
+        'case_height_mm',
+        'glass_type',
+        'bezel_material',
+        'bezel_color',
+        'water_resistance_bar',
         'dial_color',
+        'dial_numerals',
         'bracelet_material',
+        'bracelet_color',
+        'clasp_type',
+        'clasp_material',
+        'lug_width_mm',
         'notes',
         'research_data',
     ];
@@ -82,11 +103,27 @@ class Watch extends Model
     {
         return [
             'production_year' => 'integer',
+            'is_production_year_approximate' => 'boolean',
             'condition' => WatchCondition::class,
             'status' => WatchStatus::class,
+            'movement_type' => MovementType::class,
+            'gender' => WatchGender::class,
             'has_box' => 'boolean',
             'has_papers' => 'boolean',
+            'case_material' => CaseMaterial::class,
             'case_diameter_mm' => 'decimal:1',
+            'case_height_mm' => 'decimal:1',
+            'glass_type' => GlassType::class,
+            'bezel_material' => CaseMaterial::class,
+            'bezel_color' => WatchColor::class,
+            'water_resistance_bar' => 'integer',
+            'dial_color' => WatchColor::class,
+            'dial_numerals' => DialNumerals::class,
+            'bracelet_material' => BraceletMaterial::class,
+            'bracelet_color' => WatchColor::class,
+            'clasp_type' => ClaspType::class,
+            'clasp_material' => CaseMaterial::class,
+            'lug_width_mm' => 'integer',
             // KI-Rechercheergebnis (Beschreibung, Bild-/Quellen-URLs) —
             // Bild-Übernahme in die Media Library folgt in Modul 4.
             'research_data' => 'array',

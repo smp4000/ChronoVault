@@ -37,6 +37,14 @@ namespace App\Services;
 
 use Anthropic\Client;
 use App\DataTransferObjects\WatchReferenceData;
+use App\Enums\BraceletMaterial;
+use App\Enums\CaseMaterial;
+use App\Enums\ClaspType;
+use App\Enums\DialNumerals;
+use App\Enums\GlassType;
+use App\Enums\MovementType;
+use App\Enums\WatchColor;
+use App\Enums\WatchGender;
 use App\Models\Brand;
 use App\Models\Caliber;
 use RuntimeException;
@@ -205,23 +213,46 @@ class WatchReferenceLookupService
     {
         $hint = $brandHint !== null ? " Der Hersteller ist vermutlich: {$brandHint}." : '';
 
+        // Erlaubte Enum-Codes direkt aus den Enums — Prompt und Datenmodell
+        // können nicht auseinanderlaufen.
+        $movements = implode('|', array_column(MovementType::cases(), 'value'));
+        $genders = implode('|', array_column(WatchGender::cases(), 'value'));
+        $materials = implode('|', array_column(CaseMaterial::cases(), 'value'));
+        $colors = implode('|', array_column(WatchColor::cases(), 'value'));
+        $glasses = implode('|', array_column(GlassType::cases(), 'value'));
+        $numerals = implode('|', array_column(DialNumerals::cases(), 'value'));
+        $braceletMaterials = implode('|', array_column(BraceletMaterial::cases(), 'value'));
+        $clasps = implode('|', array_column(ClaspType::cases(), 'value'));
+
         return <<<PROMPT
             Du bist ein Uhren-Experte für einen Fachhändler. Recherchiere die Armbanduhr mit der Referenznummer "{$referenceNumber}".{$hint}
 
             Nutze die Web-Suche, um die Angaben zu verifizieren, und sammle 2-4 URLs zu hochwertigen Produktfotos (direkte Bild-URLs oder Produktseiten des Herstellers bzw. seriöser Händler).
 
-            Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in exakt dieser Struktur, ohne Markdown-Zäune und ohne Begleittext. Verwende null für alles, was du nicht sicher belegen kannst. Textwerte auf Deutsch:
+            Antworte AUSSCHLIESSLICH mit einem JSON-Objekt in exakt dieser Struktur, ohne Markdown-Zäune und ohne Begleittext. Verwende null für alles, was du nicht sicher belegen kannst. Felder mit Wertelisten (a|b|c) dürfen NUR einen dieser Codes oder null enthalten:
 
             {
               "brand_name": "Markenname oder null",
               "model_name": "Modellname ohne Marke, z. B. Submariner Date, oder null",
               "caliber_name": "Kaliberbezeichnung ohne Markenname, z. B. 3235, oder null",
+              "movement_type": "{$movements}",
               "production_year_from": Produktionsbeginn als Jahreszahl oder null,
-              "case_material": "Gehäusematerial, z. B. Edelstahl, oder null",
-              "case_diameter_mm": Durchmesser in mm als Zahl oder null,
-              "dial_color": "Zifferblattfarbe oder null",
-              "bracelet_material": "Band/Armband, z. B. Oyster-Band Edelstahl, oder null",
-              "description": "2-3 Sätze Kurzbeschreibung der Uhr oder null",
+              "gender": "{$genders}",
+              "case_material": "{$materials}",
+              "case_diameter_mm": Breite in mm als Zahl oder null,
+              "case_height_mm": zweite Gehäusedimension in mm bei nicht-runden Gehäusen, sonst null,
+              "glass_type": "{$glasses}",
+              "bezel_material": "{$materials}",
+              "bezel_color": "{$colors}",
+              "water_resistance_bar": Wasserdichtigkeit in bar als ganze Zahl oder null,
+              "dial_color": "{$colors}",
+              "dial_numerals": "{$numerals}",
+              "bracelet_material": "{$braceletMaterials}",
+              "bracelet_color": "{$colors}",
+              "clasp_type": "{$clasps}",
+              "clasp_material": "{$materials}",
+              "lug_width_mm": Bandanstoßbreite in mm als ganze Zahl oder null,
+              "description": "2-3 Sätze Kurzbeschreibung der Uhr auf Deutsch oder null",
               "image_urls": ["https://...", "..."],
               "source_urls": ["https://...", "..."]
             }

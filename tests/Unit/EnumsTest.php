@@ -8,10 +8,17 @@
 
 declare(strict_types=1);
 
+use App\Enums\BraceletMaterial;
+use App\Enums\CaseMaterial;
+use App\Enums\ClaspType;
+use App\Enums\DialNumerals;
+use App\Enums\GlassType;
 use App\Enums\MovementType;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
+use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
+use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
 
 it('keeps stable role values with german labels', function () {
@@ -33,7 +40,21 @@ it('keeps stable movement type values with german labels', function () {
         ->and(MovementType::Automatic->getLabel())->toBe('Automatik')
         ->and(MovementType::Quartz->getLabel())->toBe('Quarz')
         ->and(MovementType::Solar->getLabel())->toBe('Solar')
-        ->and(MovementType::SpringDrive->getLabel())->toBe('Spring Drive');
+        ->and(MovementType::SpringDrive->getLabel())->toBe('Spring Drive')
+        ->and(MovementType::Smartwatch->getLabel())->toBe('Smartwatch');
+});
+
+it('keeps stable chrono24 attribute enum values with german labels', function () {
+    expect(CaseMaterial::Steel->value)->toBe('steel')
+        ->and(CaseMaterial::Steel->getLabel())->toBe('Stahl')
+        ->and(CaseMaterial::GoldSteel->getLabel())->toBe('Gold/Stahl')
+        ->and(WatchColor::MotherOfPearl->value)->toBe('mother_of_pearl')
+        ->and(WatchColor::MotherOfPearl->getLabel())->toBe('Perlmutt')
+        ->and(BraceletMaterial::CrocodileLeather->getLabel())->toBe('Krokodilleder')
+        ->and(WatchGender::Mens->getLabel())->toBe('Herrenuhr')
+        ->and(GlassType::Sapphire->getLabel())->toBe('Saphirglas')
+        ->and(ClaspType::PinBuckle->getLabel())->toBe('Dornschließe')
+        ->and(DialNumerals::Indices->getLabel())->toBe('Indizes/Striche');
 });
 
 it('keeps stable watch condition values with german labels', function () {
