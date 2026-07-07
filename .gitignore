@@ -24,3 +24,6 @@ Homestead.yaml
 Thumbs.db
 
 .claude/settings.local.json
+
+# sqlite-Tenant-DBs aus Testlaeufen (stancl SQLiteDatabaseManager)
+/database/cv_tenant_*
