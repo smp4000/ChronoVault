@@ -72,6 +72,7 @@ class Watch extends Model
         'dial_color',
         'bracelet_material',
         'notes',
+        'research_data',
     ];
 
     /**
@@ -86,6 +87,9 @@ class Watch extends Model
             'has_box' => 'boolean',
             'has_papers' => 'boolean',
             'case_diameter_mm' => 'decimal:1',
+            // KI-Rechercheergebnis (Beschreibung, Bild-/Quellen-URLs) —
+            // Bild-Übernahme in die Media Library folgt in Modul 4.
+            'research_data' => 'array',
         ];
     }
 

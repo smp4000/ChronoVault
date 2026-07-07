@@ -83,6 +83,32 @@ sichert `restrictOnDelete` als letzte Verteidigungslinie.
   LIKE-Suche auf der Tenant-Connection — tenant-safe ohne Zusatzaufwand.
 - Meilisearch-Umstieg (Produktion) bleibt reiner Driver-Wechsel.
 
+## KI-Referenz-Lookup (Nachtrag)
+
+Das Uhren-Formular ist ein **Tab-Layout** (Uhr → Zustand & Status →
+Gehäuse & Ausstattung → Notizen); die **Referenznummer steht an erster
+Stelle**. Ihre Suffix-Action (✨) startet den
+`WatchReferenceLookupService`:
+
+- **Anthropic Claude API** (`claude-opus-4-8`) mit Web-Suche
+  (`web_search_20260209`) recherchiert die Referenz und liefert JSON
+  (Marke, Modell, Kaliber, Baujahr, Gehäuse, Zifferblatt, Band,
+  Kurzbeschreibung, Bild-/Quellen-URLs).
+- **Kein Structured-Output-Format möglich** (Web-Suche erzeugt Citations,
+  die damit inkompatibel sind) → striktes JSON per Prompt + defensives
+  Parsing (`parseResponseJson`, testbar ohne API).
+- **Stammdaten-Matching**: Marke case-insensitiv exakt, Kaliber mit
+  Präfix-Toleranz („Kaliber 3235" ↔ „3235"). Es werden NIE automatisch
+  Stammdaten angelegt. Ohne Treffer → Hinweis in der Notification.
+- **`watches.research_data`** (JSON): Beschreibung + Bild-/Quellen-URLs
+  des Lookups. **Modul 4 lädt daraus die Fotos in die Media Library.**
+- Konfiguration: `ANTHROPIC_API_KEY` in `.env`
+  (`config/services.php → anthropic`). Ohne Key: deutsche Fehlermeldung
+  als Notification, Feature ansonsten inert.
+- `set_time_limit(180)` im Service — Web-Recherche überschreitet sonst
+  das PHP-Limit (XAMPP: 30 s); `pause_turn` der Server-Tool-Schleife
+  wird bis zu 3× fortgesetzt.
+
 ## Bekannte Stolperfallen (dokumentiert für die Zukunft)
 
 - **Kein Auto-Seed von Uhren**: watches sind Bewegungs-/Geschäftsdaten,

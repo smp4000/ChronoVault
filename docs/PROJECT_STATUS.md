@@ -51,7 +51,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `roles`, `permissions`, `model_has_roles`, `model_has_permissions`, `role_has_permissions`
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
-- `watches` (UUID, brand_id FK, caliber_id FK nullable, model/reference/serial/stock_number, condition, status, Ausstattung, SoftDeletes)
+- `watches` (UUID, brand_id FK, caliber_id FK nullable, model/reference/serial/stock_number, condition, status, Ausstattung, research_data JSON [KI-Lookup], SoftDeletes)
 
 ## Models
 
@@ -70,7 +70,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 - `Users\UserResource` (+ UserForm, UsersTable, List/Create/Edit-Pages)
 - `Brands\BrandResource` (Gruppe „Stammdaten"; + BrandForm, BrandsTable, Pages, CalibersRelationManager, Papierkorb/Restore)
 - `Calibers\CaliberResource` (Gruppe „Stammdaten"; + CaliberForm, CalibersTable, Pages — Form/Table werden vom RelationManager wiederverwendet, `withBrand: false`)
-- `Watches\WatchResource` (Gruppe „Bestand"; + WatchForm mit abhängigem Kaliber-Select, WatchesTable mit Full-Set-Filter, Pages, Papierkorb/Restore)
+- `Watches\WatchResource` (Gruppe „Bestand"; + WatchForm als Tab-Layout mit KI-Referenz-Lookup [Referenznummer zuerst, ✨-Action] und abhängigem Kaliber-Select, WatchesTable mit Full-Set-Filter, Pages, Papierkorb/Restore)
 
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
@@ -78,7 +78,7 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 ## Services
 
-- _Noch keine_ (bisher reichten Actions)
+- `App\Services\WatchReferenceLookupService` — KI-Recherche zu Referenznummern (Anthropic claude-opus-4-8 + Web-Suche); JSON-Parsing + Stammdaten-Matching; DTO `App\DataTransferObjects\WatchReferenceData`; Konfiguration über ANTHROPIC_API_KEY
 
 ## Actions
 
@@ -127,6 +127,8 @@ erweitert. 23 Tests grün, PHPStan Level 6 sauber.
 
 - [ ] Modul 4: Medienverwaltung — Fotos/Zertifikate für Uhren (spatie/laravel-medialibrary, tenant-aware Storage!)
 - [ ] Modul 4: `livewire/upload-file`-Route tenancy-fähig machen (wie Update-Route im TenancyServiceProvider — sonst 419 bei Uploads auf Tenant-Domains)
+- [ ] Modul 4: Bild-URLs aus `watches.research_data` (KI-Lookup) in die Media Library übernehmen (Download-Job)
+- [ ] ANTHROPIC_API_KEY in Produktion setzen; KI-Lookup ggf. per Queue-Job entkoppeln (aktuell synchron mit set_time_limit 180)
 - [ ] Berechtigungen neuer Module immer im TenantDatabaseSeeder ergänzen + `tenants:seed` für Bestandsmandanten
 - [ ] RoleResource im App-Panel (eigene Rollen pro Mandant; Berechtigung `roles.manage` existiert)
 - [ ] Suspended-Tenant-UX: Login wird verweigert (canAccessPanel), aber ohne erklärende Fehlerseite

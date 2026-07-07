@@ -14,6 +14,12 @@ return [
     |
     */
 
+    // Anthropic Claude API — KI-Lookup für Uhren-Referenznummern (Modul 3).
+    // Ohne Key ist das Feature deaktiviert (Button meldet fehlende Konfiguration).
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
