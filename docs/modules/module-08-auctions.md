@@ -113,6 +113,29 @@ Rückzug), setzt die SettleLotAction die laufende Auktion auf
 (acceptsLots) — für Nachzügler den Status manuell zurück auf „Läuft"
 stellen.
 
+**Automatische Abwicklung bei Auktionsende** (`FinalizeAuctionAction`):
+Erreicht eine Online-/Hybrid-Auktion ihr Ende, wird jedes offene Los
+automatisch abgerechnet — Zuschlag an den Höchstbietenden NUR wenn das
+Limit (reserve_price) erreicht ist bzw. keines gesetzt wurde, sonst
+Rückgang (Status-Restore). Trigger: Scheduler
+`tenants:run auctions:finalize-due` (jede Minute) + Katalog-Fallback
+beim Seitenaufruf (try/catch, bricht die Seite nie). Idempotent.
+
+**Gewinner-Mail** (`AuctionWonMail`, grüne Glückwunsch-Kopfzeile):
+- Schritt 1: signierter Link (14 Tage, `shop.auctions.winner`) zur
+  Erfassung der Liefer-/Rechnungsdaten — aktualisiert den beim
+  Zuschlag angelegten Käufer-Kontakt (WinnerDetailsRequest,
+  signed-Middleware auch fürs POST auf die volle signierte URL).
+- Schritt 2: Zahlungsblock mit Kontoinhaber/IBAN/BIC (Betriebsdaten-
+  Seite im App-Panel, settings.manage; gespeichert im zentralen
+  Tenant-data-JSON), Betrag, Verwendungszweck und **GiroCode-QR**
+  (EPC069-12, `App\Support\GiroCode`, endroid/qr-code + GD, als
+  cid-Anhang eingebettet — data-URIs blockieren Mail-Clients).
+  Ohne hinterlegte IBAN entfällt der Block (Hinweis auf separate
+  Zahlungsinfos).
+- CLI-Versand setzt den URL-Root auf die Tenant-Domain
+  (FinalizeDueAuctionsCommand::forceTenantUrlRoot).
+
 **Mindestgebot** (`AuctionLot::minimumNextBid()`): Höchstgebot +
 Erhöhungsschritt, sonst Startpreis (Fallback: untere Schätzung, 50 €).
 Erhöhungsstaffel (`bidIncrementFor`): <100→10, <500→25, <1000→50,

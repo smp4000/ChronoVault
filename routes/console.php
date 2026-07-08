@@ -25,3 +25,7 @@ Artisan::command('inspire', function () {
 Schedule::command('tenants:run', ['auctions:start-due'])
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('tenants:run', ['auctions:finalize-due'])
+    ->everyMinute()
+    ->withoutOverlapping();

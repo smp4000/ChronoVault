@@ -53,4 +53,13 @@ Route::middleware([
     Route::post('/auktionen/{auction}/los/{lot}/bieten', [AuctionCatalogController::class, 'bid'])
         ->middleware('throttle:10,1')
         ->name('shop.auctions.bid');
+
+    // Gewinner-Datenerfassung — nur über den signierten Link aus der
+    // Zuschlag-Mail erreichbar (14 Tage gültig).
+    Route::get('/auktionen/{auction}/los/{lot}/gewinner', [AuctionCatalogController::class, 'winner'])
+        ->middleware('signed')
+        ->name('shop.auctions.winner');
+    Route::post('/auktionen/{auction}/los/{lot}/gewinner', [AuctionCatalogController::class, 'saveWinner'])
+        ->middleware(['signed', 'throttle:10,1'])
+        ->name('shop.auctions.winner.save');
 });

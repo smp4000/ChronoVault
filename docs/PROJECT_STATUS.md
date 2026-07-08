@@ -109,7 +109,9 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Http\Controllers\AuctionCatalogController` — Auktionskatalog + Online-Gebote (Modul 8b; Entwurf/Abgesagt → 404, Bieterdaten nie öffentlich)
 - `App\Http\Requests\PlaceBidRequest` — Formalvalidierung des Gebotsformulars (deutsche Meldungen)
 - `App\Http\Requests\WatchInquiryRequest` + `App\Mail\WatchInquiryMail` — Shop-Anfrage an die Inhaber (Reply-To Kunde, Panel-Link); POST `/uhren/{watch}/anfrage` (throttle:5,1)
-- Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA); Live-Countdown-Partial auf den Auktionsseiten
+- Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA) + `App\Mail\AuctionWonMail` (Zuschlag: Zahlungsinfos, GiroCode-QR via `App\Support\GiroCode` [EPC069-12, endroid/qr-code], signierter Daten-Link 14 Tage); Live-Countdown-Partial auf den Auktionsseiten
+- Gewinner-Datenseite: `shop.auctions.winner` (+`.save`) mit signed-Middleware — Adressformular aktualisiert den Käufer-Kontakt (`WinnerDetailsRequest`)
+- `App\Filament\App\Pages\BusinessSettings` — Betriebsdaten (Bankverbindung) im App-Panel (settings.manage; Speicherung im zentralen Tenant-data-JSON, IBAN normalisiert)
 - `routes/tenant.php` — `shop.index` (`/`), `shop.show` (`/uhren/{watch}`), `shop.auctions.*` (`/auktionen...`, Gebots-POST mit throttle:10,1)
 - `resources/views/shop/` — layout, index, show, partials/watch-card, auctions/{index,show,lot} (grimmeissen-Stil in Blau, Tailwind only)
 
@@ -131,7 +133,8 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Actions\Valuations\RecordValuationAction` — Bewertungs-Historie + Schnellzugriff-Sync (ältere Nachträge überschreiben nicht)
 - `App\Actions\Auctions\AddLotToAuctionAction` — Einliefern mit Guards; Losnummern fortlaufend; Uhr → „In Auktion" (Status gemerkt)
 - `App\Actions\Auctions\SettleLotAction` — sold() (Verkaufsbeleg + Uhr „Verkauft"; winning_bid_id → Bieter wird automatisch Kontakt, E-Mail-Wiedererkennung), unsold()/withdraw() (Status-RESTORE)
-- `App\Actions\Auctions\PlaceBidAction` — Online-Gebot mit Guards (Bietfenster, Mindestgebot) + Race-Schutz (lockForUpdate)
+- `App\Actions\Auctions\PlaceBidAction` — Online-Gebot mit Guards (Bietfenster, Mindestgebot) + Race-Schutz (lockForUpdate); Mails: Bestätigung + Überboten
+- `App\Actions\Auctions\FinalizeAuctionAction` — Auto-Abwicklung bei Auktionsende: Zuschlag an Höchstbietenden nur bei erreichtem Limit, sonst Rückgang; Gewinner-Mail (AuctionWonMail mit GiroCode-QR + signiertem Daten-Link)
 
 ## Enums
 
@@ -152,7 +155,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 ## Jobs / Scheduler
 
 - _Eigene Jobs: keine._ Genutzt werden stancl-Jobs: CreateDatabase, MigrateDatabase, SeedDatabase, DeleteDatabase
-- Scheduler (routes/console.php): `tenants:run auctions:start-due` jede Minute — startet geplante Auktionen pünktlich (Command `App\Console\Commands\StartDueAuctionsCommand`; zusätzlich Fallback beim Katalog-Aufruf). Produktion: Cron `schedule:run`; lokal `php artisan schedule:work`
+- Scheduler (routes/console.php): `tenants:run auctions:start-due` + `tenants:run auctions:finalize-due` jede Minute — startet geplante Auktionen pünktlich und wickelt abgelaufene ab (Zuschlag bei erreichtem Limit + Gewinner-Mail, sonst Rückgang); zusätzlich Fallback beim Katalog-Aufruf. Produktion: Cron `schedule:run`; lokal `php artisan schedule:work`
 
 ## Events
 
@@ -204,7 +207,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - [ ] Laravel Pulse konfigurieren; Telescope in Produktion deaktivieren
 - [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen
 - [x] ~~Shop: Anfrage-Formular~~ → umgesetzt (WatchInquiryMail an Inhaber, Reply-To Kunde)
-- [ ] Auktionen: Zuschlag-Mail an den Gewinner (Bestätigungs- und Überboten-Mail existieren; beide Mailables auf ShouldQueue umstellen sobald Horizon läuft); Live-Gebotsstand (Polling/Websockets); Demo-Auktionen auf „welle" nach dem Testen aufräumen (Rückzug stellt Uhren-Status wieder her)
+- [ ] Auktionen: alle Mailables auf ShouldQueue umstellen sobald Horizon läuft (Bestätigung/Überboten/Zuschlag existieren); Live-Gebotsstand (Polling/Websockets); Demo-Auktionen auf „welle" nach dem Testen aufräumen (Rückzug stellt Uhren-Status wieder her)
 - [ ] Shop: Betriebsdaten des Händlers (Kontakt-E-Mail/Telefon/Impressum) als Tenant-Einstellungen für Footer & Anfrage
 - [ ] Eigenes Filament-Theme-CSS (`->viteTheme()`) für Premium-Feinschliff
 

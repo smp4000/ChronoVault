@@ -26,14 +26,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Auctions\FinalizeAuctionAction;
 use App\Actions\Auctions\PlaceBidAction;
+use App\Enums\AuctionLotStatus;
 use App\Enums\AuctionStatus;
 use App\Http\Requests\PlaceBidRequest;
+use App\Http\Requests\WinnerDetailsRequest;
 use App\Models\Auction;
 use App\Models\AuctionLot;
+use App\Models\Contact;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use RuntimeException;
+use Throwable;
 
 class AuctionCatalogController extends Controller
 {
@@ -50,6 +55,7 @@ class AuctionCatalogController extends Controller
     public function index(): View
     {
         $this->startDueAuctions();
+        $this->finalizeDueAuctions();
 
         $auctions = Auction::query()
             ->whereIn('status', array_column(self::VISIBLE_STATUSES, 'value'))
@@ -130,16 +136,94 @@ class AuctionCatalogController extends Controller
         );
     }
 
+    /**
+     * Gewinner-Datenseite (signierter Link aus der Zuschlag-Mail):
+     * Liefer-/Rechnungsdaten für den Käufer-Kontakt erfassen.
+     */
+    public function winner(string $auctionId, string $lotId): View
+    {
+        [$lot, $buyer] = $this->wonLotWithBuyer($auctionId, $lotId);
+
+        return view('shop.auctions.winner', [
+            'auction' => $lot->auction,
+            'lot' => $lot,
+            'watch' => $lot->watch,
+            'buyer' => $buyer,
+        ]);
+    }
+
+    /**
+     * Gewinner-Daten speichern — aktualisiert den Käufer-Kontakt.
+     */
+    public function saveWinner(WinnerDetailsRequest $request, string $auctionId, string $lotId): RedirectResponse
+    {
+        [, $buyer] = $this->wonLotWithBuyer($auctionId, $lotId);
+
+        $buyer->update($request->validated());
+
+        return back()->with(
+            'winner_success',
+            'Vielen Dank — Ihre Daten sind bei uns eingegangen. Nach Zahlungseingang versenden wir Ihre Uhr.'
+        );
+    }
+
+    /**
+     * Zugeschlagenes Los inkl. Käufer — 404, wenn das Los nicht
+     * zugeschlagen ist oder (noch) kein Käufer hinterlegt wurde.
+     *
+     * @return array{0: AuctionLot, 1: Contact}
+     */
+    private function wonLotWithBuyer(string $auctionId, string $lotId): array
+    {
+        $auction = Auction::query()->findOrFail($auctionId);
+
+        /** @var AuctionLot $lot */
+        $lot = $auction->lots()
+            ->where('status', AuctionLotStatus::Sold->value)
+            ->with(['watch.brand', 'buyer', 'auction'])
+            ->findOrFail($lotId);
+
+        $buyer = $lot->buyer;
+
+        abort_if($buyer === null, 404);
+
+        return [$lot, $buyer];
+    }
+
     private function visibleAuction(string $auctionId): Auction
     {
         $auction = Auction::query()
             ->whereIn('status', array_column(self::VISIBLE_STATUSES, 'value'))
             ->findOrFail($auctionId);
 
-        // Pünktlicher Start auch ohne Scheduler: Seitenaufruf genügt.
+        // Pünktlicher Start & pünktliche Abwicklung auch ohne Scheduler:
+        // der Seitenaufruf genügt.
         $auction->startIfDue();
+        $this->finalizeDueAuctions();
 
-        return $auction;
+        return $auction->refresh();
+    }
+
+    /**
+     * Fallback ohne Cron: abgelaufene Auktionen beim Seitenaufruf
+     * abwickeln (Zuschlag/Rückgang + Gewinner-Mail). Fehler dürfen die
+     * öffentliche Seite nie brechen — nur loggen.
+     */
+    private function finalizeDueAuctions(): void
+    {
+        try {
+            $due = Auction::query()
+                ->where('status', AuctionStatus::Live->value)
+                ->whereNotNull('ends_at')
+                ->where('ends_at', '<=', now())
+                ->get();
+
+            foreach ($due as $auction) {
+                app(FinalizeAuctionAction::class)->execute($auction);
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
