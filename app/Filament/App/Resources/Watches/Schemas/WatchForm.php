@@ -422,13 +422,31 @@ class WatchForm
                                     ]),
                             ]),
 
-                        Tab::make('Beschreibung & Notizen')
-                            ->icon('heroicon-m-pencil-square')
+                        Tab::make('Shop & Beschreibung')
+                            ->icon('heroicon-m-building-storefront')
                             ->components([
+                                Section::make('Öffentlicher Shop')
+                                    ->description('Das Schaufenster Ihres Betriebs auf Ihrer Domain — nur veröffentlichte, verkäufliche Uhren erscheinen dort.')
+                                    ->icon('heroicon-m-building-storefront')
+                                    ->columns(2)
+                                    ->components([
+                                        Toggle::make('is_published')
+                                            ->label('Im Shop veröffentlichen')
+                                            ->inline(false)
+                                            ->helperText('Verkaufte Uhren und Uhren im Service verschwinden automatisch.'),
+
+                                        TextInput::make('asking_price')
+                                            ->label('Verkaufspreis (Shop)')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->prefix('€')
+                                            ->helperText('Leer lassen für „Preis auf Anfrage".'),
+                                    ]),
+
                                 Textarea::make('description')
                                     ->label('Beschreibung')
                                     ->rows(5)
-                                    ->helperText('Öffentlicher Text (später Inserat-Basis). Der KI-Lookup ergänzt hier die Kurzbeschreibung.'),
+                                    ->helperText('Öffentlicher Text — erscheint auf der Shop-Detailseite. Der KI-Lookup ergänzt hier die Kurzbeschreibung.'),
 
                                 Textarea::make('notes')
                                     ->label('Interne Notizen')

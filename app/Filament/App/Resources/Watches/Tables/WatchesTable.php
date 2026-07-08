@@ -105,6 +105,11 @@ class WatchesTable
                     ->boolean()
                     ->toggleable(),
 
+                IconColumn::make('is_published')
+                    ->label('Shop')
+                    ->boolean()
+                    ->toggleable(),
+
                 TextColumn::make('current_market_value')
                     ->label('Marktwert')
                     ->money('EUR')

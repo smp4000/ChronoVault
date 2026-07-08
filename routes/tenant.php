@@ -12,17 +12,22 @@
  *   was außerhalb des Panels existiert.
  *
  * Aktuell:
- *   - "/" → Redirect auf das Tenant-Panel (/app). Ein Mandant hat keine
- *     eigene Marketing-Startseite; die Anwendung IST das Panel.
+ *   - "/"            → Öffentlicher Shop (Schaufenster des Händlers)
+ *   - "/uhren/{id}"  → Detailseite einer veröffentlichten Uhr
+ *
+ * WARUM der Shop auf "/" liegt:
+ *   Die Tenant-Domain ist die öffentliche Adresse des Händlers — das
+ *   Schaufenster gehört an die Wurzel. Das interne Panel bleibt unter
+ *   /app erreichbar (Bookmark-kompatibel, eigener Login).
  *
  * Mögliche Erweiterungen:
- *   - Öffentliche Schaufenster-Seiten pro Händler (Modul Marktplatz)
- *   - Webhook-Endpunkte im Tenant-Kontext
+ *   - Anfrage-Formular (POST), Webhook-Endpunkte im Tenant-Kontext
  * =========================================================================
  */
 
 declare(strict_types=1);
 
+use App\Http\Controllers\ShopController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -32,5 +37,6 @@ Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
-    Route::get('/', fn () => redirect('/app'));
+    Route::get('/', [ShopController::class, 'index'])->name('shop.index');
+    Route::get('/uhren/{watch}', [ShopController::class, 'show'])->name('shop.show');
 });

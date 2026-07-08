@@ -44,6 +44,7 @@ use App\Enums\WatchStatus;
 use App\Observers\WatchObserver;
 use Database\Factories\WatchFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -95,6 +96,8 @@ class Watch extends Model implements HasMedia
         'gender',
         'condition',
         'status',
+        'is_published',
+        'asking_price',
         'has_box',
         'has_papers',
         'case_material',
@@ -148,6 +151,8 @@ class Watch extends Model implements HasMedia
             'is_production_year_approximate' => 'boolean',
             'condition' => WatchCondition::class,
             'status' => WatchStatus::class,
+            'is_published' => 'boolean',
+            'asking_price' => 'decimal:2',
             'movement_type' => MovementType::class,
             'gender' => WatchGender::class,
             'has_box' => 'boolean',
@@ -328,6 +333,40 @@ class Watch extends Model implements HasMedia
     public function isInService(): bool
     {
         return $this->getAttribute('status') === WatchStatus::InService;
+    }
+
+    /**
+     * Formatierter Shop-Verkaufspreis („12.500 €") — null, wenn kein
+     * Preis hinterlegt ist (der Shop zeigt dann „Preis auf Anfrage").
+     * Ganze Beträge ohne Nachkommastellen, krumme mit zwei.
+     */
+    public function formattedAskingPrice(): ?string
+    {
+        $price = $this->getAttribute('asking_price');
+
+        if ($price === null) {
+            return null;
+        }
+
+        $value = (float) $price;
+        $decimals = fmod($value, 1.0) > 0.0 ? 2 : 0;
+
+        return number_format($value, $decimals, ',', '.').' €';
+    }
+
+    /**
+     * Scope: im öffentlichen Shop sichtbare Uhren — veröffentlicht UND
+     * verkäuflich (An Lager/Kommission). Verkaufte oder im Service
+     * befindliche Uhren verschwinden automatisch aus dem Schaufenster.
+     *
+     * @param  Builder<Watch>  $query
+     * @return Builder<Watch>
+     */
+    public function scopePublishedInShop(Builder $query): Builder
+    {
+        return $query
+            ->where('is_published', true)
+            ->whereIn('status', array_column(WatchStatus::sellableStatuses(), 'value'));
     }
 
     /**

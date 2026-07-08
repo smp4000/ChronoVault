@@ -4,24 +4,25 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-08 (Modul 7 — Bewertungen & Marktwert)
+> Letzte Aktualisierung: 2026-07-08 (Öffentlicher Shop — Schaufenster)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 7 (Bewertungen & Marktwert) abgeschlossen.**
-Bewertungs-Historie (valuations) mit RecordValuationAction (spiegelt den
-Wert in current_market_value/last_valuation_at — ältere nachgetragene
-Bewertungen überschreiben nicht), KI-Marktrecherche via Perplexity
-(Zustand/Lieferumfang/Baujahr im Prompt, Spanne + Quellen; live
-verifiziert), „Marktwert"-Schnellaktion mit Einkaufs-Delta,
-ValuationsRelationManager („Wertentwicklung") an der Uhr,
-Marktwert-Spalte und InventoryValueWidget (Einkaufs-/Marktwert Bestand +
-Entwicklung %). 53 Tests grün, PHPStan sauber.
+**Öffentlicher Shop (Schaufenster) abgeschlossen** ([Doku](modules/shop.md)).
+Jede Tenant-Domain zeigt auf `/` die Kollektion und auf `/uhren/{id}` die
+Detailseite — Design nach docs/DESIGN.md (grimmeissen.de-Stil in Blau,
+weiße Basis, Tailwind only). Veröffentlichung pro Uhr per Opt-in-Toggle
+(`is_published`) + eigenem Verkaufspreis (`asking_price`, leer = „Preis
+auf Anfrage"); sichtbar sind nur verkäufliche Status (Scope
+`publishedInShop()`), Verkauf/Service blendet automatisch aus.
+Markenfilter, Pagination, Foto-Galerie, gruppierte Spezifikationen,
+Anfrage-Box, responsiv. Live verifiziert auf welle.localhost.
+58 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Öffentlicher Shop (docs/DESIGN.md — grimmeissen.de
-in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
+**Nächster Schritt:** Modul 8 (Auktionen) ODER Modul 9 (Reporting) ODER
+Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 
 ---
 
@@ -37,6 +38,7 @@ in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
 | 5 | Kauf/Verkauf & Preishistorie ([Doku](modules/module-05-transactions.md)) | ✅ Fertig |
 | 6 | Service-Historie & Wartung ([Doku](modules/module-06-service.md)) | ✅ Fertig |
 | 7 | Bewertungen & Marktwert ([Doku](modules/module-07-valuations.md)) | ✅ Fertig |
+| — | Öffentlicher Shop / Schaufenster ([Doku](modules/shop.md)) | ✅ Fertig |
 | 8 | Auktionen | ⬜ Offen |
 | 9 | Reporting & Dashboards | ⬜ Offen |
 | 10 | API (Sanctum) & Integrationen | ⬜ Offen |
@@ -55,7 +57,7 @@ in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
 - `media` (spatie/laravel-medialibrary, uuidMorphs — Collections photos/documents an Watch)
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
-- `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
+- `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], Shop [is_published + asking_price], research_data JSON [KI-Lookup], SoftDeletes)
 - `contacts` (UUID, type, Firma/Vor-/Nachname, E-Mail/Telefon/Adresse, SoftDeletes)
 - `transactions` (UUID, watch_id + contact_id FK restrictOnDelete, created_by FK, type purchase/sale, price, currency, transacted_at, payment_method, document_number, SoftDeletes)
 - `service_records` (UUID, watch_id + contact_id FK restrictOnDelete, type, status, previous_watch_status [Restore!], cost/currency, submitted/completed/warranty, SoftDeletes)
@@ -67,7 +69,7 @@ in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
 - `App\Models\Tenant` — stancl BaseTenant + SoftDeletes, Custom Columns (name, slug, status)
 - `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers/Watches (Werkhersteller wie ETA sind auch Brands)
 - `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; hasMany Watches; MovementType-Cast
-- `App\Models\Watch` — Tenant; HasUuids + SoftDeletes + Scout Searchable; belongsTo Brand/Caliber; fullName()
+- `App\Models\Watch` — Tenant; HasUuids + SoftDeletes + Scout Searchable; belongsTo Brand/Caliber; fullName(); Shop: scopePublishedInShop() + formattedAskingPrice()
 
 ## Filament Resources
 
@@ -87,6 +89,12 @@ in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
 - `App\Widgets\WatchStatsWidget` (Bestandskennzahlen, Tenant-Dashboard; canView nur mit watches.view)
 - `App\Widgets\InventoryValueWidget` (Einkaufs-/Marktwert des Bestands + Wertentwicklung %, Modul 7)
+
+## Öffentlicher Shop (außerhalb Filament)
+
+- `App\Http\Controllers\ShopController` — Listing (Markenfilter, Pagination) + Detailseite (404 für Unveröffentlichtes)
+- `routes/tenant.php` — `shop.index` (`/`) und `shop.show` (`/uhren/{watch}`) auf der Tenant-Domain
+- `resources/views/shop/` — layout, index, show, partials/watch-card (grimmeissen-Stil in Blau, Tailwind only)
 
 ## Services
 
@@ -170,6 +178,8 @@ in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
 - [ ] Meilisearch lokal installieren, Scout-Driver umstellen (ADR-003)
 - [ ] Laravel Pulse konfigurieren; Telescope in Produktion deaktivieren
 - [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen
+- [ ] Shop: Anfrage-Formular (Lead → Contact + Notification) statt reiner Anfrage-Box
+- [ ] Shop: Betriebsdaten des Händlers (Kontakt-E-Mail/Telefon/Impressum) als Tenant-Einstellungen für Footer & Anfrage
 - [ ] Eigenes Filament-Theme-CSS (`->viteTheme()`) für Premium-Feinschliff
 
 ## Mögliche zukünftige Verbesserungen
