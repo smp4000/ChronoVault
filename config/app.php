@@ -59,13 +59,14 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | Europe/Berlin statt UTC: Händler geben Auktions-Start/-Ende als
+    | deutsche Wanduhrzeit ein — mit UTC starteten Auktionen 2 Stunden
+    | zu spät und Countdowns zeigten 2 Stunden zu viel. Alle Mandanten
+    | sind deutschsprachig (UI-Projektregel).
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Europe/Berlin'),
 
     /*
     |--------------------------------------------------------------------------
