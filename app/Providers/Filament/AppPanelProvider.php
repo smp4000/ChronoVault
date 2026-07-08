@@ -43,6 +43,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Enums\Width;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -69,6 +70,9 @@ class AppPanelProvider extends PanelProvider
             ])
             ->spa()
             ->sidebarCollapsibleOnDesktop()
+            // Inhalte immer über die volle Bildschirmbreite — die
+            // Standard-Begrenzung verschenkt auf großen Monitoren Platz.
+            ->maxContentWidth(Width::Full)
             ->login()
             ->passwordReset()
             ->profile()
