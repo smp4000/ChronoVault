@@ -260,6 +260,16 @@ class Watch extends Model implements HasMedia
     }
 
     /**
+     * Auktions-Historie der Uhr (Modul 8), neueste zuerst.
+     *
+     * @return HasMany<AuctionLot, $this>
+     */
+    public function auctionLots(): HasMany
+    {
+        return $this->hasMany(AuctionLot::class)->orderByDesc('created_at');
+    }
+
+    /**
      * Anzeige-Name "Marke Modell (Referenz)" — z. B. für Global Search,
      * Notifications und spätere Belege.
      */

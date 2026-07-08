@@ -8,6 +8,9 @@
 
 declare(strict_types=1);
 
+use App\Enums\AuctionLotStatus;
+use App\Enums\AuctionStatus;
+use App\Enums\AuctionVenue;
 use App\Enums\BraceletMaterial;
 use App\Enums\CaseMaterial;
 use App\Enums\ClaspType;
@@ -108,8 +111,26 @@ it('keeps stable watch status values with german labels and sellable semantics',
         ->and(WatchStatus::Reserved->getLabel())->toBe('Reserviert')
         ->and(WatchStatus::InService->getLabel())->toBe('Im Service')
         ->and(WatchStatus::Consignment->getLabel())->toBe('Kommission')
+        ->and(WatchStatus::InAuction->value)->toBe('in_auction')
+        ->and(WatchStatus::InAuction->getLabel())->toBe('In Auktion')
         ->and(WatchStatus::Sold->getLabel())->toBe('Verkauft')
         ->and(WatchStatus::sellableStatuses())->toBe([WatchStatus::InStock, WatchStatus::Consignment]);
+});
+
+it('keeps stable auction enums with german labels', function () {
+    expect(AuctionStatus::Draft->value)->toBe('draft')
+        ->and(AuctionStatus::Draft->getLabel())->toBe('Entwurf')
+        ->and(AuctionStatus::Scheduled->getLabel())->toBe('Geplant')
+        ->and(AuctionStatus::Live->getLabel())->toBe('Läuft')
+        ->and(AuctionStatus::Completed->getLabel())->toBe('Abgeschlossen')
+        ->and(AuctionStatus::Cancelled->getLabel())->toBe('Abgesagt')
+        ->and(AuctionStatus::acceptingLots())->toBe([AuctionStatus::Draft, AuctionStatus::Scheduled, AuctionStatus::Live])
+        ->and(AuctionVenue::Saleroom->getLabel())->toBe('Saalauktion')
+        ->and(AuctionVenue::Online->getLabel())->toBe('Online-Auktion')
+        ->and(AuctionLotStatus::Open->value)->toBe('open')
+        ->and(AuctionLotStatus::Sold->getLabel())->toBe('Zugeschlagen')
+        ->and(AuctionLotStatus::Unsold->getLabel())->toBe('Rückgang')
+        ->and(AuctionLotStatus::Withdrawn->getLabel())->toBe('Zurückgezogen');
 });
 
 it('keeps stable tenant status values with german labels', function () {

@@ -14,10 +14,11 @@
  *   - Reserved    : Reserviert (Kunde hat zugesagt, noch nicht bezahlt)
  *   - InService   : Im Service (Revision/Reparatur, nicht verfügbar)
  *   - Consignment : Kommission (Fremdeigentum im Verkauf)
+ *   - InAuction   : In Auktion (als Los eingeliefert — Modul 8)
  *   - Sold        : Verkauft (bleibt für Historie/Statistik erhalten)
  *
  * Mögliche Erweiterungen:
- *   - InAuction (Modul 8), OnApproval (Ansichtssendung)
+ *   - OnApproval (Ansichtssendung)
  *
  * ACHTUNG: Persistierte Werte NIE umbenennen (Tenant-Datenbanken!).
  * =========================================================================
@@ -37,6 +38,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
     case Reserved = 'reserved';
     case InService = 'in_service';
     case Consignment = 'consignment';
+    case InAuction = 'in_auction';
     case Sold = 'sold';
 
     public function getLabel(): string
@@ -46,6 +48,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::Reserved => 'Reserviert',
             self::InService => 'Im Service',
             self::Consignment => 'Kommission',
+            self::InAuction => 'In Auktion',
             self::Sold => 'Verkauft',
         };
     }
@@ -57,6 +60,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::Reserved => 'warning',
             self::InService => 'info',
             self::Consignment => 'primary',
+            self::InAuction => 'warning',
             self::Sold => 'gray',
         };
     }
@@ -68,6 +72,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::Reserved => 'heroicon-m-clock',
             self::InService => 'heroicon-m-wrench-screwdriver',
             self::Consignment => 'heroicon-m-arrows-right-left',
+            self::InAuction => 'heroicon-m-megaphone',
             self::Sold => 'heroicon-m-banknotes',
         };
     }

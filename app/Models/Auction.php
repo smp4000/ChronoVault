@@ -1,0 +1,135 @@
+<?php
+
+/**
+ * =========================================================================
+ * Auction — Auktions-Ereignis (Tenant-Datenbank, Modul 8)
+ * =========================================================================
+ *
+ * Zweck:
+ *   Eine Versteigerung (Saal/Online/Hybrid) mit Titel, Termin und
+ *   Status-Lebenszyklus. Die eigentlichen Objekte hängen als Lose
+ *   (AuctionLot) daran — jedes Los verweist auf eine Uhr.
+ *
+ * Verantwortlichkeiten:
+ *   - Beziehung zu den Losen (sortiert nach Losnummer)
+ *   - Statuslogik: acceptsLots() (Einlieferung), isCompleted()
+ *
+ * Lose IMMER über die Actions verwalten (AddLotToAuctionAction /
+ * SettleLotAction) — sie halten den Uhren-Status synchron.
+ * =========================================================================
+ */
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Enums\AuctionLotStatus;
+use App\Enums\AuctionStatus;
+use App\Enums\AuctionVenue;
+use Database\Factories\AuctionFactory;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Auction extends Model
+{
+    /** @use HasFactory<AuctionFactory> */
+    use HasFactory;
+
+    use HasUuids;
+    use SoftDeletes;
+
+    protected $fillable = [
+        'created_by_user_id',
+        'title',
+        'description',
+        'venue',
+        'location',
+        'status',
+        'starts_at',
+        'ends_at',
+        'currency',
+        'notes',
+    ];
+
+    /**
+     * Model-seitige Defaults (der DB-Default greift nur in der Datenbank).
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'draft',
+        'venue' => 'saleroom',
+        'currency' => 'EUR',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'venue' => AuctionVenue::class,
+            'status' => AuctionStatus::class,
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * Erfasser automatisch setzen (Tenant-Benutzer).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Auction $auction): void {
+            $auction->created_by_user_id ??= auth()->id();
+        });
+    }
+
+    /**
+     * Lose der Auktion in Katalog-Reihenfolge.
+     *
+     * @return HasMany<AuctionLot, $this>
+     */
+    public function lots(): HasMany
+    {
+        return $this->hasMany(AuctionLot::class)->orderBy('lot_number');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Dürfen aktuell Lose eingeliefert werden?
+     * (getAttribute — typsicher für statische Analyse.)
+     */
+    public function acceptsLots(): bool
+    {
+        return in_array($this->getAttribute('status'), AuctionStatus::acceptingLots(), true);
+    }
+
+    /**
+     * Ist die Auktion abgeschlossen?
+     */
+    public function isCompleted(): bool
+    {
+        return $this->getAttribute('status') === AuctionStatus::Completed;
+    }
+
+    /**
+     * Anzahl noch offener (nicht abgerechneter) Lose — z. B. als Guard
+     * für den Abschluss der Auktion.
+     */
+    public function openLotsCount(): int
+    {
+        return $this->lots()->where('status', AuctionLotStatus::Open->value)->count();
+    }
+}

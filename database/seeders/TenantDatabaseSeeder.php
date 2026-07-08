@@ -89,6 +89,13 @@ class TenantDatabaseSeeder extends Seeder
         'valuations.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'valuations.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'valuations.delete' => [UserRole::Owner, UserRole::Admin],
+
+        // Modul 8 — Auktionen & Lose: gleiche Semantik (Einliefern und
+        // Zuschlagen ist operatives Arbeiten, Löschen nur Verwaltung).
+        'auctions.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'auctions.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'auctions.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'auctions.delete' => [UserRole::Owner, UserRole::Admin],
     ];
 
     public function run(): void

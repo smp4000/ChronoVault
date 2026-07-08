@@ -4,25 +4,26 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-08 (Öffentlicher Shop — Schaufenster)
+> Letzte Aktualisierung: 2026-07-08 (Modul 8 — Auktionen)
 
 ---
 
 ## Aktueller Stand
 
-**Öffentlicher Shop (Schaufenster) abgeschlossen** ([Doku](modules/shop.md)).
-Jede Tenant-Domain zeigt auf `/` die Kollektion und auf `/uhren/{id}` die
-Detailseite — Design nach docs/DESIGN.md (grimmeissen.de-Stil in Blau,
-weiße Basis, Tailwind only). Veröffentlichung pro Uhr per Opt-in-Toggle
-(`is_published`) + eigenem Verkaufspreis (`asking_price`, leer = „Preis
-auf Anfrage"); sichtbar sind nur verkäufliche Status (Scope
-`publishedInShop()`), Verkauf/Service blendet automatisch aus.
-Markenfilter, Pagination, Foto-Galerie, gruppierte Spezifikationen,
-Anfrage-Box, responsiv. Live verifiziert auf welle.localhost.
-58 Tests grün, PHPStan sauber.
+**Modul 8 (Auktionen) abgeschlossen** ([Doku](modules/module-08-auctions.md)).
+Auktions-Ereignisse (Saal/Online/Hybrid, Status-Lebenszyklus) mit
+Losverwaltung: Einliefern über AddLotToAuctionAction (Guards, fortlaufende
+Losnummern, Uhr → neuer WatchStatus „In Auktion" mit gemerktem
+Vorzustand), Abrechnung über SettleLotAction (Zuschlag → Verkaufsbeleg
+via RecordSaleAction + Uhr „Verkauft"; Rückgang/Rückzug → Status-RESTORE).
+AuctionResource (Gruppe „Verkauf") mit Los-Kennzahlen (Lose, Zuschläge,
+Erlös) und LotsRelationManager (Einliefern/Zuschlag/Rückgang/Rückzug).
+Berechtigungen auctions.* geseedet + nachgerollt; Lösch-Schutz für
+Auktionen mit offenen Losen, zugeschlagene Lose und Käufer-Kontakte.
+65 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 8 (Auktionen) ODER Modul 9 (Reporting) ODER
-Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
+**Nächster Schritt:** Modul 9 (Reporting & Dashboards) ODER Modul 10
+(API/Sanctum) ODER Shop-Ausbau (Anfrage-Formular, Betriebsdaten).
 
 ---
 
@@ -39,7 +40,7 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 | 6 | Service-Historie & Wartung ([Doku](modules/module-06-service.md)) | ✅ Fertig |
 | 7 | Bewertungen & Marktwert ([Doku](modules/module-07-valuations.md)) | ✅ Fertig |
 | — | Öffentlicher Shop / Schaufenster ([Doku](modules/shop.md)) | ✅ Fertig |
-| 8 | Auktionen | ⬜ Offen |
+| 8 | Auktionen ([Doku](modules/module-08-auctions.md)) | ✅ Fertig |
 | 9 | Reporting & Dashboards | ⬜ Offen |
 | 10 | API (Sanctum) & Integrationen | ⬜ Offen |
 
@@ -62,6 +63,8 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 - `transactions` (UUID, watch_id + contact_id FK restrictOnDelete, created_by FK, type purchase/sale, price, currency, transacted_at, payment_method, document_number, SoftDeletes)
 - `service_records` (UUID, watch_id + contact_id FK restrictOnDelete, type, status, previous_watch_status [Restore!], cost/currency, submitted/completed/warranty, SoftDeletes)
 - `valuations` (UUID, watch_id FK restrictOnDelete, source, market_value + Spanne, currency, valued_at, summary, source_urls JSON, SoftDeletes)
+- `auctions` (UUID, title, venue, location, status, starts_at/ends_at, currency, SoftDeletes)
+- `auction_lots` (UUID, auction_id FK cascade, watch_id + buyer_contact_id FK restrictOnDelete, lot_number [unique je Auktion], status, previous_watch_status [Restore!], starting/estimate/reserve/hammer-Preise, settled_at, SoftDeletes)
 
 ## Models
 
@@ -70,6 +73,8 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 - `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers/Watches (Werkhersteller wie ETA sind auch Brands)
 - `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; hasMany Watches; MovementType-Cast
 - `App\Models\Watch` — Tenant; HasUuids + SoftDeletes + Scout Searchable; belongsTo Brand/Caliber; fullName(); Shop: scopePublishedInShop() + formattedAskingPrice()
+- `App\Models\Auction` — Tenant; HasUuids + SoftDeletes; hasMany Lots (Katalog-Reihenfolge); acceptsLots()/isCompleted()/openLotsCount()
+- `App\Models\AuctionLot` — Tenant; HasUuids + SoftDeletes; belongsTo Auction/Watch/Buyer(Contact); isOpen()/isSold()
 
 ## Filament Resources
 
@@ -84,6 +89,7 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 - `Transactions\TransactionResource` (Gruppe „Verkauf"; Erstellung via Domain-Actions in CreateTransaction; Form/Table wiederverwendet vom RelationManager)
 - `Contacts\ContactResource` (Gruppe „Verkauf"; Kundenstamm mit Adress-Sektion)
 - `ServiceRecords\ServiceRecordResource` (Gruppe „Bestand"; Anlage via StartServiceAction, „Abschließen"-Aktion, ServiceRecordsRelationManager an der Uhr, „In Service"-Schnellaktion in der Bestandsliste)
+- `Auctions\AuctionResource` (Gruppe „Verkauf"; Los-Kennzahlen via withCount/withSum; LotsRelationManager mit „Uhr einliefern"/Zuschlag/Rückgang/Rückzug über die Domain-Actions)
 
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
@@ -111,6 +117,8 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 - `App\Actions\Services\StartServiceAction` — Vorgang anlegen, Status merken, Uhr → „Im Service"
 - `App\Actions\Services\CompleteServiceAction` — Abschluss + Status-RESTORE (kein Override bei zwischenzeitlicher Änderung)
 - `App\Actions\Valuations\RecordValuationAction` — Bewertungs-Historie + Schnellzugriff-Sync (ältere Nachträge überschreiben nicht)
+- `App\Actions\Auctions\AddLotToAuctionAction` — Einliefern mit Guards; Losnummern fortlaufend; Uhr → „In Auktion" (Status gemerkt)
+- `App\Actions\Auctions\SettleLotAction` — sold() (Verkaufsbeleg + Uhr „Verkauft"), unsold()/withdraw() (Status-RESTORE)
 
 ## Enums
 
@@ -126,6 +134,7 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 - Modul 5: `TransactionType` (purchase/sale), `PaymentMethod` (7 Zahlungsarten), `ContactType` (5 Kontaktarten inkl. Workshop)
 - Modul 6: `ServiceType` (8 Service-Arten), `ServiceStatus` (open/in_progress/completed)
 - Modul 7: `ValuationSource` (manual/ai_research/external)
+- Modul 8: `AuctionStatus` (draft/scheduled/live/completed/cancelled, acceptingLots()), `AuctionVenue` (saleroom/online/hybrid), `AuctionLotStatus` (open/sold/unsold/withdrawn); `WatchStatus` um `in_auction` erweitert (NICHT sellable)
 
 ## Jobs
 
@@ -142,10 +151,12 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 - `App\Policies\BrandPolicy` — master_data.*; Referenz-Schutz (Kaliber & Uhren, inkl. soft-gelöschter)
 - `App\Policies\CaliberPolicy` — master_data.*; Referenz-Schutz (Uhren, inkl. soft-gelöschter)
 - `App\Policies\WatchPolicy` — permission-basiert (watches.*)
-- `App\Policies\ContactPolicy` — contacts.*; Referenz-Schutz (Kontakt mit Belegen ODER Servicevorgängen nicht löschbar)
+- `App\Policies\ContactPolicy` — contacts.*; Referenz-Schutz (Kontakt mit Belegen, Servicevorgängen ODER Auktionskäufen nicht löschbar)
 - `App\Policies\TransactionPolicy` — transactions.*; Löschen (Storno) nur Verwaltung
 - `App\Policies\ServiceRecordPolicy` — services.*
 - `App\Policies\ValuationPolicy` — valuations.*
+- `App\Policies\AuctionPolicy` — auctions.*; Löschen nur ohne offene Lose (inkl. soft-gelöschter)
+- `App\Policies\AuctionLotPolicy` — auctions.*; zugeschlagene Lose (Beleg-Historie) nicht löschbar
 
 ## Observers
 
@@ -156,7 +167,7 @@ Shop-Ausbau (Anfrage-Formular, Betriebsdaten/Impressum).
 
 - `Database\Seeders\TenantDatabaseSeeder` — Rollen + Berechtigungen (users.*, roles.manage, settings.manage, master_data.*, watches.*); ruft MasterDataSeeder auf; wird bei jedem Provisioning ausgeführt
 - `Database\Seeders\MasterDataSeeder` — Starter-Grundstock (20 Marken, 17 Kaliber), idempotent, respektiert mandantenseitige Löschungen
-- `Database\Factories\TenantFactory`, `BrandFactory`, `CaliberFactory`, `WatchFactory` (+ UserFactory aus dem Skeleton)
+- `Database\Factories\TenantFactory`, `BrandFactory`, `CaliberFactory`, `WatchFactory`, `AuctionFactory`, `AuctionLotFactory` (+ UserFactory aus dem Skeleton)
 
 ## Test-Infrastruktur
 

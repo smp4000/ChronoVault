@@ -80,6 +80,16 @@ class Contact extends Model
     }
 
     /**
+     * Auktionslose, bei denen dieser Kontakt der Käufer ist (Modul 8).
+     *
+     * @return HasMany<AuctionLot, $this>
+     */
+    public function auctionLots(): HasMany
+    {
+        return $this->hasMany(AuctionLot::class, 'buyer_contact_id');
+    }
+
+    /**
      * Anzeigename: Firma — sonst "Vorname Nachname".
      */
     public function displayName(): string
