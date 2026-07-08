@@ -33,6 +33,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class Auction extends Model
 {
@@ -114,6 +115,38 @@ class Auction extends Model
     public function acceptsLots(): bool
     {
         return in_array($this->getAttribute('status'), AuctionStatus::acceptingLots(), true);
+    }
+
+    /**
+     * Nimmt diese Auktion überhaupt Online-Gebote entgegen?
+     * (Nur Online-/Hybrid-Auktionen — Saalauktionen laufen vor Ort.)
+     */
+    public function allowsOnlineBidding(): bool
+    {
+        return in_array(
+            $this->getAttribute('venue'),
+            [AuctionVenue::Online, AuctionVenue::Hybrid],
+            true,
+        );
+    }
+
+    /**
+     * Ist das Bietfenster gerade offen? Online-fähig + Status "Läuft" +
+     * Endzeit (falls gesetzt) noch nicht überschritten.
+     */
+    public function isBiddingOpen(): bool
+    {
+        if (! $this->allowsOnlineBidding()) {
+            return false;
+        }
+
+        if ($this->getAttribute('status') !== AuctionStatus::Live) {
+            return false;
+        }
+
+        $endsAt = $this->getAttribute('ends_at');
+
+        return ! ($endsAt instanceof Carbon && now()->gt($endsAt));
     }
 
     /**

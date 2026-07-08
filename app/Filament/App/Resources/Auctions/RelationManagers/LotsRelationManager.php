@@ -115,7 +115,10 @@ class LotsRelationManager extends RelationManager
         return $table
             ->modelLabel('Los')
             ->pluralModelLabel('Lose')
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['watch.brand', 'buyer']))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->with(['watch.brand', 'buyer'])
+                ->withCount('bids')
+                ->withMax('bids', 'amount'))
             ->columns([
                 TextColumn::make('lot_number')
                     ->label('Los')
@@ -151,6 +154,15 @@ class LotsRelationManager extends RelationManager
                     ->placeholder('—')
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('bids_max_amount')
+                    ->label('Höchstgebot')
+                    ->money('EUR')
+                    ->placeholder('—')
+                    ->alignEnd()
+                    ->description(fn (AuctionLot $lot): ?string => $lot->bids_count > 0
+                        ? $lot->bids_count.' '.($lot->bids_count === 1 ? 'Gebot' : 'Gebote')
+                        : null),
 
                 TextColumn::make('hammer_price')
                     ->label('Zuschlag')
@@ -198,6 +210,7 @@ class LotsRelationManager extends RelationManager
                 self::soldAction(),
                 self::unsoldAction(),
                 self::withdrawAction(),
+                self::bidsAction(),
 
                 EditAction::make()
                     ->visible(fn (AuctionLot $lot): bool => $lot->isOpen()),
@@ -225,13 +238,22 @@ class LotsRelationManager extends RelationManager
                 && (auth()->user()?->can('auctions.update') ?? false))
             ->modalHeading(fn (AuctionLot $lot): string => 'Zuschlag für Los '.$lot->lot_number)
             ->modalSubmitActionLabel('Zuschlag erfassen')
+            // Höchstes Online-Gebot als Vorschlag — Saal-/Telefongebote
+            // können den Wert im Modal einfach überschreiben.
+            ->fillForm(fn (AuctionLot $lot): array => [
+                'hammer_price' => $lot->highestBidAmount(),
+                'settled_at' => now(),
+            ])
             ->form([
                 TextInput::make('hammer_price')
                     ->label('Hammerpreis')
                     ->numeric()
                     ->minValue(0)
                     ->prefix('€')
-                    ->required(),
+                    ->required()
+                    ->helperText(fn (AuctionLot $lot): ?string => $lot->highestBidAmount() !== null
+                        ? 'Vorbefüllt mit dem höchsten Online-Gebot.'
+                        : null),
 
                 Select::make('buyer_contact_id')
                     ->label('Käufer')
@@ -273,6 +295,25 @@ class LotsRelationManager extends RelationManager
                     ->body('Verkaufsbeleg wurde angelegt — die Uhr ist jetzt „Verkauft".')
                     ->send();
             });
+    }
+
+    /**
+     * Gebotsliste (nur intern — enthält Bieterdaten!).
+     */
+    private static function bidsAction(): Action
+    {
+        return Action::make('showBids')
+            ->label('Gebote')
+            ->icon('heroicon-m-list-bullet')
+            ->color('gray')
+            ->visible(fn (AuctionLot $lot): bool => $lot->bids_count > 0
+                && (auth()->user()?->can('auctions.view') ?? false))
+            ->modalHeading(fn (AuctionLot $lot): string => 'Gebote für Los '.$lot->lot_number)
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Schließen')
+            ->modalContent(fn (AuctionLot $lot) => view('filament.auction-lot-bids', [
+                'bids' => $lot->bids()->get(),
+            ]));
     }
 
     /**

@@ -1,7 +1,9 @@
-# Modul 8: Auktionen
+# Modul 8: Auktionen (+ 8b: Online-Bieten)
 
 > Auktions-Ereignisse mit Losverwaltung — für Auktionshäuser und Händler,
 > die eigene Versteigerungen durchführen oder Uhren einliefern.
+> Modul 8b ergänzt den öffentlichen Auktionskatalog mit Online-Geboten
+> auf der Tenant-Domain (siehe unten).
 
 ## Zweck
 
@@ -81,9 +83,63 @@ purchase_price bereits einen Ankauf-Beleg an — nach Typ filtern!);
 Restore bei Rückgang/Rückzug + kein Restore bei zwischenzeitlicher
 Änderung; Rollen-Berechtigungen; Lösch-Schutz (Auktion/Los/Käufer).
 
+---
+
+## Modul 8b: Online-Bieten (öffentlicher Auktionskatalog)
+
+### Konzept
+
+Bieter brauchen KEIN Konto (v1): leichtgewichtige Identität per
+Name + E-Mail (+ optional Telefon, IP wird intern protokolliert).
+Das Auktionshaus prüft die Gebote im Panel und erteilt den Zuschlag
+manuell über die bestehende SettleLotAction — das höchste Online-Gebot
+ist dabei im Zuschlag-Modal vorbefüllt.
+
+**Bietfenster** (`Auction::isBiddingOpen()`): Austragungsform Online
+oder Hybrid + Status „Läuft" + Endzeit (falls gesetzt) nicht
+überschritten. Saalauktionen zeigen den Katalog nur zur Ansicht.
+
+**Mindestgebot** (`AuctionLot::minimumNextBid()`): Höchstgebot +
+Erhöhungsschritt, sonst Startpreis (Fallback: untere Schätzung, 50 €).
+Erhöhungsstaffel (`bidIncrementFor`): <100→10, <500→25, <1000→50,
+<2000→100, <5000→200, <10000→500, <50000→1000, sonst 2500.
+
+**Race-Schutz**: Die PlaceBidAction prüft das Mindestgebot in einer
+DB-Transaktion mit `lockForUpdate` auf den Gebot-Zeilen des Loses —
+zwei gleichzeitige Gebote können nicht beide „gerade so" passieren.
+
+**Datenschutz**: Der öffentliche Katalog zeigt nur Höchstgebot und
+Anzahl — nie Bieternamen. Die Gebotsliste (mit Kontaktdaten) gibt es
+nur im Panel („Gebote"-Modal, auctions.view).
+
+### Bausteine
+
+- `auction_bids` (uuid, auction_lot_id cascade, bidder_name/email/phone,
+  amount, currency, ip_address) + Model `AuctionBid`
+- `App\Actions\Auctions\PlaceBidAction` — alle Guards + Race-Schutz
+- `App\Http\Requests\PlaceBidRequest` — Formalvalidierung, deutsche Meldungen
+- `App\Http\Controllers\AuctionCatalogController` — index/show/lot/bid;
+  sichtbar sind Geplant/Läuft/Abgeschlossen (Entwurf/Abgesagt → 404)
+- Routen (`routes/tenant.php`): `/auktionen`, `/auktionen/{id}`,
+  `/auktionen/{id}/los/{id}` + POST `/bieten` (throttle:10,1)
+- Views `resources/views/shop/auctions/` (Shop-Design in Blau):
+  index (Live-Badge mit Puls), show (Loskacheln mit Schätzpreis/
+  Höchstgebot/Zuschlag), lot (Galerie, Gebotsstand, Formular mit
+  Mindestgebot-Anzeige, Kurzdaten) — „Auktionen"-Link im Shop-Header
+- Panel: Höchstgebot-Spalte (+Anzahl) im LotsRelationManager,
+  „Gebote"-Modal (`resources/views/filament/auction-lot-bids.blade.php`),
+  Zuschlag-Modal mit Höchstgebot vorbefüllt
+
+### Tests (`tests/Feature/OnlineAuctionTest.php`, 4 Tests)
+
+Guards (Saalauktion/Bietfenster/Endzeit), Mindestgebot + Staffel,
+öffentliche Seiten (Entwurf 404), HTTP-Bietflow (Erfolg + Ablehnung
+als Formularfehler, IP gespeichert).
+
 ## Mögliche Erweiterungen
 
+- E-Mail-Benachrichtigungen (überboten / Zuschlag erhalten)
+- Live-Aktualisierung des Gebotsstands (Polling/Websockets)
+- Bieter-Konten mit Verifizierung; Maximalgebote (Bietagent)
 - Aufgeld (buyer's premium) + Einlieferer-Provision → Abrechnung
-- Gebot-Historie (bids) für Live-Auktionen
-- Auktions-Katalog im öffentlichen Shop (Modul Shop) veröffentlichen
 - Einlieferer (consignor_contact_id) am Los für Kommissionsabrechnung

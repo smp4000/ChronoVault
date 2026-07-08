@@ -33,6 +33,10 @@ Tailwind only (Utility-Klassen, kein Bootstrap), responsiv.
                    class="font-medium text-neutral-600 transition hover:text-blue-800">
                     Kollektion
                 </a>
+                <a href="{{ route('shop.auctions.index') }}"
+                   class="font-medium text-neutral-600 transition hover:text-blue-800">
+                    Auktionen
+                </a>
                 <a href="#kontakt"
                    class="font-medium text-neutral-600 transition hover:text-blue-800">
                     Kontakt

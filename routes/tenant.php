@@ -12,8 +12,9 @@
  *   was außerhalb des Panels existiert.
  *
  * Aktuell:
- *   - "/"            → Öffentlicher Shop (Schaufenster des Händlers)
- *   - "/uhren/{id}"  → Detailseite einer veröffentlichten Uhr
+ *   - "/"                    → Öffentlicher Shop (Schaufenster des Händlers)
+ *   - "/uhren/{id}"          → Detailseite einer veröffentlichten Uhr
+ *   - "/auktionen[...]"      → Öffentlicher Auktionskatalog + Online-Gebote
  *
  * WARUM der Shop auf "/" liegt:
  *   Die Tenant-Domain ist die öffentliche Adresse des Händlers — das
@@ -27,6 +28,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AuctionCatalogController;
 use App\Http\Controllers\ShopController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -39,4 +41,13 @@ Route::middleware([
 ])->group(function () {
     Route::get('/', [ShopController::class, 'index'])->name('shop.index');
     Route::get('/uhren/{watch}', [ShopController::class, 'show'])->name('shop.show');
+
+    // Öffentlicher Auktionskatalog (Modul 8b) — Gebots-POST mit Throttle
+    // gegen Skript-Missbrauch (10 Gebote/Minute je IP reichen jedem Bieter).
+    Route::get('/auktionen', [AuctionCatalogController::class, 'index'])->name('shop.auctions.index');
+    Route::get('/auktionen/{auction}', [AuctionCatalogController::class, 'show'])->name('shop.auctions.show');
+    Route::get('/auktionen/{auction}/los/{lot}', [AuctionCatalogController::class, 'lot'])->name('shop.auctions.lot');
+    Route::post('/auktionen/{auction}/los/{lot}/bieten', [AuctionCatalogController::class, 'bid'])
+        ->middleware('throttle:10,1')
+        ->name('shop.auctions.bid');
 });

@@ -4,26 +4,27 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-08 (Modul 9 — Reporting & Dashboards)
+> Letzte Aktualisierung: 2026-07-09 (Modul 8b — Online-Bieten)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 9 (Reporting & Dashboards) abgeschlossen**
-([Doku](modules/module-09-reporting.md)). ReportingService aggregiert
-DB-agnostisch in PHP (ADR-001; Monats-Gruppierung wäre SQL-spezifisch):
-Umsatz/Marge je Monat (lückenlose 12-Monats-Achse; Marge nur für
-Verkäufe mit Einkaufspreis), Verkaufs-Kennzahlen inkl. Ø Standzeit,
-Bestand nach Status, Top-Marken nach gebundenem Kapital. Vier neue
-Dashboard-Widgets: SalesStatsWidget (Stats), SalesChartWidget
-(Linie, volle Breite), InventoryByStatusWidget (Doughnut),
-TopBrandsWidget (horizontale Balken) — canView je Berechtigung,
-blau-geführte Farben. Widget-Tests via Livewire::test (Dashboard lädt
-lazy!). 69 Tests grün, PHPStan sauber.
+**Modul 8b (Online-Bieten) abgeschlossen**
+([Doku](modules/module-08-auctions.md)). Öffentlicher Auktionskatalog
+auf der Tenant-Domain (`/auktionen`, „Auktionen" im Shop-Header):
+Auktionsliste (Läuft/Demnächst/Beendet), Loskacheln mit Schätzpreis/
+Höchstgebot/Zuschlag, Los-Detailseite mit Galerie und Gebotsformular
+(Name + E-Mail, kein Konto — v1). PlaceBidAction erzwingt Bietfenster
+(Online/Hybrid + „Läuft" + Endzeit), Mindestgebot (Höchstgebot +
+Erhöhungsstaffel bzw. Startpreis) und Race-Schutz (lockForUpdate).
+Bieterdaten nie öffentlich; Panel zeigt Höchstgebot-Spalte +
+Gebote-Modal, Zuschlag-Modal mit Höchstgebot vorbefüllt. POST mit
+throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
+73 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 10 (API/Sanctum) ODER Shop-Ausbau
-(Anfrage-Formular, Betriebsdaten) ODER Reporting-Ausbau (Exporte).
+**Nächster Schritt:** Modul 10 (API/Sanctum) ODER Auktions-Ausbau
+(E-Mail-Benachrichtigungen, Live-Gebotsstand) ODER Shop-Ausbau.
 
 ---
 
@@ -65,6 +66,7 @@ lazy!). 69 Tests grün, PHPStan sauber.
 - `valuations` (UUID, watch_id FK restrictOnDelete, source, market_value + Spanne, currency, valued_at, summary, source_urls JSON, SoftDeletes)
 - `auctions` (UUID, title, venue, location, status, starts_at/ends_at, currency, SoftDeletes)
 - `auction_lots` (UUID, auction_id FK cascade, watch_id + buyer_contact_id FK restrictOnDelete, lot_number [unique je Auktion], status, previous_watch_status [Restore!], starting/estimate/reserve/hammer-Preise, settled_at, SoftDeletes)
+- `auction_bids` (UUID, auction_lot_id FK cascade, bidder_name/email/phone, amount, currency, ip_address — Online-Gebote ohne Konto, Modul 8b)
 
 ## Models
 
@@ -74,7 +76,8 @@ lazy!). 69 Tests grün, PHPStan sauber.
 - `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; hasMany Watches; MovementType-Cast
 - `App\Models\Watch` — Tenant; HasUuids + SoftDeletes + Scout Searchable; belongsTo Brand/Caliber; fullName(); Shop: scopePublishedInShop() + formattedAskingPrice()
 - `App\Models\Auction` — Tenant; HasUuids + SoftDeletes; hasMany Lots (Katalog-Reihenfolge); acceptsLots()/isCompleted()/openLotsCount()
-- `App\Models\AuctionLot` — Tenant; HasUuids + SoftDeletes; belongsTo Auction/Watch/Buyer(Contact); isOpen()/isSold()
+- `App\Models\AuctionLot` — Tenant; HasUuids + SoftDeletes; belongsTo Auction/Watch/Buyer(Contact); isOpen()/isSold(); Gebote: bids()/highestBidAmount()/minimumNextBid()/bidIncrementFor()
+- `App\Models\AuctionBid` — Tenant; HasUuids; belongsTo AuctionLot; Online-Gebot (Name/E-Mail, kein Konto)
 
 ## Filament Resources
 
@@ -103,8 +106,10 @@ lazy!). 69 Tests grün, PHPStan sauber.
 ## Öffentlicher Shop (außerhalb Filament)
 
 - `App\Http\Controllers\ShopController` — Listing (Markenfilter, Pagination) + Detailseite (404 für Unveröffentlichtes)
-- `routes/tenant.php` — `shop.index` (`/`) und `shop.show` (`/uhren/{watch}`) auf der Tenant-Domain
-- `resources/views/shop/` — layout, index, show, partials/watch-card (grimmeissen-Stil in Blau, Tailwind only)
+- `App\Http\Controllers\AuctionCatalogController` — Auktionskatalog + Online-Gebote (Modul 8b; Entwurf/Abgesagt → 404, Bieterdaten nie öffentlich)
+- `App\Http\Requests\PlaceBidRequest` — Formalvalidierung des Gebotsformulars (deutsche Meldungen)
+- `routes/tenant.php` — `shop.index` (`/`), `shop.show` (`/uhren/{watch}`), `shop.auctions.*` (`/auktionen...`, Gebots-POST mit throttle:10,1)
+- `resources/views/shop/` — layout, index, show, partials/watch-card, auctions/{index,show,lot} (grimmeissen-Stil in Blau, Tailwind only)
 
 ## Services
 
@@ -124,6 +129,7 @@ lazy!). 69 Tests grün, PHPStan sauber.
 - `App\Actions\Valuations\RecordValuationAction` — Bewertungs-Historie + Schnellzugriff-Sync (ältere Nachträge überschreiben nicht)
 - `App\Actions\Auctions\AddLotToAuctionAction` — Einliefern mit Guards; Losnummern fortlaufend; Uhr → „In Auktion" (Status gemerkt)
 - `App\Actions\Auctions\SettleLotAction` — sold() (Verkaufsbeleg + Uhr „Verkauft"), unsold()/withdraw() (Status-RESTORE)
+- `App\Actions\Auctions\PlaceBidAction` — Online-Gebot mit Guards (Bietfenster, Mindestgebot) + Race-Schutz (lockForUpdate)
 
 ## Enums
 
@@ -195,6 +201,7 @@ lazy!). 69 Tests grün, PHPStan sauber.
 - [ ] Laravel Pulse konfigurieren; Telescope in Produktion deaktivieren
 - [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen
 - [ ] Shop: Anfrage-Formular (Lead → Contact + Notification) statt reiner Anfrage-Box
+- [ ] Auktionen: E-Mail-Benachrichtigungen für Bieter (überboten/Zuschlag); Live-Gebotsstand (Polling/Websockets); Demo-Auktion auf „welle" nach dem Testen zurückziehen (Rückzug stellt Uhren-Status wieder her)
 - [ ] Shop: Betriebsdaten des Händlers (Kontakt-E-Mail/Telefon/Impressum) als Tenant-Einstellungen für Footer & Anfrage
 - [ ] Eigenes Filament-Theme-CSS (`->viteTheme()`) für Premium-Feinschliff
 

@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AuctionLot extends Model
@@ -116,6 +117,66 @@ class AuctionLot extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Online-Gebote auf dieses Los (Modul 8b), höchste zuerst.
+     *
+     * @return HasMany<AuctionBid, $this>
+     */
+    public function bids(): HasMany
+    {
+        return $this->hasMany(AuctionBid::class)->orderByDesc('amount');
+    }
+
+    /**
+     * Aktuelles Höchstgebot — null, wenn noch keines vorliegt.
+     */
+    public function highestBidAmount(): ?float
+    {
+        $max = $this->bids()->max('amount');
+
+        return $max === null ? null : (float) $max;
+    }
+
+    /**
+     * Mindestbetrag für das nächste Gebot: Höchstgebot + Erhöhungsschritt,
+     * sonst Startpreis (Fallback: untere Schätzung, zuletzt 50 €).
+     */
+    public function minimumNextBid(): float
+    {
+        $highest = $this->highestBidAmount();
+
+        if ($highest !== null) {
+            return $highest + self::bidIncrementFor($highest);
+        }
+
+        $startingPrice = $this->getAttribute('starting_price');
+
+        if ($startingPrice !== null) {
+            return (float) $startingPrice;
+        }
+
+        $estimateLow = $this->getAttribute('estimate_low');
+
+        return $estimateLow !== null ? (float) $estimateLow : 50.0;
+    }
+
+    /**
+     * Übliche Auktions-Erhöhungsschritte, gestaffelt nach Gebotshöhe.
+     */
+    public static function bidIncrementFor(float $amount): float
+    {
+        return match (true) {
+            $amount < 100 => 10.0,
+            $amount < 500 => 25.0,
+            $amount < 1000 => 50.0,
+            $amount < 2000 => 100.0,
+            $amount < 5000 => 200.0,
+            $amount < 10000 => 500.0,
+            $amount < 50000 => 1000.0,
+            default => 2500.0,
+        };
     }
 
     /**
