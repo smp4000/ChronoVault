@@ -74,10 +74,27 @@ class LotsRelationManager extends RelationManager
                     ->columnSpanFull(),
 
                 TextInput::make('lot_number')
-                    ->label('Losnummer')
+                    ->label('Losnummer (Reihenfolge)')
                     ->numeric()
                     ->minValue(1)
-                    ->helperText('Leer lassen für fortlaufende Vergabe.'),
+                    // Beim Anlegen optional (Action vergibt fortlaufend) —
+                    // beim Bearbeiten Pflicht, sonst schriebe das leere
+                    // Feld NULL in die NOT-NULL-Spalte.
+                    ->required(fn (string $operation): bool => $operation === 'edit')
+                    ->unique(
+                        table: 'auction_lots',
+                        column: 'lot_number',
+                        ignoreRecord: true,
+                        modifyRuleUsing: fn ($rule, RelationManager $livewire) => $rule
+                            ->where('auction_id', $livewire->getOwnerRecord()->getKey()),
+                    )
+                    ->validationMessages([
+                        'unique' => 'Diese Losnummer ist in dieser Auktion bereits vergeben.',
+                        'required' => 'Bitte geben Sie die Losnummer an.',
+                    ])
+                    ->helperText(fn (string $operation): string => $operation === 'create'
+                        ? 'Leer lassen für fortlaufende Vergabe.'
+                        : 'Bestimmt die Reihenfolge im Katalog — der öffentliche Los-Code bleibt unverändert.'),
 
                 TextInput::make('starting_price')
                     ->label('Startpreis')
