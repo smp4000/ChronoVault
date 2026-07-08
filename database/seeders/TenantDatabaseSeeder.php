@@ -77,6 +77,12 @@ class TenantDatabaseSeeder extends Seeder
         'transactions.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'transactions.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'transactions.delete' => [UserRole::Owner, UserRole::Admin],
+
+        // Modul 6 — Service-Historie & Wartung: gleiche Semantik.
+        'services.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'services.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'services.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'services.delete' => [UserRole::Owner, UserRole::Admin],
     ];
 
     public function run(): void

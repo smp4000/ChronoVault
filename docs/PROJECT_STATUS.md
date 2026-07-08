@@ -4,23 +4,23 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-08 (Modul 5 — Kauf/Verkauf & Preishistorie)
+> Letzte Aktualisierung: 2026-07-08 (Modul 6 — Service-Historie & Wartung)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 5 (Kauf/Verkauf & Preishistorie) abgeschlossen.**
-Neue Gruppe „Verkauf": Kundenstamm (contacts) + Kauf-/Verkaufsbelege
-(transactions, currency-fähig, restrictOnDelete auf Uhr & Kontakt).
-Domain-Actions RecordSale/RecordPurchase halten Uhren-Status und
-purchase_*-Felder synchron (Verkauf → „Verkauft", Rückkauf → zurück
-„An Lager"); Auto-Ankauf-Beleg beim Anlegen mit Einkaufsdaten (Observer).
-„Verkaufen"-Schnellaktion mit Margen-Notification in der Bestandsliste,
-TransactionsRelationManager an der Uhr. 43 Tests grün, PHPStan sauber.
+**Modul 6 (Service-Historie & Wartung) abgeschlossen.**
+Servicevorgänge (service_records) mit Werkstatt (Contact + neuer Typ
+Workshop), Kosten, Garantie und Status-Workflow: StartServiceAction merkt
+den Uhren-Status (previous_watch_status) und setzt „Im Service",
+CompleteServiceAction stellt ihn wieder her (Kommission bleibt
+Kommission; kein Restore bei zwischenzeitlicher Änderung).
+ServiceRecordResource + RelationManager an der Uhr, „In Service"- und
+„Abschließen"-Schnellaktionen. 48 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 6 — Service-Historie & Wartung, ODER
-Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
+**Nächster Schritt:** Modul 7 — Bewertungen & Marktwert (Spalten
+existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 
 ---
 
@@ -34,7 +34,7 @@ Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 | 3 | Kernmodul: Uhren (Watches) ([Doku](modules/module-03-watches.md)) | ✅ Fertig |
 | 4 | Medienverwaltung ([Doku](modules/module-04-media.md)) | ✅ Fertig |
 | 5 | Kauf/Verkauf & Preishistorie ([Doku](modules/module-05-transactions.md)) | ✅ Fertig |
-| 6 | Service-Historie & Wartung | ⬜ Offen |
+| 6 | Service-Historie & Wartung ([Doku](modules/module-06-service.md)) | ✅ Fertig |
 | 7 | Bewertungen & Marktwert | ⬜ Offen |
 | 8 | Auktionen | ⬜ Offen |
 | 9 | Reporting & Dashboards | ⬜ Offen |
@@ -57,6 +57,7 @@ Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 - `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
 - `contacts` (UUID, type, Firma/Vor-/Nachname, E-Mail/Telefon/Adresse, SoftDeletes)
 - `transactions` (UUID, watch_id + contact_id FK restrictOnDelete, created_by FK, type purchase/sale, price, currency, transacted_at, payment_method, document_number, SoftDeletes)
+- `service_records` (UUID, watch_id + contact_id FK restrictOnDelete, type, status, previous_watch_status [Restore!], cost/currency, submitted/completed/warranty, SoftDeletes)
 
 ## Models
 
@@ -78,6 +79,7 @@ Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 - `Watches\WatchResource` (Gruppe „Bestand"; + WatchForm als Tab-Layout mit KI-Referenz-Lookup [Referenznummer zuerst, ✨-Action] und abhängigem Kaliber-Select, WatchesTable mit Full-Set-Filter + „Verkaufen"-Schnellaktion, TransactionsRelationManager, Pages, Papierkorb/Restore)
 - `Transactions\TransactionResource` (Gruppe „Verkauf"; Erstellung via Domain-Actions in CreateTransaction; Form/Table wiederverwendet vom RelationManager)
 - `Contacts\ContactResource` (Gruppe „Verkauf"; Kundenstamm mit Adress-Sektion)
+- `ServiceRecords\ServiceRecordResource` (Gruppe „Bestand"; Anlage via StartServiceAction, „Abschließen"-Aktion, ServiceRecordsRelationManager an der Uhr, „In Service"-Schnellaktion in der Bestandsliste)
 
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
@@ -94,6 +96,8 @@ Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 - `App\Actions\Watches\DownloadWatchPhotosAction` — lädt KI-Bildquellen als Uhrenfotos (public-Disk, tenant-isoliert; max 4; nur image/*)
 - `App\Actions\Transactions\RecordSaleAction` — Verkaufs-Beleg + Status „Verkauft" + margin()
 - `App\Actions\Transactions\RecordPurchaseAction` — Ankauf-Beleg + purchase_*-Sync; Rückkauf → zurück in Bestand
+- `App\Actions\Services\StartServiceAction` — Vorgang anlegen, Status merken, Uhr → „Im Service"
+- `App\Actions\Services\CompleteServiceAction` — Abschluss + Status-RESTORE (kein Override bei zwischenzeitlicher Änderung)
 
 ## Enums
 
@@ -106,7 +110,8 @@ Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 - `App\Enums\OwnershipStatus` (owned/commission/customer_property — Kommissionsgeschäft)
 - `App\Enums\WatchFunction` (15 Komplikationen, Mehrfachauswahl als JSON-Array)
 - `App\Enums\PhotoSlot` (6 Slots des geführten Foto-Uploads)
-- Modul 5: `TransactionType` (purchase/sale), `PaymentMethod` (7 Zahlungsarten), `ContactType` (4 Kontaktarten)
+- Modul 5: `TransactionType` (purchase/sale), `PaymentMethod` (7 Zahlungsarten), `ContactType` (5 Kontaktarten inkl. Workshop)
+- Modul 6: `ServiceType` (8 Service-Arten), `ServiceStatus` (open/in_progress/completed)
 
 ## Jobs
 
@@ -123,8 +128,9 @@ Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 - `App\Policies\BrandPolicy` — master_data.*; Referenz-Schutz (Kaliber & Uhren, inkl. soft-gelöschter)
 - `App\Policies\CaliberPolicy` — master_data.*; Referenz-Schutz (Uhren, inkl. soft-gelöschter)
 - `App\Policies\WatchPolicy` — permission-basiert (watches.*)
-- `App\Policies\ContactPolicy` — contacts.*; Referenz-Schutz (Kontakt mit Belegen nicht löschbar)
+- `App\Policies\ContactPolicy` — contacts.*; Referenz-Schutz (Kontakt mit Belegen ODER Servicevorgängen nicht löschbar)
 - `App\Policies\TransactionPolicy` — transactions.*; Löschen (Storno) nur Verwaltung
+- `App\Policies\ServiceRecordPolicy` — services.*
 
 ## Observers
 

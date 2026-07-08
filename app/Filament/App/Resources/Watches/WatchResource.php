@@ -88,6 +88,7 @@ class WatchResource extends Resource
     {
         return [
             RelationManagers\TransactionsRelationManager::class,
+            RelationManagers\ServiceRecordsRelationManager::class,
         ];
     }
 

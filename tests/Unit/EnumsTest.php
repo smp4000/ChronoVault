@@ -16,6 +16,8 @@ use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
 use App\Enums\PaymentMethod;
+use App\Enums\ServiceStatus;
+use App\Enums\ServiceType;
 use App\Enums\TenantStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
@@ -70,6 +72,16 @@ it('keeps stable transaction enums with german labels', function () {
         ->and(ContactType::PrivatePerson->value)->toBe('private')
         ->and(ContactType::PrivatePerson->getLabel())->toBe('Privatperson')
         ->and(ContactType::AuctionHouse->getLabel())->toBe('Auktionshaus');
+});
+
+it('keeps stable service enums with german labels', function () {
+    expect(ServiceType::FullService->value)->toBe('full_service')
+        ->and(ServiceType::FullService->getLabel())->toBe('Revision (Komplettservice)')
+        ->and(ServiceType::WaterResistanceTest->getLabel())->toBe('Wasserdichtigkeitsprüfung')
+        ->and(ServiceStatus::Open->value)->toBe('open')
+        ->and(ServiceStatus::InProgress->getLabel())->toBe('In Arbeit')
+        ->and(ServiceStatus::Completed->getLabel())->toBe('Abgeschlossen')
+        ->and(ContactType::Workshop->getLabel())->toBe('Werkstatt/Service');
 });
 
 it('keeps stable watch condition values with german labels', function () {

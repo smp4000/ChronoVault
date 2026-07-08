@@ -61,11 +61,13 @@ class ContactPolicy
     }
 
     /**
-     * Referenz-Schutz: Kontakte mit Belegen (auch soft-gelöschten —
-     * die FK-Referenz existiert physisch weiter) sind nicht löschbar.
+     * Referenz-Schutz: Kontakte mit Belegen oder Servicevorgängen (auch
+     * soft-gelöschten — die FK-Referenz existiert physisch weiter)
+     * sind nicht löschbar.
      */
     private function hasNoReferences(Contact $contact): bool
     {
-        return ! $contact->transactions()->withTrashed()->exists();
+        return ! $contact->transactions()->withTrashed()->exists()
+            && ! $contact->serviceRecords()->withTrashed()->exists();
     }
 }

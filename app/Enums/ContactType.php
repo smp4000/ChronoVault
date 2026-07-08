@@ -21,6 +21,7 @@ enum ContactType: string implements HasColor, HasLabel
     case PrivatePerson = 'private';
     case Dealer = 'dealer';
     case AuctionHouse = 'auction_house';
+    case Workshop = 'workshop';
     case Other = 'other';
 
     public function getLabel(): string
@@ -29,6 +30,7 @@ enum ContactType: string implements HasColor, HasLabel
             self::PrivatePerson => 'Privatperson',
             self::Dealer => 'Händler',
             self::AuctionHouse => 'Auktionshaus',
+            self::Workshop => 'Werkstatt/Service',
             self::Other => 'Sonstige',
         };
     }
@@ -39,6 +41,7 @@ enum ContactType: string implements HasColor, HasLabel
             self::PrivatePerson => 'info',
             self::Dealer => 'primary',
             self::AuctionHouse => 'warning',
+            self::Workshop => 'success',
             self::Other => 'gray',
         };
     }

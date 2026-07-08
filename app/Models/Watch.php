@@ -235,6 +235,16 @@ class Watch extends Model implements HasMedia
     }
 
     /**
+     * Service-Historie der Uhr (Modul 6), neueste zuerst.
+     *
+     * @return HasMany<ServiceRecord, $this>
+     */
+    public function serviceRecords(): HasMany
+    {
+        return $this->hasMany(ServiceRecord::class)->orderByDesc('created_at');
+    }
+
+    /**
      * Anzeige-Name "Marke Modell (Referenz)" — z. B. für Global Search,
      * Notifications und spätere Belege.
      */
@@ -300,6 +310,14 @@ class Watch extends Model implements HasMedia
     public function isSold(): bool
     {
         return $this->getAttribute('status') === WatchStatus::Sold;
+    }
+
+    /**
+     * Ist die Uhr aktuell im Service?
+     */
+    public function isInService(): bool
+    {
+        return $this->getAttribute('status') === WatchStatus::InService;
     }
 
     /**

@@ -70,6 +70,16 @@ class Contact extends Model
     }
 
     /**
+     * Servicevorgänge, bei denen dieser Kontakt die Werkstatt ist (Modul 6).
+     *
+     * @return HasMany<ServiceRecord, $this>
+     */
+    public function serviceRecords(): HasMany
+    {
+        return $this->hasMany(ServiceRecord::class);
+    }
+
+    /**
      * Anzeigename: Firma — sonst "Vorname Nachname".
      */
     public function displayName(): string

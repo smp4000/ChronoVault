@@ -19,10 +19,13 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Resources\Watches\Tables;
 
+use App\Actions\Services\StartServiceAction;
 use App\Actions\Transactions\RecordSaleAction;
 use App\Enums\PaymentMethod;
+use App\Enums\ServiceType;
 use App\Enums\WatchCondition;
 use App\Enums\WatchStatus;
+use App\Filament\App\Resources\ServiceRecords\Schemas\ServiceRecordForm;
 use App\Filament\App\Resources\Transactions\Schemas\TransactionForm;
 use App\Models\Watch;
 use Filament\Actions\Action;
@@ -149,6 +152,7 @@ class WatchesTable
             ])
             ->recordActions([
                 self::recordSaleAction(),
+                self::startServiceAction(),
 
                 EditAction::make(),
 
@@ -166,6 +170,55 @@ class WatchesTable
             ->emptyStateHeading('Noch keine Uhren im Bestand')
             ->emptyStateDescription('Erfassen Sie Ihre erste Uhr — Marke und Kaliber stammen aus den Stammdaten.')
             ->emptyStateIcon('heroicon-o-clock');
+    }
+
+    /**
+     * "In Service geben"-Schnellaktion: Modal mit Servicedaten, Start
+     * über die StartServiceAction (merkt den aktuellen Status und setzt
+     * "Im Service"). Sichtbar für Uhren, die weder verkauft noch bereits
+     * im Service sind, und Benutzer mit services.create.
+     */
+    private static function startServiceAction(): Action
+    {
+        return Action::make('startService')
+            ->label('In Service')
+            ->icon('heroicon-m-wrench-screwdriver')
+            ->color('info')
+            ->visible(fn (Watch $record): bool => ! $record->isSold()
+                && ! $record->isInService()
+                && ! $record->trashed()
+                && (auth()->user()?->can('services.create') ?? false))
+            ->modalHeading(fn (Watch $record): string => 'In Service geben: '.$record->fullName())
+            ->modalSubmitActionLabel('In Service geben')
+            ->form([
+                Select::make('type')
+                    ->label('Art')
+                    ->options(ServiceType::class)
+                    ->default(ServiceType::FullService)
+                    ->required(),
+
+                ServiceRecordForm::workshopSelect(),
+
+                DatePicker::make('submitted_at')
+                    ->label('Eingereicht am')
+                    ->default(now())
+                    ->maxDate(now())
+                    ->required(),
+
+                Textarea::make('description')
+                    ->label('Beschreibung')
+                    ->rows(2)
+                    ->placeholder('Was ist zu tun?'),
+            ])
+            ->action(function (Watch $record, array $data): void {
+                app(StartServiceAction::class)->execute($record, $data);
+
+                Notification::make()
+                    ->success()
+                    ->title('Uhr im Service')
+                    ->body('Der Vorgang ist angelegt; beim Abschluss kehrt die Uhr in den vorherigen Status zurück.')
+                    ->send();
+            });
     }
 
     /**
