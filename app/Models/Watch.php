@@ -245,6 +245,16 @@ class Watch extends Model implements HasMedia
     }
 
     /**
+     * Bewertungs-Historie der Uhr (Modul 7), neueste zuerst.
+     *
+     * @return HasMany<Valuation, $this>
+     */
+    public function valuations(): HasMany
+    {
+        return $this->hasMany(Valuation::class)->orderByDesc('valued_at');
+    }
+
+    /**
      * Anzeige-Name "Marke Modell (Referenz)" — z. B. für Global Search,
      * Notifications und spätere Belege.
      */

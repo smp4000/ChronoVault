@@ -4,23 +4,24 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-08 (Modul 6 — Service-Historie & Wartung)
+> Letzte Aktualisierung: 2026-07-08 (Modul 7 — Bewertungen & Marktwert)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 6 (Service-Historie & Wartung) abgeschlossen.**
-Servicevorgänge (service_records) mit Werkstatt (Contact + neuer Typ
-Workshop), Kosten, Garantie und Status-Workflow: StartServiceAction merkt
-den Uhren-Status (previous_watch_status) und setzt „Im Service",
-CompleteServiceAction stellt ihn wieder her (Kommission bleibt
-Kommission; kein Restore bei zwischenzeitlicher Änderung).
-ServiceRecordResource + RelationManager an der Uhr, „In Service"- und
-„Abschließen"-Schnellaktionen. 48 Tests grün, PHPStan sauber.
+**Modul 7 (Bewertungen & Marktwert) abgeschlossen.**
+Bewertungs-Historie (valuations) mit RecordValuationAction (spiegelt den
+Wert in current_market_value/last_valuation_at — ältere nachgetragene
+Bewertungen überschreiben nicht), KI-Marktrecherche via Perplexity
+(Zustand/Lieferumfang/Baujahr im Prompt, Spanne + Quellen; live
+verifiziert), „Marktwert"-Schnellaktion mit Einkaufs-Delta,
+ValuationsRelationManager („Wertentwicklung") an der Uhr,
+Marktwert-Spalte und InventoryValueWidget (Einkaufs-/Marktwert Bestand +
+Entwicklung %). 53 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 7 — Bewertungen & Marktwert (Spalten
-existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
+**Nächster Schritt:** Öffentlicher Shop (docs/DESIGN.md — grimmeissen.de
+in Blau) ODER Modul 8 (Auktionen) / 9 (Reporting).
 
 ---
 
@@ -35,7 +36,7 @@ existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 | 4 | Medienverwaltung ([Doku](modules/module-04-media.md)) | ✅ Fertig |
 | 5 | Kauf/Verkauf & Preishistorie ([Doku](modules/module-05-transactions.md)) | ✅ Fertig |
 | 6 | Service-Historie & Wartung ([Doku](modules/module-06-service.md)) | ✅ Fertig |
-| 7 | Bewertungen & Marktwert | ⬜ Offen |
+| 7 | Bewertungen & Marktwert ([Doku](modules/module-07-valuations.md)) | ✅ Fertig |
 | 8 | Auktionen | ⬜ Offen |
 | 9 | Reporting & Dashboards | ⬜ Offen |
 | 10 | API (Sanctum) & Integrationen | ⬜ Offen |
@@ -58,6 +59,7 @@ existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 - `contacts` (UUID, type, Firma/Vor-/Nachname, E-Mail/Telefon/Adresse, SoftDeletes)
 - `transactions` (UUID, watch_id + contact_id FK restrictOnDelete, created_by FK, type purchase/sale, price, currency, transacted_at, payment_method, document_number, SoftDeletes)
 - `service_records` (UUID, watch_id + contact_id FK restrictOnDelete, type, status, previous_watch_status [Restore!], cost/currency, submitted/completed/warranty, SoftDeletes)
+- `valuations` (UUID, watch_id FK restrictOnDelete, source, market_value + Spanne, currency, valued_at, summary, source_urls JSON, SoftDeletes)
 
 ## Models
 
@@ -84,10 +86,12 @@ existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
 - `App\Widgets\WatchStatsWidget` (Bestandskennzahlen, Tenant-Dashboard; canView nur mit watches.view)
+- `App\Widgets\InventoryValueWidget` (Einkaufs-/Marktwert des Bestands + Wertentwicklung %, Modul 7)
 
 ## Services
 
 - `App\Services\WatchReferenceLookupService` — KI-Recherche zu Referenznummern: Perplexity sonar-pro (bevorzugt, Web-Suche eingebaut, citations→source_urls) mit Anthropic claude-opus-4-8 als Fallback; JSON-Parsing + Stammdaten-Matching; DTO `WatchReferenceData`; Konfiguration PERPLEXITY_API_KEY / ANTHROPIC_API_KEY
+- `App\Services\MarketValueLookupService` — KI-Marktwert-Recherche (Perplexity; Zustand/Lieferumfang/Baujahr im Prompt); DTO `MarketValueData` (Wert, Spanne, Quellen)
 
 ## Actions
 
@@ -98,6 +102,7 @@ existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 - `App\Actions\Transactions\RecordPurchaseAction` — Ankauf-Beleg + purchase_*-Sync; Rückkauf → zurück in Bestand
 - `App\Actions\Services\StartServiceAction` — Vorgang anlegen, Status merken, Uhr → „Im Service"
 - `App\Actions\Services\CompleteServiceAction` — Abschluss + Status-RESTORE (kein Override bei zwischenzeitlicher Änderung)
+- `App\Actions\Valuations\RecordValuationAction` — Bewertungs-Historie + Schnellzugriff-Sync (ältere Nachträge überschreiben nicht)
 
 ## Enums
 
@@ -112,6 +117,7 @@ existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 - `App\Enums\PhotoSlot` (6 Slots des geführten Foto-Uploads)
 - Modul 5: `TransactionType` (purchase/sale), `PaymentMethod` (7 Zahlungsarten), `ContactType` (5 Kontaktarten inkl. Workshop)
 - Modul 6: `ServiceType` (8 Service-Arten), `ServiceStatus` (open/in_progress/completed)
+- Modul 7: `ValuationSource` (manual/ai_research/external)
 
 ## Jobs
 
@@ -131,6 +137,7 @@ existieren bereits), ODER der öffentliche Shop (docs/DESIGN.md).
 - `App\Policies\ContactPolicy` — contacts.*; Referenz-Schutz (Kontakt mit Belegen ODER Servicevorgängen nicht löschbar)
 - `App\Policies\TransactionPolicy` — transactions.*; Löschen (Storno) nur Verwaltung
 - `App\Policies\ServiceRecordPolicy` — services.*
+- `App\Policies\ValuationPolicy` — valuations.*
 
 ## Observers
 

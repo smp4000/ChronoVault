@@ -21,6 +21,7 @@ use App\Enums\ServiceType;
 use App\Enums\TenantStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
+use App\Enums\ValuationSource;
 use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
 use App\Enums\WatchGender;
@@ -82,6 +83,13 @@ it('keeps stable service enums with german labels', function () {
         ->and(ServiceStatus::InProgress->getLabel())->toBe('In Arbeit')
         ->and(ServiceStatus::Completed->getLabel())->toBe('Abgeschlossen')
         ->and(ContactType::Workshop->getLabel())->toBe('Werkstatt/Service');
+});
+
+it('keeps stable valuation source values with german labels', function () {
+    expect(ValuationSource::AiResearch->value)->toBe('ai_research')
+        ->and(ValuationSource::AiResearch->getLabel())->toBe('KI-Marktrecherche')
+        ->and(ValuationSource::Manual->getLabel())->toBe('Manuelle Einschätzung')
+        ->and(ValuationSource::External->getLabel())->toBe('Externe Quelle');
 });
 
 it('keeps stable watch condition values with german labels', function () {

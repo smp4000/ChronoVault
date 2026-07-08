@@ -21,13 +21,16 @@ namespace App\Filament\App\Resources\Watches\Tables;
 
 use App\Actions\Services\StartServiceAction;
 use App\Actions\Transactions\RecordSaleAction;
+use App\Actions\Valuations\RecordValuationAction;
 use App\Enums\PaymentMethod;
 use App\Enums\ServiceType;
+use App\Enums\ValuationSource;
 use App\Enums\WatchCondition;
 use App\Enums\WatchStatus;
 use App\Filament\App\Resources\ServiceRecords\Schemas\ServiceRecordForm;
 use App\Filament\App\Resources\Transactions\Schemas\TransactionForm;
 use App\Models\Watch;
+use App\Services\MarketValueLookupService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -46,6 +49,8 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use RuntimeException;
+use Throwable;
 
 class WatchesTable
 {
@@ -98,6 +103,14 @@ class WatchesTable
                 IconColumn::make('has_papers')
                     ->label('Papiere')
                     ->boolean()
+                    ->toggleable(),
+
+                TextColumn::make('current_market_value')
+                    ->label('Marktwert')
+                    ->money('EUR')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->alignEnd()
                     ->toggleable(),
 
                 TextColumn::make('production_year')
@@ -153,6 +166,7 @@ class WatchesTable
             ->recordActions([
                 self::recordSaleAction(),
                 self::startServiceAction(),
+                self::marketValueAction(),
 
                 EditAction::make(),
 
@@ -170,6 +184,66 @@ class WatchesTable
             ->emptyStateHeading('Noch keine Uhren im Bestand')
             ->emptyStateDescription('Erfassen Sie Ihre erste Uhr — Marke und Kaliber stammen aus den Stammdaten.')
             ->emptyStateIcon('heroicon-o-clock');
+    }
+
+    /**
+     * "Marktwert ermitteln"-Schnellaktion: KI-Recherche des aktuellen
+     * Gebrauchtmarkt-Preises (Perplexity) → RecordValuationAction
+     * (Historie + Schnellzugriff). Bestätigungsdialog, weil jeder
+     * Abruf API-Guthaben kostet.
+     */
+    private static function marketValueAction(): Action
+    {
+        return Action::make('lookupMarketValue')
+            ->label('Marktwert')
+            ->icon('heroicon-m-chart-bar')
+            ->color('warning')
+            ->visible(fn (Watch $record): bool => ! $record->trashed()
+                && (auth()->user()?->can('valuations.create') ?? false))
+            ->requiresConfirmation()
+            ->modalHeading(fn (Watch $record): string => 'Marktwert ermitteln: '.$record->fullName())
+            ->modalDescription('Die KI recherchiert aktuelle Gebrauchtmarkt-Preise (berücksichtigt Zustand und Lieferumfang). Der Abruf dauert einige Sekunden und verbraucht API-Guthaben.')
+            ->modalSubmitActionLabel('Recherchieren')
+            ->action(function (Watch $record): void {
+                try {
+                    $data = app(MarketValueLookupService::class)->lookup($record);
+                } catch (RuntimeException $e) {
+                    Notification::make()->danger()->title('Marktwert-Recherche fehlgeschlagen')->body($e->getMessage())->send();
+
+                    return;
+                } catch (Throwable $e) {
+                    report($e);
+                    Notification::make()->danger()->title('Marktwert-Recherche fehlgeschlagen')->body('Unerwarteter Fehler. Bitte später erneut versuchen.')->send();
+
+                    return;
+                }
+
+                app(RecordValuationAction::class)->execute($record, [
+                    'source' => ValuationSource::AiResearch->value,
+                    'market_value' => $data->marketValue,
+                    'value_low' => $data->valueLow,
+                    'value_high' => $data->valueHigh,
+                    'summary' => $data->summary,
+                    'source_urls' => $data->sourceUrls,
+                ]);
+
+                $formatted = number_format($data->marketValue, 0, ',', '.');
+                $body = "Aktueller Marktwert: {$formatted} €.";
+
+                if ($record->purchase_price !== null) {
+                    $delta = $data->marketValue - (float) $record->purchase_price;
+                    $deltaFormatted = number_format(abs($delta), 0, ',', '.');
+                    $body .= $delta >= 0
+                        ? " Das sind {$deltaFormatted} € über dem Einkauf."
+                        : " Das sind {$deltaFormatted} € unter dem Einkauf.";
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title('Marktwert aktualisiert')
+                    ->body($body)
+                    ->send();
+            });
     }
 
     /**

@@ -83,6 +83,12 @@ class TenantDatabaseSeeder extends Seeder
         'services.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'services.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'services.delete' => [UserRole::Owner, UserRole::Admin],
+
+        // Modul 7 — Bewertungen & Marktwert: gleiche Semantik.
+        'valuations.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'valuations.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'valuations.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'valuations.delete' => [UserRole::Owner, UserRole::Admin],
     ];
 
     public function run(): void
