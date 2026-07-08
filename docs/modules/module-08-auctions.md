@@ -148,13 +148,23 @@ nur im Panel („Gebote"-Modal, auctions.view).
   automatisch an (SettleLotAction::contactFromBid — Wiedererkennung
   per E-Mail, kein Duplikat bei Stammkunden; Typ Privatperson).
 
-### Gebotsbestätigung per E-Mail
+### Bieter-E-Mails
 
 Jedes angenommene Gebot löst eine `BidConfirmationMail` an den Bieter
 aus (Premium-Design: weiße Karte, blaue Kopfzeile mit Gebotsbetrag,
 Uhr-Kachel mit Foto, Eckdaten, **Verbindlichkeits-Hinweis**, CTA zum
 Los; Tabellen-Layout + Inline-CSS für E-Mail-Clients —
 `resources/views/emails/bid-confirmation.blade.php`).
+
+Zusätzlich erhält der ABGELÖSTE Höchstbietende eine `OutbidMail`
+(„Sie wurden überboten" — dunkle Kopfzeile mit neuem Höchstgebot,
+altes Gebot durchgestrichen, Mindestgebot, CTA „Jetzt nachbieten";
+`resources/views/emails/outbid.blade.php`). Bewusst NUR der abgelöste
+Höchstbietende: Alle früheren Bieter wurden bereits informiert, als
+sie selbst überboten wurden — kein Mail-Spam. Erhöht jemand sein
+eigenes Gebot (gleiche E-Mail, case-insensitiv), gibt es keine
+Überboten-Mail. Der bisherige Höchstbietende wird innerhalb der
+DB-Transaktion unter der Sperre ermittelt (race-sicher).
 Versand synchron NACH der DB-Transaktion; ein Mail-Fehler verhindert
 das Gebot nie (try/catch + report). In Produktion mit Horizon auf
 ShouldQueue umstellen. CLI-Versand (Tinker/Jobs) braucht

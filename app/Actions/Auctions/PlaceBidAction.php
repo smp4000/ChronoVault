@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace App\Actions\Auctions;
 
 use App\Mail\BidConfirmationMail;
+use App\Mail\OutbidMail;
 use App\Models\AuctionBid;
 use App\Models\AuctionLot;
 use Illuminate\Support\Facades\DB;
@@ -62,10 +63,13 @@ class PlaceBidAction
             throw new RuntimeException('Dieses Los ist nicht mehr verfügbar.');
         }
 
-        $bid = DB::transaction(function () use ($lot, $data): AuctionBid {
-            // Sperre auf den Geboten des Loses: paralleles Gebot muss
+        /** @var array{0: AuctionBid, 1: AuctionBid|null} $result */
+        $result = DB::transaction(function () use ($lot, $data): array {
+            // Sperre auf dem Höchstgebot des Loses: paralleles Gebot muss
             // warten und sieht danach das aktualisierte Mindestgebot.
-            $lot->bids()->lockForUpdate()->get();
+            // Der bisherige Höchstbietende wird HIER (unter der Sperre)
+            // festgehalten — er bekommt die Überboten-Mail.
+            $previousHighest = $lot->bids()->lockForUpdate()->first();
 
             $minimum = $lot->minimumNextBid();
             $amount = (float) $data['amount'];
@@ -76,7 +80,7 @@ class PlaceBidAction
                 );
             }
 
-            return $lot->bids()->create([
+            $bid = $lot->bids()->create([
                 'bidder_name' => $data['bidder_name'],
                 'bidder_email' => $data['bidder_email'],
                 'bidder_phone' => $data['bidder_phone'] ?? null,
@@ -84,14 +88,30 @@ class PlaceBidAction
                 'currency' => $lot->currency,
                 'ip_address' => $data['ip_address'] ?? null,
             ]);
+
+            return [$bid, $previousHighest];
         });
 
-        // Bestätigung NACH der Transaktion (Gebot ist sicher gespeichert);
+        [$bid, $previousHighest] = $result;
+
+        // Mails NACH der Transaktion (Gebot ist sicher gespeichert);
         // ein Mail-Fehler darf das Gebot nie verhindern — nur loggen.
         try {
             Mail::to($bid->bidder_email)->send(new BidConfirmationMail($bid));
         } catch (Throwable $exception) {
             report($exception);
+        }
+
+        // Überboten-Mail an den abgelösten Höchstbietenden — außer er
+        // hat sein eigenes Gebot erhöht (gleiche E-Mail-Adresse).
+        if ($previousHighest !== null
+            && strcasecmp($previousHighest->bidder_email, $bid->bidder_email) !== 0) {
+            try {
+                Mail::to($previousHighest->bidder_email)
+                    ->send(new OutbidMail($previousHighest, $bid));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
 
         return $bid;

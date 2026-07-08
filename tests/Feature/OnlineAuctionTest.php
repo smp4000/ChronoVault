@@ -25,6 +25,7 @@ use App\Actions\Auctions\SettleLotAction;
 use App\Enums\AuctionStatus;
 use App\Enums\AuctionVenue;
 use App\Mail\BidConfirmationMail;
+use App\Mail\OutbidMail;
 use App\Models\Auction;
 use App\Models\AuctionLot;
 use App\Models\Brand;
@@ -273,6 +274,62 @@ it('sends a binding confirmation mail to the bidder', function () {
                         && str_contains($html, '/auktionen/');
                 },
             );
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('notifies the previous highest bidder when outbid, but not on self-raises', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            Mail::fake();
+
+            [, $lot] = liveOnlineAuctionWithLot();
+            $action = app(PlaceBidAction::class);
+
+            // Erstes Gebot: niemand zu benachrichtigen
+            $action->execute($lot, [
+                'bidder_name' => 'Max Bieter',
+                'bidder_email' => 'max@example.test',
+                'amount' => 1000,
+            ]);
+
+            Mail::assertNotSent(OutbidMail::class);
+
+            // Max erhöht sein EIGENES Gebot → keine Überboten-Mail
+            $action->execute($lot, [
+                'bidder_name' => 'Max Bieter',
+                'bidder_email' => 'MAX@example.test', // Groß-/Kleinschreibung egal
+                'amount' => 1200,
+            ]);
+
+            Mail::assertNotSent(OutbidMail::class);
+
+            // Erika überbietet Max → genau EINE Überboten-Mail an Max
+            $action->execute($lot, [
+                'bidder_name' => 'Erika Mustermann',
+                'bidder_email' => 'erika@example.test',
+                'amount' => 2000,
+            ]);
+
+            Mail::assertSent(
+                OutbidMail::class,
+                function (OutbidMail $mail): bool {
+                    $mail->assertTo('MAX@example.test');
+
+                    $html = $mail->render();
+
+                    // Neues Höchstgebot, altes Gebot, Mindestgebot (2.000 + 200)
+                    return str_contains($html, '2.000 €')
+                        && str_contains($html, '1.200 €')
+                        && str_contains($html, '2.200 €')
+                        && str_contains($html, 'überboten');
+                },
+            );
+            Mail::assertSent(OutbidMail::class, 1);
         });
     } finally {
         destroyTenant($tenant);

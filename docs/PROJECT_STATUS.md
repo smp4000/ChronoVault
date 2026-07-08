@@ -202,7 +202,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - [ ] Laravel Pulse konfigurieren; Telescope in Produktion deaktivieren
 - [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen
 - [ ] Shop: Anfrage-Formular (Lead → Contact + Notification) statt reiner Anfrage-Box
-- [ ] Auktionen: weitere Bieter-Mails (überboten/Zuschlag — Gebotsbestätigung existiert bereits, BidConfirmationMail auf ShouldQueue umstellen sobald Horizon läuft); Live-Gebotsstand (Polling/Websockets); Demo-Auktion auf „welle" nach dem Testen zurückziehen (Rückzug stellt Uhren-Status wieder her)
+- [ ] Auktionen: Zuschlag-Mail an den Gewinner (Bestätigungs- und Überboten-Mail existieren; beide Mailables auf ShouldQueue umstellen sobald Horizon läuft); Live-Gebotsstand (Polling/Websockets); Demo-Auktionen auf „welle" nach dem Testen aufräumen (Rückzug stellt Uhren-Status wieder her)
 - [ ] Shop: Betriebsdaten des Händlers (Kontakt-E-Mail/Telefon/Impressum) als Tenant-Einstellungen für Footer & Anfrage
 - [ ] Eigenes Filament-Theme-CSS (`->viteTheme()`) für Premium-Feinschliff
 
