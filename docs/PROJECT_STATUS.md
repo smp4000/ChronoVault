@@ -4,26 +4,26 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-08 (Modul 8 — Auktionen)
+> Letzte Aktualisierung: 2026-07-08 (Modul 9 — Reporting & Dashboards)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 8 (Auktionen) abgeschlossen** ([Doku](modules/module-08-auctions.md)).
-Auktions-Ereignisse (Saal/Online/Hybrid, Status-Lebenszyklus) mit
-Losverwaltung: Einliefern über AddLotToAuctionAction (Guards, fortlaufende
-Losnummern, Uhr → neuer WatchStatus „In Auktion" mit gemerktem
-Vorzustand), Abrechnung über SettleLotAction (Zuschlag → Verkaufsbeleg
-via RecordSaleAction + Uhr „Verkauft"; Rückgang/Rückzug → Status-RESTORE).
-AuctionResource (Gruppe „Verkauf") mit Los-Kennzahlen (Lose, Zuschläge,
-Erlös) und LotsRelationManager (Einliefern/Zuschlag/Rückgang/Rückzug).
-Berechtigungen auctions.* geseedet + nachgerollt; Lösch-Schutz für
-Auktionen mit offenen Losen, zugeschlagene Lose und Käufer-Kontakte.
-65 Tests grün, PHPStan sauber.
+**Modul 9 (Reporting & Dashboards) abgeschlossen**
+([Doku](modules/module-09-reporting.md)). ReportingService aggregiert
+DB-agnostisch in PHP (ADR-001; Monats-Gruppierung wäre SQL-spezifisch):
+Umsatz/Marge je Monat (lückenlose 12-Monats-Achse; Marge nur für
+Verkäufe mit Einkaufspreis), Verkaufs-Kennzahlen inkl. Ø Standzeit,
+Bestand nach Status, Top-Marken nach gebundenem Kapital. Vier neue
+Dashboard-Widgets: SalesStatsWidget (Stats), SalesChartWidget
+(Linie, volle Breite), InventoryByStatusWidget (Doughnut),
+TopBrandsWidget (horizontale Balken) — canView je Berechtigung,
+blau-geführte Farben. Widget-Tests via Livewire::test (Dashboard lädt
+lazy!). 69 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 9 (Reporting & Dashboards) ODER Modul 10
-(API/Sanctum) ODER Shop-Ausbau (Anfrage-Formular, Betriebsdaten).
+**Nächster Schritt:** Modul 10 (API/Sanctum) ODER Shop-Ausbau
+(Anfrage-Formular, Betriebsdaten) ODER Reporting-Ausbau (Exporte).
 
 ---
 
@@ -41,7 +41,7 @@ Auktionen mit offenen Losen, zugeschlagene Lose und Käufer-Kontakte.
 | 7 | Bewertungen & Marktwert ([Doku](modules/module-07-valuations.md)) | ✅ Fertig |
 | — | Öffentlicher Shop / Schaufenster ([Doku](modules/shop.md)) | ✅ Fertig |
 | 8 | Auktionen ([Doku](modules/module-08-auctions.md)) | ✅ Fertig |
-| 9 | Reporting & Dashboards | ⬜ Offen |
+| 9 | Reporting & Dashboards ([Doku](modules/module-09-reporting.md)) | ✅ Fertig |
 | 10 | API (Sanctum) & Integrationen | ⬜ Offen |
 
 ## Datenbanktabellen
@@ -95,6 +95,10 @@ Auktionen mit offenen Losen, zugeschlagene Lose und Käufer-Kontakte.
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
 - `App\Widgets\WatchStatsWidget` (Bestandskennzahlen, Tenant-Dashboard; canView nur mit watches.view)
 - `App\Widgets\InventoryValueWidget` (Einkaufs-/Marktwert des Bestands + Wertentwicklung %, Modul 7)
+- `App\Widgets\SalesStatsWidget` (Umsatz/Marge/Ø Standzeit 12 Monate, Modul 9; transactions.view)
+- `App\Widgets\SalesChartWidget` (Linie: Umsatz + Marge je Monat, volle Breite, Modul 9)
+- `App\Widgets\InventoryByStatusWidget` (Doughnut: Bestand nach Status, Modul 9)
+- `App\Widgets\TopBrandsWidget` (Balken: Top 5 Marken nach Einkaufswert unverkauft, Modul 9)
 
 ## Öffentlicher Shop (außerhalb Filament)
 
@@ -106,6 +110,7 @@ Auktionen mit offenen Losen, zugeschlagene Lose und Käufer-Kontakte.
 
 - `App\Services\WatchReferenceLookupService` — KI-Recherche zu Referenznummern: Perplexity sonar-pro (bevorzugt, Web-Suche eingebaut, citations→source_urls) mit Anthropic claude-opus-4-8 als Fallback; JSON-Parsing + Stammdaten-Matching; DTO `WatchReferenceData`; Konfiguration PERPLEXITY_API_KEY / ANTHROPIC_API_KEY
 - `App\Services\MarketValueLookupService` — KI-Marktwert-Recherche (Perplexity; Zustand/Lieferumfang/Baujahr im Prompt); DTO `MarketValueData` (Wert, Spanne, Quellen)
+- `App\Services\ReportingService` — Dashboard-Kennzahlen (Modul 9): salesByMonth/salesTotals/inventoryByStatus/topBrandsByInventoryValue; DB-agnostische PHP-Aggregation, Margen-Semantik (nur Verkäufe mit Einkaufspreis)
 
 ## Actions
 
