@@ -129,3 +129,21 @@ withTrashed-Lookup). Redundante Datenhaltung wird bewusst in Kauf genommen.
 
 **Entscheidung:** Code targetet PHP 8.2+ (Laravel-12-Minimum) und verwendet
 keine 8.3/8.4-only-Features, bis die lokale Umgebung aktualisiert ist.
+
+## ADR-010: Zeitzone Europe/Berlin statt UTC (2026-07-09)
+
+**Kontext:** Auktionen (Modul 8b) starten zeitgesteuert und zeigen
+Countdowns. Händler geben Start-/Endzeiten als deutsche Wanduhrzeit ein.
+Mit UTC lag now() zwei Stunden hinter der eingegebenen Zeit: Auktionen
+starteten nicht automatisch, Countdowns zeigten +2 Stunden.
+
+**Entscheidung:** `config/app.php` → `timezone = env('APP_TIMEZONE',
+'Europe/Berlin')`. Alle naiven DB-Zeitstempel gelten als deutsche Zeit.
+
+**Konsequenzen:**
+- Eingegebene Zeiten, now(), Scheduler und Countdown sind konsistent.
+- Alle Mandanten sind deutschsprachig (Projektregel) — eine feste Zone
+  reicht; bei Internationalisierung später Zeitzone pro Tenant (data-JSON)
+  und Speicherung in UTC mit Anzeige-Konvertierung.
+- Historische created_at/updated_at (vor der Umstellung in UTC
+  geschrieben) erscheinen um 2 h versetzt — lokal ohne Belang.
