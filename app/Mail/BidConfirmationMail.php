@@ -43,7 +43,7 @@ class BidConfirmationMail extends Mailable
         $lot = $this->bid->lot;
 
         return new Envelope(
-            subject: 'Ihr Gebot über '.number_format((float) $this->bid->amount, 0, ',', '.').' € — Los '.$lot->lot_number.', '.$lot->auction->title,
+            subject: 'Ihr Gebot über '.number_format((float) $this->bid->amount, 0, ',', '.').' € — Los '.$lot->lot_code.', '.$lot->auction->title,
         );
     }
 

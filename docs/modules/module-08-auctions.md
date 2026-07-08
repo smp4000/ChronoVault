@@ -137,9 +137,25 @@ beim Seitenaufruf (try/catch, bricht die Seite nie). Idempotent.
   (FinalizeDueAuctionsCommand::forceTenantUrlRoot).
 
 **Mindestgebot** (`AuctionLot::minimumNextBid()`): Höchstgebot +
-Erhöhungsschritt, sonst Startpreis (Fallback: untere Schätzung, 50 €).
-Erhöhungsstaffel (`bidIncrementFor`): <100→10, <500→25, <1000→50,
-<2000→100, <5000→200, <10000→500, <50000→1000, sonst 2500.
+Mindest-Erhöhungsschritt, sonst Startpreis (Fallback: untere Schätzung,
+50 €). Der Schritt ist PRO AUKTION einstellbar
+(`auctions.bid_increment`, Standard 100 €, Feld im Auktionsformular) —
+der Gebotsbetrag selbst ist frei wählbar (auch krumme Beträge),
+bewusst KEINE Staffel.
+
+**Los-Code** (`auction_lots.lot_code`, unique): Öffentliche Kennung als
+6 GROSSBUCHSTABEN (z. B. „KXQWBA"), automatisch beim Anlegen erzeugt
+(kollisionsgeprüft inkl. Papierkorb). Erscheint überall in der
+Außendarstellung (Katalog, Mails, Verwendungszweck, Beleg-Notiz,
+Panel-Modals); die numerische lot_number bleibt für die
+Katalog-Reihenfolge.
+
+**Limit-Kommunikation**: Liegt das Höchstgebot unter dem Limit,
+ersetzt die `ReserveNotMetMail` (Bernstein-Kopfzeile) die normale
+Bestätigung — Gebot erfasst, aber ohne Limit-Erreichen kein Zuschlag;
+Aufforderung zum Erhöhen. Das Limit selbst wird NIE genannt
+(Geschäftsgeheimnis des Einlieferers); die Los-Seite zeigt öffentlich
+nur den Badge „Limit noch nicht erreicht" (`AuctionLot::isReserveMet()`).
 
 **Race-Schutz**: Die PlaceBidAction prüft das Mindestgebot in einer
 DB-Transaktion mit `lockForUpdate` auf den Gebot-Zeilen des Loses —

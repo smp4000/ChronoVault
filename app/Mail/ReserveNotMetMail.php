@@ -2,15 +2,15 @@
 
 /**
  * =========================================================================
- * OutbidMail — Benachrichtigung „Sie wurden überboten" (Modul 8b)
+ * ReserveNotMetMail — Gebot erfasst, Limit noch nicht erreicht (8b)
  * =========================================================================
  *
  * Zweck:
- *   Informiert den BISHERIGEN Höchstbietenden, sobald ein höheres Gebot
- *   eingeht — mit neuem Gebotsstand, Mindestgebot und CTA zum
- *   Nachbieten. Es wird bewusst NUR der abgelöste Höchstbietende
- *   benachrichtigt (alle früheren Bieter wurden bereits informiert,
- *   als sie selbst überboten wurden — kein Mail-Spam).
+ *   Ersetzt die normale Gebotsbestätigung, wenn das Gebot zwar
+ *   Höchstgebot ist, aber UNTER dem Limit des Einlieferers liegt:
+ *   Ohne höheres Gebot gibt es am Auktionsende KEINEN Zuschlag.
+ *   Die Mail nennt das Limit bewusst NICHT (Geschäftsgeheimnis des
+ *   Einlieferers) — nur den Hinweis + Mindestgebot (+10 €-Schritte).
  *
  * Versand: synchron aus der PlaceBidAction (siehe BidConfirmationMail).
  * =========================================================================
@@ -27,42 +27,39 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class OutbidMail extends Mailable
+class ReserveNotMetMail extends Mailable
 {
     use Queueable;
     use SerializesModels;
 
     public function __construct(
-        /** Das abgelöste Gebot (Empfänger der Mail). */
-        public readonly AuctionBid $outbid,
-        /** Das neue Höchstgebot. */
-        public readonly AuctionBid $newHighest,
+        public readonly AuctionBid $bid,
     ) {}
 
     public function envelope(): Envelope
     {
-        $lot = $this->outbid->lot;
+        $lot = $this->bid->lot;
 
         return new Envelope(
-            subject: 'Sie wurden überboten — Los '.$lot->lot_code.', '.$lot->auction->title,
+            subject: 'Ihr Gebot ist erfasst — das Limit ist noch nicht erreicht (Los '.$lot->lot_code.')',
         );
     }
 
     public function content(): Content
     {
-        $lot = $this->outbid->lot;
+        $lot = $this->bid->lot;
 
         return new Content(
-            view: 'emails.outbid',
+            view: 'emails.reserve-not-met',
             with: [
-                'outbid' => $this->outbid,
-                'newHighest' => $this->newHighest,
+                'bid' => $this->bid,
                 'lot' => $lot,
                 'auction' => $lot->auction,
                 'watch' => $lot->watch,
                 'tenantName' => (string) tenant('name'),
                 'lotUrl' => route('shop.auctions.lot', [$lot->auction, $lot]),
                 'minimumNextBid' => $lot->minimumNextBid(),
+                'bidIncrement' => $lot->bidIncrement(),
             ],
         );
     }

@@ -10,7 +10,7 @@ signed-Middleware validiert die Query-Signatur auch für POST.
 --}}
 @extends('shop.layout')
 
-@section('title', 'Ihre Daten — Los '.$lot->lot_number)
+@section('title', 'Ihre Daten — Los '.$lot->lot_code)
 
 @php
     $formatEur = fn ($value): string => number_format((float) $value, 2, ',', '.').' €';
@@ -19,7 +19,7 @@ signed-Middleware validiert die Query-Signatur auch für POST.
 @section('content')
     <div class="mx-auto max-w-3xl px-4 pt-12 sm:px-6 lg:px-8 lg:pt-16">
 
-        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">Zuschlag — Los {{ $lot->lot_number }}</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">Zuschlag — Los {{ $lot->lot_code }}</p>
         <h1 class="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
             Herzlichen Glückwunsch!
         </h1>

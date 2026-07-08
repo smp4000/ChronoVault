@@ -22,7 +22,7 @@ blockieren viele Mail-Clients.
 <body style="margin:0; padding:0; background-color:#f5f5f4; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
     <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
-        Herzlichen Glückwunsch — der Zuschlag für Los {{ $lot->lot_number }} ging an Sie: {{ $formatEur($amount) }}.
+        Herzlichen Glückwunsch — der Zuschlag für Los {{ $lot->lot_code }} ging an Sie: {{ $formatEur($amount) }}.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f4; padding:32px 16px;">
@@ -55,7 +55,7 @@ blockieren viele Mail-Clients.
                                             {{ $formatEur($amount) }}
                                         </p>
                                         <p style="margin:8px 0 0 0; font-size:14px; color:#a7f3d0;">
-                                            Los {{ $lot->lot_number }} · {{ $auction->title }}
+                                            Los {{ $lot->lot_code }} · {{ $auction->title }}
                                         </p>
                                     </td>
                                 </tr>

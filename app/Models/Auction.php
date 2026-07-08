@@ -53,6 +53,7 @@ class Auction extends Model
         'starts_at',
         'ends_at',
         'currency',
+        'bid_increment',
         'notes',
     ];
 
@@ -65,6 +66,7 @@ class Auction extends Model
         'status' => 'draft',
         'venue' => 'saleroom',
         'currency' => 'EUR',
+        'bid_increment' => '100',
     ];
 
     /**
@@ -75,6 +77,7 @@ class Auction extends Model
         return [
             'venue' => AuctionVenue::class,
             'status' => AuctionStatus::class,
+            'bid_increment' => 'decimal:2',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
         ];

@@ -22,7 +22,7 @@ $lotUrl, $minimumNextBid.
 <body style="margin:0; padding:0; background-color:#f5f5f4; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
     <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
-        Das Höchstgebot auf Los {{ $lot->lot_number }} liegt jetzt bei {{ $formatEur($newHighest->amount) }} — Sie können direkt nachbieten.
+        Das Höchstgebot auf Los {{ $lot->lot_code }} liegt jetzt bei {{ $formatEur($newHighest->amount) }} — Sie können direkt nachbieten.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f4; padding:32px 16px;">
@@ -55,7 +55,7 @@ $lotUrl, $minimumNextBid.
                                             {{ $formatEur($newHighest->amount) }}
                                         </p>
                                         <p style="margin:8px 0 0 0; font-size:14px; color:#a1a1aa;">
-                                            Neues Höchstgebot · Los {{ $lot->lot_number }} · {{ $auction->title }}
+                                            Neues Höchstgebot · Los {{ $lot->lot_code }} · {{ $auction->title }}
                                         </p>
                                     </td>
                                 </tr>

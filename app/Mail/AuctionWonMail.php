@@ -46,7 +46,7 @@ class AuctionWonMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Zuschlag! Los '.$this->lot->lot_number.' — '.$this->lot->auction->title,
+            subject: 'Zuschlag! Los '.$this->lot->lot_code.' — '.$this->lot->auction->title,
         );
     }
 
@@ -55,7 +55,9 @@ class AuctionWonMail extends Mailable
         $lot = $this->lot;
         $auction = $lot->auction;
         $amount = (float) $lot->hammer_price;
-        $remittance = 'Los '.$lot->lot_number.' '.$auction->title;
+        // Verwendungszweck: der eindeutige Los-Code identifiziert die
+        // Zahlung zweifelsfrei (kurz genug für die 140-Zeichen-Grenze).
+        $remittance = 'Los '.$lot->lot_code.' '.$auction->title;
 
         $iban = tenant('bank_iban');
         $accountHolder = tenant('bank_account_holder') ?? (string) tenant('name');

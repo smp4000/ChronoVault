@@ -45,6 +45,7 @@ class AuctionLot extends Model
         'buyer_contact_id',
         'created_by_user_id',
         'lot_number',
+        'lot_code',
         'status',
         'previous_watch_status',
         'starting_price',
@@ -76,13 +77,31 @@ class AuctionLot extends Model
     }
 
     /**
-     * Erfasser automatisch setzen (Tenant-Benutzer).
+     * Erfasser und Los-Code automatisch setzen.
      */
     protected static function booted(): void
     {
         static::creating(function (AuctionLot $lot): void {
             $lot->created_by_user_id ??= auth()->id();
+            $lot->lot_code ??= self::generateLotCode();
         });
+    }
+
+    /**
+     * Eindeutiger öffentlicher Los-Code: 6 GROSSBUCHSTABEN (A–Z),
+     * kollisionsgeprüft inkl. soft-gelöschter Lose (Unique-Index!).
+     */
+    public static function generateLotCode(): string
+    {
+        do {
+            $code = '';
+
+            for ($i = 0; $i < 6; $i++) {
+                $code .= chr(random_int(65, 90));
+            }
+        } while (self::withTrashed()->where('lot_code', $code)->exists());
+
+        return $code;
     }
 
     /**
@@ -140,7 +159,20 @@ class AuctionLot extends Model
     }
 
     /**
-     * Mindestbetrag für das nächste Gebot: Höchstgebot + Erhöhungsschritt,
+     * Mindest-Erhöhungsschritt des Loses — pro AUKTION einstellbar
+     * (auctions.bid_increment, Standard 100 €). Der Bieter wählt seinen
+     * Betrag frei, muss das Höchstgebot aber um mindestens diesen
+     * Schritt übertreffen (bewusst KEINE Staffel).
+     */
+    public function bidIncrement(): float
+    {
+        $increment = $this->auction?->getAttribute('bid_increment');
+
+        return $increment !== null ? (float) $increment : 100.0;
+    }
+
+    /**
+     * Mindestbetrag für das nächste Gebot: Höchstgebot + Schritt,
      * sonst Startpreis (Fallback: untere Schätzung, zuletzt 50 €).
      */
     public function minimumNextBid(): float
@@ -148,7 +180,7 @@ class AuctionLot extends Model
         $highest = $this->highestBidAmount();
 
         if ($highest !== null) {
-            return $highest + self::bidIncrementFor($highest);
+            return $highest + $this->bidIncrement();
         }
 
         $startingPrice = $this->getAttribute('starting_price');
@@ -163,20 +195,20 @@ class AuctionLot extends Model
     }
 
     /**
-     * Übliche Auktions-Erhöhungsschritte, gestaffelt nach Gebotshöhe.
+     * Ist das Limit (reserve_price) mit dem aktuellen Höchstgebot
+     * erreicht? true auch ohne Limit. Das Limit selbst bleibt intern!
      */
-    public static function bidIncrementFor(float $amount): float
+    public function isReserveMet(): bool
     {
-        return match (true) {
-            $amount < 100 => 10.0,
-            $amount < 500 => 25.0,
-            $amount < 1000 => 50.0,
-            $amount < 2000 => 100.0,
-            $amount < 5000 => 200.0,
-            $amount < 10000 => 500.0,
-            $amount < 50000 => 1000.0,
-            default => 2500.0,
-        };
+        $reserve = $this->getAttribute('reserve_price');
+
+        if ($reserve === null) {
+            return true;
+        }
+
+        $highest = $this->highestBidAmount();
+
+        return $highest !== null && $highest >= (float) $reserve;
     }
 
     /**

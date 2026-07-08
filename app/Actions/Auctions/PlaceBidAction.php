@@ -31,6 +31,7 @@ namespace App\Actions\Auctions;
 
 use App\Mail\BidConfirmationMail;
 use App\Mail\OutbidMail;
+use App\Mail\ReserveNotMetMail;
 use App\Models\AuctionBid;
 use App\Models\AuctionLot;
 use Illuminate\Support\Facades\DB;
@@ -96,8 +97,16 @@ class PlaceBidAction
 
         // Mails NACH der Transaktion (Gebot ist sicher gespeichert);
         // ein Mail-Fehler darf das Gebot nie verhindern — nur loggen.
+        // Unter dem Limit ersetzt die "Limit nicht erreicht"-Mail die
+        // normale Bestätigung (das Limit selbst wird NIE genannt).
         try {
-            Mail::to($bid->bidder_email)->send(new BidConfirmationMail($bid));
+            $lot->refresh();
+
+            Mail::to($bid->bidder_email)->send(
+                $lot->isReserveMet()
+                    ? new BidConfirmationMail($bid)
+                    : new ReserveNotMetMail($bid)
+            );
         } catch (Throwable $exception) {
             report($exception);
         }

@@ -71,6 +71,14 @@ class AuctionForm
                             ->seconds(false)
                             ->after('starts_at'),
 
+                        TextInput::make('bid_increment')
+                            ->label('Mindest-Erhöhungsschritt')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(100)
+                            ->prefix('€')
+                            ->helperText('Online-Gebote müssen das Höchstgebot um mindestens diesen Betrag übertreffen — der Gebotsbetrag selbst ist frei wählbar.'),
+
                         Textarea::make('description')
                             ->label('Beschreibung')
                             ->rows(3)

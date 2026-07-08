@@ -137,7 +137,9 @@ it('settles a sold lot with a sale transaction and marks the watch as sold', fun
                 ->and($sale->type)->toBe(TransactionType::Sale)
                 ->and($sale->price)->toBe('12500.00')
                 ->and($sale->contact_id)->toBe($buyer->id)
-                ->and($sale->notes)->toContain('Los 1');
+                // Beleg-Notiz nutzt den eindeutigen Los-Code (6 Großbuchstaben)
+                ->and($sale->notes)->toContain('Los '.$lot->lot_code)
+                ->and($lot->lot_code)->toMatch('/^[A-Z]{6}$/');
 
             // Bereits abgerechnete Lose sind gesperrt
             expect(fn () => app(SettleLotAction::class)->unsold($lot))

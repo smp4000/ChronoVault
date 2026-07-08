@@ -70,7 +70,7 @@ class SettleLotAction
             'price' => $data['hammer_price'],
             'transacted_at' => $settledAt,
             'payment_method' => $data['payment_method'] ?? null,
-            'notes' => 'Auktionszuschlag — Los '.$lot->lot_number.', „'.$lot->auction->title.'“',
+            'notes' => 'Auktionszuschlag — Los '.$lot->lot_code.', „'.$lot->auction->title.'“',
         ]);
 
         $lot->forceFill([

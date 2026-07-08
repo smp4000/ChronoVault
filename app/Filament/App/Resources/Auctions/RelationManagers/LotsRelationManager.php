@@ -121,10 +121,11 @@ class LotsRelationManager extends RelationManager
                 ->withCount('bids')
                 ->withMax('bids', 'amount'))
             ->columns([
-                TextColumn::make('lot_number')
+                TextColumn::make('lot_code')
                     ->label('Los')
-                    ->sortable()
-                    ->weight('semibold'),
+                    ->weight('semibold')
+                    ->searchable()
+                    ->description(fn (AuctionLot $lot): string => 'Nr. '.$lot->lot_number),
 
                 TextColumn::make('watch.model_name')
                     ->label('Uhr')
@@ -237,7 +238,7 @@ class LotsRelationManager extends RelationManager
             ->visible(fn (AuctionLot $lot): bool => $lot->isOpen()
                 && ! $lot->trashed()
                 && (auth()->user()?->can('auctions.update') ?? false))
-            ->modalHeading(fn (AuctionLot $lot): string => 'Zuschlag für Los '.$lot->lot_number)
+            ->modalHeading(fn (AuctionLot $lot): string => 'Zuschlag für Los '.$lot->lot_code)
             ->modalSubmitActionLabel('Zuschlag erfassen')
             // Höchstes Online-Gebot als Vorschlag (Preis + Bieter) —
             // Saal-/Telefongebote können beides einfach überschreiben.
@@ -357,7 +358,7 @@ class LotsRelationManager extends RelationManager
             ->color('gray')
             ->visible(fn (AuctionLot $lot): bool => $lot->bids_count > 0
                 && (auth()->user()?->can('auctions.view') ?? false))
-            ->modalHeading(fn (AuctionLot $lot): string => 'Gebote für Los '.$lot->lot_number)
+            ->modalHeading(fn (AuctionLot $lot): string => 'Gebote für Los '.$lot->lot_code)
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Schließen')
             ->modalContent(fn (AuctionLot $lot) => view('filament.auction-lot-bids', [
@@ -378,7 +379,7 @@ class LotsRelationManager extends RelationManager
                 && ! $lot->trashed()
                 && (auth()->user()?->can('auctions.update') ?? false))
             ->requiresConfirmation()
-            ->modalHeading(fn (AuctionLot $lot): string => 'Rückgang für Los '.$lot->lot_number)
+            ->modalHeading(fn (AuctionLot $lot): string => 'Rückgang für Los '.$lot->lot_code)
             ->modalDescription('Kein Zuschlag — die Uhr kehrt in ihren vorherigen Bestandsstatus zurück.')
             ->modalSubmitActionLabel('Rückgang erfassen')
             ->action(function (AuctionLot $lot): void {
@@ -405,7 +406,7 @@ class LotsRelationManager extends RelationManager
                 && ! $lot->trashed()
                 && (auth()->user()?->can('auctions.update') ?? false))
             ->requiresConfirmation()
-            ->modalHeading(fn (AuctionLot $lot): string => 'Los '.$lot->lot_number.' zurückziehen')
+            ->modalHeading(fn (AuctionLot $lot): string => 'Los '.$lot->lot_code.' zurückziehen')
             ->modalDescription('Das Los wird aus der Auktion genommen — die Uhr kehrt in ihren vorherigen Bestandsstatus zurück.')
             ->modalSubmitActionLabel('Zurückziehen')
             ->action(function (AuctionLot $lot): void {

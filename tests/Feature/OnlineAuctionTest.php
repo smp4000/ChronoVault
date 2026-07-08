@@ -26,6 +26,7 @@ use App\Enums\AuctionStatus;
 use App\Enums\AuctionVenue;
 use App\Mail\BidConfirmationMail;
 use App\Mail\OutbidMail;
+use App\Mail\ReserveNotMetMail;
 use App\Models\Auction;
 use App\Models\AuctionLot;
 use App\Models\Brand;
@@ -140,24 +141,34 @@ it('enforces minimum bids with increment steps', function () {
             $first = $action->execute($lot, $bidder(1000));
             expect((float) $first->amount)->toBe(1000.0)
                 ->and($lot->highestBidAmount())->toBe(1000.0)
-                // 1.000 € → Erhöhungsschritt 100 € → Mindestgebot 1.100 €
+                // Standard-Schritt 100 € → Mindestgebot 1.100 €
                 ->and($lot->minimumNextBid())->toBe(1100.0);
 
             // Unter Höchstgebot + Schritt → abgelehnt
             expect(fn () => $action->execute($lot, $bidder(1050)))
                 ->toThrow(RuntimeException::class, 'Mindestgebot von 1.100 €');
 
-            // Deutlich höher → angenommen; nächster Schritt folgt der Staffel
-            $second = $action->execute($lot, $bidder(5000));
-            expect((float) $second->amount)->toBe(5000.0)
-                // 5.000 € → Erhöhungsschritt 500 €
-                ->and($lot->minimumNextBid())->toBe(5500.0);
+            // Betrag frei wählbar (krumme Beträge erlaubt), min. +Schritt
+            $second = $action->execute($lot, $bidder(1111));
+            expect((float) $second->amount)->toBe(1111.0)
+                ->and($lot->minimumNextBid())->toBe(1211.0);
 
-            // Erhöhungsstaffel punktuell prüfen
-            expect(AuctionLot::bidIncrementFor(50))->toBe(10.0)
-                ->and(AuctionLot::bidIncrementFor(1500))->toBe(100.0)
-                ->and(AuctionLot::bidIncrementFor(9999))->toBe(500.0)
-                ->and(AuctionLot::bidIncrementFor(60000))->toBe(2500.0);
+            // Schritt ist PRO AUKTION einstellbar (z. B. 10 €)
+            $smallStepAuction = Auction::factory()->create([
+                'venue' => AuctionVenue::Online,
+                'status' => AuctionStatus::Live,
+                'ends_at' => now()->addDay(),
+                'bid_increment' => 10,
+            ]);
+            $smallStepLot = app(AddLotToAuctionAction::class)->execute(
+                $smallStepAuction,
+                Watch::factory()->create(['brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id]),
+                ['starting_price' => 500],
+            );
+            $action->execute($smallStepLot, $bidder(500));
+
+            expect($smallStepLot->bidIncrement())->toBe(10.0)
+                ->and($smallStepLot->minimumNextBid())->toBe(510.0);
         });
     } finally {
         destroyTenant($tenant);
@@ -262,18 +273,72 @@ it('sends a binding confirmation mail to the bidder', function () {
 
             Mail::assertSent(
                 BidConfirmationMail::class,
-                function (BidConfirmationMail $mail): bool {
+                function (BidConfirmationMail $mail) use ($lot): bool {
                     $mail->assertTo('erika@example.test');
 
-                    // Rendering prüfen: Betrag, Verbindlichkeit, Los-Link
+                    // Rendering prüfen: Betrag, Verbindlichkeit, Los-Code, Link
                     $html = $mail->render();
 
                     return str_contains($html, '1.500 €')
                         && str_contains($html, 'verbindlich')
-                        && str_contains($html, 'Los 1')
+                        && str_contains($html, 'Los '.$lot->lot_code)
                         && str_contains($html, '/auktionen/');
                 },
             );
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('sends a reserve-not-met mail instead of a confirmation without revealing the limit', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            Mail::fake();
+
+            [$auction] = liveOnlineAuctionWithLot();
+
+            // Los mit Limit 5.000 € (bleibt geheim!)
+            $lot = app(AddLotToAuctionAction::class)->execute(
+                $auction,
+                Watch::factory()->create(['brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id]),
+                ['starting_price' => 1000, 'reserve_price' => 5000],
+            );
+
+            // Gebot UNTER Limit → "Limit nicht erreicht"-Mail statt Bestätigung
+            app(PlaceBidAction::class)->execute($lot, [
+                'bidder_name' => 'Max Bieter',
+                'bidder_email' => 'max@example.test',
+                'amount' => 1200,
+            ]);
+
+            Mail::assertNotSent(BidConfirmationMail::class);
+            Mail::assertSent(
+                ReserveNotMetMail::class,
+                function (ReserveNotMetMail $mail) use ($lot): bool {
+                    $mail->assertTo('max@example.test');
+
+                    $html = $mail->render();
+
+                    return str_contains($html, 'Limit')
+                        && str_contains($html, '1.200 €')
+                        // Mindestgebot +100 €, Los-Code — aber NIE das Limit!
+                        && str_contains($html, '1.300 €')
+                        && str_contains($html, 'Los '.$lot->lot_code)
+                        && ! str_contains($html, '5.000');
+                },
+            );
+
+            // Gebot ÜBER Limit → normale Bestätigung
+            app(PlaceBidAction::class)->execute($lot, [
+                'bidder_name' => 'Erika Mustermann',
+                'bidder_email' => 'erika@example.test',
+                'amount' => 5100,
+            ]);
+
+            Mail::assertSent(BidConfirmationMail::class, 1);
         });
     } finally {
         destroyTenant($tenant);
@@ -322,10 +387,10 @@ it('notifies the previous highest bidder when outbid, but not on self-raises', f
 
                     $html = $mail->render();
 
-                    // Neues Höchstgebot, altes Gebot, Mindestgebot (2.000 + 200)
+                    // Neues Höchstgebot, altes Gebot, Mindestgebot (2.000 + 100)
                     return str_contains($html, '2.000 €')
                         && str_contains($html, '1.200 €')
-                        && str_contains($html, '2.200 €')
+                        && str_contains($html, '2.100 €')
                         && str_contains($html, 'überboten');
                 },
             );
@@ -395,12 +460,14 @@ it('serves the public auction catalog and hides drafts', function () {
     try {
         $auctionId = null;
         $lotId = null;
+        $lotCode = null;
         $draftId = null;
 
-        $tenant->run(function () use (&$auctionId, &$lotId, &$draftId) {
+        $tenant->run(function () use (&$auctionId, &$lotId, &$lotCode, &$draftId) {
             [$auction, $lot] = liveOnlineAuctionWithLot();
             $auctionId = $auction->id;
             $lotId = $lot->id;
+            $lotCode = $lot->lot_code;
 
             $draftId = Auction::factory()->draft()->create()->id;
         });
@@ -414,7 +481,7 @@ it('serves the public auction catalog and hides drafts', function () {
 
         $this->get('http://'.$domain.'/auktionen/'.$auctionId)
             ->assertOk()
-            ->assertSee('Los 1')
+            ->assertSee('Los '.$lotCode)
             ->assertSee('Katalog');
 
         $this->get('http://'.$domain.'/auktionen/'.$auctionId.'/los/'.$lotId)

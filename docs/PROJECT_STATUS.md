@@ -65,7 +65,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `service_records` (UUID, watch_id + contact_id FK restrictOnDelete, type, status, previous_watch_status [Restore!], cost/currency, submitted/completed/warranty, SoftDeletes)
 - `valuations` (UUID, watch_id FK restrictOnDelete, source, market_value + Spanne, currency, valued_at, summary, source_urls JSON, SoftDeletes)
 - `auctions` (UUID, title, venue, location, status, starts_at/ends_at, currency, SoftDeletes)
-- `auction_lots` (UUID, auction_id FK cascade, watch_id + buyer_contact_id FK restrictOnDelete, lot_number [unique je Auktion], status, previous_watch_status [Restore!], starting/estimate/reserve/hammer-Preise, settled_at, SoftDeletes)
+- `auction_lots` (UUID, auction_id FK cascade, watch_id + buyer_contact_id FK restrictOnDelete, lot_number [unique je Auktion] + lot_code [6 Großbuchstaben, unique — öffentliche Kennung], status, previous_watch_status [Restore!], starting/estimate/reserve/hammer-Preise, settled_at, SoftDeletes); `auctions` zusätzlich bid_increment (Mindest-Schritt je Auktion, Standard 100 €)
 - `auction_bids` (UUID, auction_lot_id FK cascade, bidder_name/email/phone, amount, currency, ip_address — Online-Gebote ohne Konto, Modul 8b)
 
 ## Models
@@ -109,7 +109,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Http\Controllers\AuctionCatalogController` — Auktionskatalog + Online-Gebote (Modul 8b; Entwurf/Abgesagt → 404, Bieterdaten nie öffentlich)
 - `App\Http\Requests\PlaceBidRequest` — Formalvalidierung des Gebotsformulars (deutsche Meldungen)
 - `App\Http\Requests\WatchInquiryRequest` + `App\Mail\WatchInquiryMail` — Shop-Anfrage an die Inhaber (Reply-To Kunde, Panel-Link); POST `/uhren/{watch}/anfrage` (throttle:5,1)
-- Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA) + `App\Mail\AuctionWonMail` (Zuschlag: Zahlungsinfos, GiroCode-QR via `App\Support\GiroCode` [EPC069-12, endroid/qr-code], signierter Daten-Link 14 Tage); Live-Countdown-Partial auf den Auktionsseiten
+- Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\ReserveNotMetMail` (Limit nicht erreicht — Limit wird NIE genannt) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA) + `App\Mail\AuctionWonMail` (Zuschlag: Zahlungsinfos, GiroCode-QR via `App\Support\GiroCode` [EPC069-12, endroid/qr-code], signierter Daten-Link 14 Tage); Live-Countdown-Partial auf den Auktionsseiten
 - Gewinner-Datenseite: `shop.auctions.winner` (+`.save`) mit signed-Middleware — Adressformular aktualisiert den Käufer-Kontakt (`WinnerDetailsRequest`)
 - `App\Filament\App\Pages\BusinessSettings` — Betriebsdaten (Bankverbindung) im App-Panel (settings.manage; Speicherung im zentralen Tenant-data-JSON, IBAN normalisiert)
 - `routes/tenant.php` — `shop.index` (`/`), `shop.show` (`/uhren/{watch}`), `shop.auctions.*` (`/auktionen...`, Gebots-POST mit throttle:10,1)

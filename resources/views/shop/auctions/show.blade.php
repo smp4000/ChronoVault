@@ -84,7 +84,7 @@ Bieternamen erscheinen NIE öffentlich — nur Höchstgebot und Anzahl.
                         <a href="{{ route('shop.auctions.lot', [$auction, $lot]) }}" class="group block">
                             <div class="relative aspect-square overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition group-hover:border-blue-200 group-hover:shadow-lg group-hover:shadow-blue-900/5">
                                 <span class="absolute left-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-neutral-900 shadow-sm">
-                                    Los {{ $lot->lot_number }}
+                                    Los {{ $lot->lot_code }}
                                 </span>
                                 @if ($lot->status === AuctionLotStatus::Sold)
                                     <span class="absolute right-3 top-3 z-10 rounded-full bg-blue-800 px-3 py-1 text-xs font-semibold text-white">Zugeschlagen</span>

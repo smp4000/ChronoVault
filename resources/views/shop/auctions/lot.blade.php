@@ -9,7 +9,7 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
 --}}
 @extends('shop.layout')
 
-@section('title', 'Los '.$lot->lot_number.' — '.$lot->watch->fullName())
+@section('title', 'Los '.$lot->lot_code.' — '.$lot->watch->fullName())
 
 @php
     use App\Enums\AuctionLotStatus;
@@ -66,7 +66,7 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
             {{-- Losdaten + Gebot --}}
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">
-                    Los {{ $lot->lot_number }} · {{ $watch->brand->name }}
+                    Los {{ $lot->lot_code }} · {{ $watch->brand->name }}
                 </p>
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
                     {{ $watch->model_name }}
@@ -100,6 +100,14 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                             <dd class="mt-0.5 text-xs text-blue-900/70">
                                 {{ $lot->bids_count }} {{ $lot->bids_count === 1 ? 'Gebot' : 'Gebote' }}
                             </dd>
+                            {{-- Limit-Hinweis OHNE Betrag (Geschäftsgeheimnis des Einlieferers) --}}
+                            @if ($lot->isOpen() && $lot->bids_count > 0 && ! $lot->isReserveMet())
+                                <dd class="mt-2">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                                        Limit noch nicht erreicht
+                                    </span>
+                                </dd>
+                            @endif
                         </div>
                     @endif
                 </dl>
@@ -126,6 +134,7 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                         <p class="font-medium text-neutral-900">Ihr Gebot</p>
                         <p class="mt-1 text-sm text-neutral-500">
                             Mindestgebot: <span class="font-semibold text-blue-900">{{ $formatEur($minimum) }}</span>
+                            <span class="text-neutral-400">· Erhöhung um mind. {{ $formatEur($lot->bidIncrement()) }}, Betrag frei wählbar</span>
                         </p>
 
                         <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
