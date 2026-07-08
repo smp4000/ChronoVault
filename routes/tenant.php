@@ -41,6 +41,9 @@ Route::middleware([
 ])->group(function () {
     Route::get('/', [ShopController::class, 'index'])->name('shop.index');
     Route::get('/uhren/{watch}', [ShopController::class, 'show'])->name('shop.show');
+    Route::post('/uhren/{watch}/anfrage', [ShopController::class, 'inquire'])
+        ->middleware('throttle:5,1')
+        ->name('shop.inquire');
 
     // Öffentlicher Auktionskatalog (Modul 8b) — Gebots-POST mit Throttle
     // gegen Skript-Missbrauch (10 Gebote/Minute je IP reichen jedem Bieter).

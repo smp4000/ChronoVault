@@ -32,10 +32,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
+use App\Http\Requests\WatchInquiryRequest;
+use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
+use App\Models\User;
 use App\Models\Watch;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class ShopController extends Controller
 {
@@ -100,5 +106,50 @@ class ShopController extends Controller
             'watch' => $watch,
             'related' => $related,
         ]);
+    }
+
+    /**
+     * Kaufanfrage zu einer Uhr — geht per Mail an die Inhaber des
+     * Betriebs (Reply-To: Kunde). Bewusst KEIN automatischer Kontakt
+     * im Kundenstamm: Erst eine echte Geschäftsbeziehung (Kauf/Gebot)
+     * macht Interessenten zu Kontakten.
+     */
+    public function inquire(WatchInquiryRequest $request, string $watchId): RedirectResponse
+    {
+        $watch = Watch::query()
+            ->publishedInShop()
+            ->with('brand')
+            ->findOrFail($watchId);
+
+        Mail::to($this->inquiryRecipients())
+            ->send(new WatchInquiryMail($watch, $request->validated()));
+
+        return back()->with(
+            'inquiry_success',
+            'Vielen Dank für Ihre Anfrage — wir melden uns schnellstmöglich bei Ihnen.'
+        );
+    }
+
+    /**
+     * Empfänger der Anfrage: Inhaber des Betriebs, sonst Administratoren,
+     * als letzter Fallback die Absenderadresse der Plattform.
+     *
+     * @return array<int, string>
+     */
+    private function inquiryRecipients(): array
+    {
+        $owners = User::role(UserRole::Owner->value)->pluck('email')->all();
+
+        if ($owners !== []) {
+            return $owners;
+        }
+
+        $admins = User::role(UserRole::Admin->value)->pluck('email')->all();
+
+        if ($admins !== []) {
+            return $admins;
+        }
+
+        return [(string) config('mail.from.address')];
     }
 }

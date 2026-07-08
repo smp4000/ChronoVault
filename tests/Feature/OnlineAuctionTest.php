@@ -421,7 +421,10 @@ it('serves the public auction catalog and hides drafts', function () {
             ->assertOk()
             ->assertSee('Gebot abgeben')
             ->assertSee('Mindestgebot')
-            ->assertSee('1.000');
+            ->assertSee('1.000')
+            // Live-Countdown bis zum Auktionsende ist eingebunden
+            ->assertSee('cv-countdown')
+            ->assertSee('data-ends', escape: false);
 
         // Entwürfe bleiben öffentlich unsichtbar
         $this->get('http://'.$domain.'/auktionen/'.$draftId)->assertNotFound();

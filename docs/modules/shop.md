@@ -62,9 +62,14 @@ Angebotspreis selbst.
 - **Fotos** über `Watch::photoUrls()` (Media Library, tenant-isolierte
   Auslieferung via `/tenancy/assets/...`); Empty-State mit Uhren-Icon
   statt gebrochener Bilder.
-- **Anfrage-Box statt Checkout**: Der Shop ist ein Schaufenster, kein
-  Warenkorb-System — Kontaktaufnahme unter Angabe der Referenz. Ein echtes
-  Anfrage-Formular (Lead → Contact, Modul 5) ist als Erweiterung notiert.
+- **Anfrage-Formular statt Checkout**: Der Shop ist ein Schaufenster,
+  kein Warenkorb-System. Die Detailseite hat ein echtes Anfrage-Formular
+  (Name/E-Mail/Telefon/Nachricht, WatchInquiryRequest) — die Anfrage geht
+  als `WatchInquiryMail` an die INHABER des Betriebs (Fallback: Admins,
+  zuletzt Absenderadresse), mit Reply-To des Kunden und Direktlink ins
+  Panel. Bewusst KEIN automatischer Kontakt im Kundenstamm (erst eine
+  echte Geschäftsbeziehung macht Interessenten zu Kontakten).
+  POST `/uhren/{watch}/anfrage` mit throttle:5,1.
 
 ## Tests (`tests/Feature/ShopTest.php`)
 

@@ -108,6 +108,8 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Http\Controllers\ShopController` — Listing (Markenfilter, Pagination) + Detailseite (404 für Unveröffentlichtes)
 - `App\Http\Controllers\AuctionCatalogController` — Auktionskatalog + Online-Gebote (Modul 8b; Entwurf/Abgesagt → 404, Bieterdaten nie öffentlich)
 - `App\Http\Requests\PlaceBidRequest` — Formalvalidierung des Gebotsformulars (deutsche Meldungen)
+- `App\Http\Requests\WatchInquiryRequest` + `App\Mail\WatchInquiryMail` — Shop-Anfrage an die Inhaber (Reply-To Kunde, Panel-Link); POST `/uhren/{watch}/anfrage` (throttle:5,1)
+- Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA); Live-Countdown-Partial auf den Auktionsseiten
 - `routes/tenant.php` — `shop.index` (`/`), `shop.show` (`/uhren/{watch}`), `shop.auctions.*` (`/auktionen...`, Gebots-POST mit throttle:10,1)
 - `resources/views/shop/` — layout, index, show, partials/watch-card, auctions/{index,show,lot} (grimmeissen-Stil in Blau, Tailwind only)
 
@@ -201,7 +203,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - [ ] Meilisearch lokal installieren, Scout-Driver umstellen (ADR-003)
 - [ ] Laravel Pulse konfigurieren; Telescope in Produktion deaktivieren
 - [ ] Deutsches Sprachpaket (`laravel-lang`) für Framework-Validierungsmeldungen
-- [ ] Shop: Anfrage-Formular (Lead → Contact + Notification) statt reiner Anfrage-Box
+- [x] ~~Shop: Anfrage-Formular~~ → umgesetzt (WatchInquiryMail an Inhaber, Reply-To Kunde)
 - [ ] Auktionen: Zuschlag-Mail an den Gewinner (Bestätigungs- und Überboten-Mail existieren; beide Mailables auf ShouldQueue umstellen sobald Horizon läuft); Live-Gebotsstand (Polling/Websockets); Demo-Auktionen auf „welle" nach dem Testen aufräumen (Rückzug stellt Uhren-Status wieder her)
 - [ ] Shop: Betriebsdaten des Händlers (Kontakt-E-Mail/Telefon/Impressum) als Tenant-Einstellungen für Footer & Anfrage
 - [ ] Eigenes Filament-Theme-CSS (`->viteTheme()`) für Premium-Feinschliff

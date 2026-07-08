@@ -62,6 +62,11 @@ Erwartet: $auctions (Collection mit lots_count; laufende zuerst).
                                 @if ($auction->location) · {{ $auction->location }} @endif
                                 @if ($auction->starts_at) · {{ $auction->starts_at->format('d.m.Y H:i') }} Uhr @endif
                             </p>
+                            @if ($auction->isBiddingOpen() && $auction->ends_at)
+                                <div class="mt-3">
+                                    @include('shop.partials.countdown', ['endsAt' => $auction->ends_at])
+                                </div>
+                            @endif
                         </div>
                         <div class="flex items-center gap-6">
                             <div class="text-right">

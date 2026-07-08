@@ -22,8 +22,10 @@
 declare(strict_types=1);
 
 use App\Enums\WatchStatus;
+use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\Watch;
+use Illuminate\Support\Facades\Mail;
 
 it('lists only published sellable watches in the shop', function () {
     $tenant = provisionTenant();
@@ -152,6 +154,63 @@ it('shows the detail page for a published watch', function () {
             ->assertSee('126610LN')
             ->assertSee('13.900,50')
             ->assertSee('Technische Daten');
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('sends watch inquiries to the shop owner with reply-to the customer', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $watchId = null;
+
+        $tenant->run(function () use (&$watchId) {
+            $watchId = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Anfrage Submariner',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+            ])->id;
+        });
+
+        Mail::fake();
+
+        $url = 'http://'.$tenant->primaryDomain().'/uhren/'.$watchId;
+
+        // Gültige Anfrage → Mail an den Inhaber, Reply-To Kunde
+        $this->from($url)
+            ->post($url.'/anfrage', [
+                'name' => 'Erika Mustermann',
+                'email' => 'erika@example.test',
+                'phone' => '+49 170 1234567',
+                'message' => 'Ist die Uhr noch verfügbar?',
+            ])
+            ->assertRedirect($url)
+            ->assertSessionHas('inquiry_success');
+
+        Mail::assertSent(
+            WatchInquiryMail::class,
+            function (WatchInquiryMail $mail): bool {
+                // Inhaber des Test-Tenants (provisionTenant)
+                $mail->assertTo('owner@example.test');
+                $mail->assertHasReplyTo('erika@example.test');
+
+                $html = $mail->render();
+
+                return str_contains($html, 'Anfrage Submariner')
+                    && str_contains($html, 'Ist die Uhr noch verfügbar?');
+            },
+        );
+
+        // Unvollständige Anfrage → Validierungsfehler, keine Mail
+        $this->from($url)
+            ->post($url.'/anfrage', ['name' => '', 'email' => 'kaputt', 'message' => ''])
+            ->assertRedirect($url)
+            ->assertSessionHasErrors(['name', 'email', 'message']);
+
+        Mail::assertSent(WatchInquiryMail::class, 1);
     } finally {
         tenancy()->end();
         destroyTenant($tenant);

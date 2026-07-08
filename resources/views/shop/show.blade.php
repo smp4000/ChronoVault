@@ -153,19 +153,58 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                     @endif
                 </div>
 
-                {{-- Anfrage-Box --}}
-                <div class="mt-8 rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
-                    <p class="font-medium text-neutral-900">Interesse an dieser Uhr?</p>
-                    <p class="mt-1 text-sm leading-relaxed text-neutral-600">
-                        Kontaktieren Sie uns unter Angabe der Referenz
-                        <span class="font-medium text-blue-900">{{ $watch->reference_number ?? $watch->fullName() }}</span>
-                        — wir beraten Sie gerne persönlich, auch zu Inzahlungnahme und Versand.
-                    </p>
-                    <a href="#kontakt"
-                       class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
-                        Anfrage stellen
-                    </a>
-                </div>
+                {{-- Anfrage-Formular --}}
+                @if (session('inquiry_success'))
+                    <div class="mt-8 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-900">
+                        {{ session('inquiry_success') }}
+                    </div>
+                @else
+                    <div class="mt-8 rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
+                        <p class="font-medium text-neutral-900">Interesse an dieser Uhr?</p>
+                        <p class="mt-1 text-sm leading-relaxed text-neutral-600">
+                            Senden Sie uns eine Anfrage — wir beraten Sie gerne persönlich,
+                            auch zu Inzahlungnahme und Versand.
+                        </p>
+
+                        <form method="POST" action="{{ route('shop.inquire', $watch) }}" class="mt-4">
+                            @csrf
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                    <label for="inquiry_name" class="block text-xs font-medium text-neutral-600">Name *</label>
+                                    <input type="text" id="inquiry_name" name="name" required
+                                           value="{{ old('name') }}"
+                                           class="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                                    @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label for="inquiry_email" class="block text-xs font-medium text-neutral-600">E-Mail *</label>
+                                    <input type="email" id="inquiry_email" name="email" required
+                                           value="{{ old('email') }}"
+                                           class="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                                    @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label for="inquiry_phone" class="block text-xs font-medium text-neutral-600">Telefon (optional)</label>
+                                    <input type="text" id="inquiry_phone" name="phone"
+                                           value="{{ old('phone') }}"
+                                           class="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label for="inquiry_message" class="block text-xs font-medium text-neutral-600">Ihre Nachricht *</label>
+                                    <textarea id="inquiry_message" name="message" rows="3" required
+                                              placeholder="z. B. Fragen zu Zustand, Besichtigung oder Inzahlungnahme …"
+                                              class="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">{{ old('message', 'Ich interessiere mich für die '.$watch->fullName().'. Bitte kontaktieren Sie mich.') }}</textarea>
+                                    @error('message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+
+                            <button type="submit"
+                                    class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
+                                Anfrage senden
+                            </button>
+                        </form>
+                    </div>
+                @endif
 
                 {{-- Beschreibung --}}
                 @if (filled($watch->description))

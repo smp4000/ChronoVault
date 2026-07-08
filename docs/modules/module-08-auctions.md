@@ -140,6 +140,11 @@ nur im Panel („Gebote"-Modal, auctions.view).
   index (Live-Badge mit Puls), show (Loskacheln mit Schätzpreis/
   Höchstgebot/Zuschlag), lot (Galerie, Gebotsstand, Formular mit
   Mindestgebot-Anzeige, Kurzdaten) — „Auktionen"-Link im Shop-Header
+- **Live-Countdown** (`shop/partials/countdown.blade.php`): tickende
+  Restzeit („Endet in 2 Tage 04:12:33") auf Katalog-, Auktions- und
+  Los-Seite, solange das Bietfenster offen ist; bei 0 lädt die Seite
+  einmalig neu (Server rendert das geschlossene Bietfenster).
+  Vanilla-JS, @once gegen doppelte Skripte.
 - Panel: Höchstgebot-Spalte (+Anzahl) im LotsRelationManager,
   „Gebote"-Modal (`resources/views/filament/auction-lot-bids.blade.php`),
   Zuschlag-Modal: Käufer-Feld gruppiert „Bieter dieses Loses" +

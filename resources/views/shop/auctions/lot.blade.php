@@ -104,6 +104,13 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                     @endif
                 </dl>
 
+                {{-- Live-Countdown bis zum Auktionsende --}}
+                @if ($biddingOpen && $auction->ends_at)
+                    <div class="mt-6">
+                        @include('shop.partials.countdown', ['endsAt' => $auction->ends_at])
+                    </div>
+                @endif
+
                 {{-- Gebotsformular / Statushinweis --}}
                 @if (session('bid_success'))
                     <div class="mt-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">

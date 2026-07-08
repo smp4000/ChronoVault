@@ -51,6 +51,12 @@ Bieternamen erscheinen NIE öffentlich — nur Höchstgebot und Anzahl.
                 @if ($auction->ends_at) · Ende {{ $auction->ends_at->format('d.m.Y H:i') }} Uhr @endif
             </p>
 
+            @if ($biddingOpen && $auction->ends_at)
+                <div class="mt-4">
+                    @include('shop.partials.countdown', ['endsAt' => $auction->ends_at])
+                </div>
+            @endif
+
             @if ($biddingOpen)
                 <p class="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-900">
                     Diese Auktion läuft — Sie können auf jedes offene Los direkt online bieten.
