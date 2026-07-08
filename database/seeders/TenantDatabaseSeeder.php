@@ -66,6 +66,17 @@ class TenantDatabaseSeeder extends Seeder
         'watches.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'watches.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
         'watches.delete' => [UserRole::Owner, UserRole::Admin],
+
+        // Modul 5 — Kundenstamm & Kauf-/Verkaufsbelege: Verkaufen ist
+        // operatives Tagesgeschäft; Belege löschen (Storno) nur Verwaltung.
+        'contacts.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'contacts.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'contacts.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'contacts.delete' => [UserRole::Owner, UserRole::Admin],
+        'transactions.view' => [UserRole::Owner, UserRole::Admin, UserRole::Employee, UserRole::Viewer],
+        'transactions.create' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'transactions.update' => [UserRole::Owner, UserRole::Admin, UserRole::Employee],
+        'transactions.delete' => [UserRole::Owner, UserRole::Admin],
     ];
 
     public function run(): void

@@ -21,11 +21,30 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Actions\Transactions\RecordPurchaseAction;
 use App\Actions\Watches\DownloadWatchPhotosAction;
 use App\Models\Watch;
 
 class WatchObserver
 {
+    /**
+     * Uhren, die direkt mit Einkaufsdaten angelegt werden, bekommen
+     * automatisch ihren Ankauf-Beleg — so ist die Preishistorie von
+     * Anfang an vollständig (Modul 5).
+     */
+    public function created(Watch $watch): void
+    {
+        if ($watch->purchase_price !== null) {
+            app(RecordPurchaseAction::class)->execute($watch, [
+                'price' => (float) $watch->purchase_price,
+                'transacted_at' => $watch->purchase_date ?? now(),
+                'notes' => $watch->purchase_location !== null
+                    ? "Automatisch aus der Uhren-Anlage übernommen (gekauft bei: {$watch->purchase_location})."
+                    : 'Automatisch aus der Uhren-Anlage übernommen.',
+            ], syncWatch: false);
+        }
+    }
+
     public function saved(Watch $watch): void
     {
         $imageSources = (array) data_get($watch->research_data, 'image_urls', []);

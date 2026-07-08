@@ -11,10 +11,13 @@ declare(strict_types=1);
 use App\Enums\BraceletMaterial;
 use App\Enums\CaseMaterial;
 use App\Enums\ClaspType;
+use App\Enums\ContactType;
 use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
+use App\Enums\PaymentMethod;
 use App\Enums\TenantStatus;
+use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
@@ -55,6 +58,18 @@ it('keeps stable chrono24 attribute enum values with german labels', function ()
         ->and(GlassType::Sapphire->getLabel())->toBe('Saphirglas')
         ->and(ClaspType::PinBuckle->getLabel())->toBe('Dornschließe')
         ->and(DialNumerals::Indices->getLabel())->toBe('Indizes/Striche');
+});
+
+it('keeps stable transaction enums with german labels', function () {
+    expect(TransactionType::Purchase->value)->toBe('purchase')
+        ->and(TransactionType::Purchase->getLabel())->toBe('Ankauf')
+        ->and(TransactionType::Sale->getLabel())->toBe('Verkauf')
+        ->and(PaymentMethod::BankTransfer->value)->toBe('bank_transfer')
+        ->and(PaymentMethod::BankTransfer->getLabel())->toBe('Überweisung')
+        ->and(PaymentMethod::TradeIn->getLabel())->toBe('Inzahlungnahme')
+        ->and(ContactType::PrivatePerson->value)->toBe('private')
+        ->and(ContactType::PrivatePerson->getLabel())->toBe('Privatperson')
+        ->and(ContactType::AuctionHouse->getLabel())->toBe('Auktionshaus');
 });
 
 it('keeps stable watch condition values with german labels', function () {

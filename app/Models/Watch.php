@@ -48,6 +48,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
 use Spatie\MediaLibrary\HasMedia;
@@ -224,6 +225,16 @@ class Watch extends Model implements HasMedia
     }
 
     /**
+     * Kauf-/Verkaufshistorie der Uhr (Modul 5), neueste zuerst.
+     *
+     * @return HasMany<Transaction, $this>
+     */
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(Transaction::class)->orderByDesc('transacted_at');
+    }
+
+    /**
      * Anzeige-Name "Marke Modell (Referenz)" — z. B. für Global Search,
      * Notifications und spätere Belege.
      */
@@ -280,6 +291,15 @@ class Watch extends Model implements HasMedia
     public function firstPhotoUrl(): ?string
     {
         return $this->photoUrls()[0] ?? null;
+    }
+
+    /**
+     * Ist die Uhr verkauft? (getAttribute statt Property-Zugriff —
+     * kapselt den Enum-Vergleich typsicher für statische Analyse.)
+     */
+    public function isSold(): bool
+    {
+        return $this->getAttribute('status') === WatchStatus::Sold;
     }
 
     /**

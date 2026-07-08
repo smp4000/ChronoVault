@@ -4,22 +4,23 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-07 (Modul 4 — Medienverwaltung, Kern)
+> Letzte Aktualisierung: 2026-07-08 (Modul 5 — Kauf/Verkauf & Preishistorie)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 4 (Medienverwaltung) abgeschlossen** — spatie/laravel-medialibrary
-pro Tenant-DB (uuidMorphs!), Collections photos/documents (Watch) + logo
-(Brand, singleFile), TenantMediaUrlGenerator (tenant_asset), Livewire-
-Upload-/Preview-Routen tenancy-fähig, geführter Foto-Upload (PhotoSlot-Enum,
-6 Slots via custom_property + Media-Filter) + Weitere Fotos + Dokumente,
-Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
-37 Tests grün, PHPStan sauber. Offen nur Conversions (Queue-Worker).
+**Modul 5 (Kauf/Verkauf & Preishistorie) abgeschlossen.**
+Neue Gruppe „Verkauf": Kundenstamm (contacts) + Kauf-/Verkaufsbelege
+(transactions, currency-fähig, restrictOnDelete auf Uhr & Kontakt).
+Domain-Actions RecordSale/RecordPurchase halten Uhren-Status und
+purchase_*-Felder synchron (Verkauf → „Verkauft", Rückkauf → zurück
+„An Lager"); Auto-Ankauf-Beleg beim Anlegen mit Einkaufsdaten (Observer).
+„Verkaufen"-Schnellaktion mit Margen-Notification in der Bestandsliste,
+TransactionsRelationManager an der Uhr. 43 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 5 — Kauf/Verkauf & Preishistorie
-(inkl. Inserat-Erstellung; Shop-Design: docs/DESIGN.md — grimmeissen.de in Blau).
+**Nächster Schritt:** Modul 6 — Service-Historie & Wartung, ODER
+Shop/Inserate (Design: docs/DESIGN.md — grimmeissen.de in Blau).
 
 ---
 
@@ -32,7 +33,7 @@ Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
 | 2 | Stammdaten: Marken (Brands) & Kaliber ([Doku](modules/module-02-master-data.md)) | ✅ Fertig |
 | 3 | Kernmodul: Uhren (Watches) ([Doku](modules/module-03-watches.md)) | ✅ Fertig |
 | 4 | Medienverwaltung ([Doku](modules/module-04-media.md)) | ✅ Fertig |
-| 5 | Kauf/Verkauf & Preishistorie | ⬜ Offen |
+| 5 | Kauf/Verkauf & Preishistorie ([Doku](modules/module-05-transactions.md)) | ✅ Fertig |
 | 6 | Service-Historie & Wartung | ⬜ Offen |
 | 7 | Bewertungen & Marktwert | ⬜ Offen |
 | 8 | Auktionen | ⬜ Offen |
@@ -54,6 +55,8 @@ Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
 - `brands` (UUID, name unique, country, founded_year, website, is_active, SoftDeletes)
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
 - `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], research_data JSON [KI-Lookup], SoftDeletes)
+- `contacts` (UUID, type, Firma/Vor-/Nachname, E-Mail/Telefon/Adresse, SoftDeletes)
+- `transactions` (UUID, watch_id + contact_id FK restrictOnDelete, created_by FK, type purchase/sale, price, currency, transacted_at, payment_method, document_number, SoftDeletes)
 
 ## Models
 
@@ -72,7 +75,9 @@ Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
 - `Users\UserResource` (+ UserForm, UsersTable, List/Create/Edit-Pages)
 - `Brands\BrandResource` (Gruppe „Stammdaten"; + BrandForm, BrandsTable, Pages, CalibersRelationManager, Papierkorb/Restore)
 - `Calibers\CaliberResource` (Gruppe „Stammdaten"; + CaliberForm, CalibersTable, Pages — Form/Table werden vom RelationManager wiederverwendet, `withBrand: false`)
-- `Watches\WatchResource` (Gruppe „Bestand"; + WatchForm als Tab-Layout mit KI-Referenz-Lookup [Referenznummer zuerst, ✨-Action] und abhängigem Kaliber-Select, WatchesTable mit Full-Set-Filter, Pages, Papierkorb/Restore)
+- `Watches\WatchResource` (Gruppe „Bestand"; + WatchForm als Tab-Layout mit KI-Referenz-Lookup [Referenznummer zuerst, ✨-Action] und abhängigem Kaliber-Select, WatchesTable mit Full-Set-Filter + „Verkaufen"-Schnellaktion, TransactionsRelationManager, Pages, Papierkorb/Restore)
+- `Transactions\TransactionResource` (Gruppe „Verkauf"; Erstellung via Domain-Actions in CreateTransaction; Form/Table wiederverwendet vom RelationManager)
+- `Contacts\ContactResource` (Gruppe „Verkauf"; Kundenstamm mit Adress-Sektion)
 
 **Widgets:**
 - `Central\Widgets\TenantStatsWidget` (Mandanten-Kennzahlen, Dashboard)
@@ -87,6 +92,8 @@ Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
 - `App\Actions\Tenancy\CreateTenantAction` — komplettes Provisioning
 - `App\Actions\Tenancy\DeleteTenantAction` — archive() (Soft) / execute() (endgültig + DB-Löschung)
 - `App\Actions\Watches\DownloadWatchPhotosAction` — lädt KI-Bildquellen als Uhrenfotos (public-Disk, tenant-isoliert; max 4; nur image/*)
+- `App\Actions\Transactions\RecordSaleAction` — Verkaufs-Beleg + Status „Verkauft" + margin()
+- `App\Actions\Transactions\RecordPurchaseAction` — Ankauf-Beleg + purchase_*-Sync; Rückkauf → zurück in Bestand
 
 ## Enums
 
@@ -98,6 +105,8 @@ Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
 - Chrono24-Katalog: `CaseMaterial` (19), `WatchColor` (20), `BraceletMaterial` (18), `GlassType`, `ClaspType`, `DialNumerals`, `WatchGender` — standardisierte Inserat-Attribute statt Freitext
 - `App\Enums\OwnershipStatus` (owned/commission/customer_property — Kommissionsgeschäft)
 - `App\Enums\WatchFunction` (15 Komplikationen, Mehrfachauswahl als JSON-Array)
+- `App\Enums\PhotoSlot` (6 Slots des geführten Foto-Uploads)
+- Modul 5: `TransactionType` (purchase/sale), `PaymentMethod` (7 Zahlungsarten), `ContactType` (4 Kontaktarten)
 
 ## Jobs
 
@@ -114,6 +123,8 @@ Thumbnail-/Logo-Spalten, Alt-Fotos migriert (watches:migrate-photos).
 - `App\Policies\BrandPolicy` — master_data.*; Referenz-Schutz (Kaliber & Uhren, inkl. soft-gelöschter)
 - `App\Policies\CaliberPolicy` — master_data.*; Referenz-Schutz (Uhren, inkl. soft-gelöschter)
 - `App\Policies\WatchPolicy` — permission-basiert (watches.*)
+- `App\Policies\ContactPolicy` — contacts.*; Referenz-Schutz (Kontakt mit Belegen nicht löschbar)
+- `App\Policies\TransactionPolicy` — transactions.*; Löschen (Storno) nur Verwaltung
 
 ## Observers
 
