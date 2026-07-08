@@ -62,6 +62,17 @@ Angebotspreis selbst.
 - **Fotos** über `Watch::photoUrls()` (Media Library, tenant-isolierte
   Auslieferung via `/tenancy/assets/...`); Empty-State mit Uhren-Icon
   statt gebrochener Bilder.
+- **Verbindlicher Sofortkauf** (`PurchaseWatchAction`): Uhren MIT
+  Festpreis haben den Button „Jetzt verbindlich kaufen" → Kaufseite
+  `/uhren/{watch}/kaufen` (Adressformular + Checkbox, Button-Lösung
+  „Jetzt zahlungspflichtig kaufen"). Beim Kauf: Guards unter DB-Sperre
+  auf der Uhr (Doppelkauf-Race), Käufer-Kontakt per E-Mail
+  wiedererkannt/angelegt (mit Adresse), Uhr → **RESERVIERT** (raus aus
+  dem Shop, noch KEIN Verkaufsbeleg). Mails: `OrderConfirmationMail`
+  an den Käufer (verbindlicher Kauf, Lieferadresse, Zahlungsblock +
+  GiroCode, Verwendungszweck „Kauf {Referenz} {Nachname}") und
+  `OrderReceivedMail` an die Inhaber (Reply-To Käufer, Panel-Link,
+  Hinweis: nach Zahlungseingang über „Verkaufen" abschließen).
 - **Anfrage-Formular statt Checkout**: Der Shop ist ein Schaufenster,
   kein Warenkorb-System. Die Detailseite hat ein echtes Anfrage-Formular
   (Name/E-Mail/Telefon/Nachricht, WatchInquiryRequest) — die Anfrage geht

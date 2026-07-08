@@ -130,9 +130,18 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                     @if ($watch->formattedAskingPrice())
                         <p class="text-3xl font-semibold text-blue-900">{{ $watch->formattedAskingPrice() }}</p>
                         <p class="mt-1 text-xs text-neutral-400">inkl. MwSt., zzgl. Versand</p>
+
+                        <a href="{{ route('shop.buy', $watch) }}"
+                           class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-8 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
+                            Jetzt verbindlich kaufen
+                        </a>
                     @else
                         <p class="text-2xl font-medium text-neutral-700">Preis auf Anfrage</p>
                     @endif
+
+                    @error('purchase')
+                        <p class="mt-3 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-900">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 {{-- Schnell-Merkmale als Chips --}}

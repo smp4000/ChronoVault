@@ -109,6 +109,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Http\Controllers\AuctionCatalogController` — Auktionskatalog + Online-Gebote (Modul 8b; Entwurf/Abgesagt → 404, Bieterdaten nie öffentlich)
 - `App\Http\Requests\PlaceBidRequest` — Formalvalidierung des Gebotsformulars (deutsche Meldungen)
 - `App\Http\Requests\WatchInquiryRequest` + `App\Mail\WatchInquiryMail` — Shop-Anfrage an die Inhaber (Reply-To Kunde, Panel-Link); POST `/uhren/{watch}/anfrage` (throttle:5,1)
+- Sofortkauf: `App\Actions\Shop\PurchaseWatchAction` (Uhr → Reserviert unter DB-Sperre, Kontakt-Anlage/-Wiedererkennung) + `PurchaseWatchRequest` + `OrderConfirmationMail` (Käufer: GiroCode) / `OrderReceivedMail` (Inhaber); Routen `/uhren/{watch}/kaufen` GET+POST (throttle:5,1); Verkaufsbeleg nach Zahlungseingang manuell über „Verkaufen"
 - Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\ReserveNotMetMail` (Limit nicht erreicht — Limit wird NIE genannt) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA) + `App\Mail\AuctionWonMail` (Zuschlag: Zahlungsinfos, GiroCode-QR via `App\Support\GiroCode` [EPC069-12, endroid/qr-code], signierter Daten-Link 14 Tage); Live-Countdown-Partial auf den Auktionsseiten
 - Gewinner-Datenseite: `shop.auctions.winner` (+`.save`) mit signed-Middleware — Adressformular aktualisiert den Käufer-Kontakt (`WinnerDetailsRequest`)
 - `App\Filament\App\Pages\BusinessSettings` — Betriebsdaten (Bankverbindung) im App-Panel (settings.manage; Speicherung im zentralen Tenant-data-JSON, IBAN normalisiert)

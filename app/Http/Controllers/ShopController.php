@@ -32,7 +32,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Shop\PurchaseWatchAction;
 use App\Enums\UserRole;
+use App\Http\Requests\PurchaseWatchRequest;
 use App\Http\Requests\WatchInquiryRequest;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
@@ -42,6 +44,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 
 class ShopController extends Controller
 {
@@ -106,6 +109,46 @@ class ShopController extends Controller
             'watch' => $watch,
             'related' => $related,
         ]);
+    }
+
+    /**
+     * Kaufseite: verbindlicher Sofortkauf zum Festpreis (nur für
+     * veröffentlichte, verkäufliche Uhren MIT Preis — sonst 404).
+     */
+    public function buy(string $watchId): View
+    {
+        $watch = Watch::query()
+            ->publishedInShop()
+            ->whereNotNull('asking_price')
+            ->with(['brand', 'media'])
+            ->findOrFail($watchId);
+
+        return view('shop.buy', ['watch' => $watch]);
+    }
+
+    /**
+     * Kauf ausführen — Uhr reservieren, Kontakt anlegen, Mails senden.
+     * Fachliche Ablehnung (inzwischen verkauft/reserviert) erscheint
+     * als Formularfehler.
+     */
+    public function purchase(PurchaseWatchRequest $request, string $watchId): RedirectResponse
+    {
+        $watch = Watch::query()
+            ->with('brand')
+            ->findOrFail($watchId);
+
+        try {
+            app(PurchaseWatchAction::class)->execute($watch, $request->validated());
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('shop.show', $watch)
+                ->withErrors(['purchase' => $exception->getMessage()]);
+        }
+
+        return back()->with(
+            'purchase_success',
+            'Vielen Dank für Ihren Kauf! Die Uhr ist für Sie reserviert — die Kaufbestätigung mit den Zahlungsinformationen ist auf dem Weg in Ihr Postfach.'
+        );
     }
 
     /**

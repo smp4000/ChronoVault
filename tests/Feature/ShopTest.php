@@ -22,8 +22,11 @@
 declare(strict_types=1);
 
 use App\Enums\WatchStatus;
+use App\Mail\OrderConfirmationMail;
+use App\Mail\OrderReceivedMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
+use App\Models\Contact;
 use App\Models\Watch;
 use Illuminate\Support\Facades\Mail;
 
@@ -211,6 +214,95 @@ it('sends watch inquiries to the shop owner with reply-to the customer', functio
             ->assertSessionHasErrors(['name', 'email', 'message']);
 
         Mail::assertSent(WatchInquiryMail::class, 1);
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('handles a binding purchase: reserve, contact, both mails with payment info', function () {
+    $tenant = provisionTenant();
+
+    $tenant->update([
+        'bank_account_holder' => 'Test Uhrenhandel GmbH',
+        'bank_iban' => 'DE02120300000000202051',
+        'bank_bic' => 'BYLADEM1001',
+    ]);
+
+    try {
+        $watchId = null;
+
+        $tenant->run(function () use (&$watchId) {
+            $watchId = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Kauf Submariner',
+                'reference_number' => '126610LN',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 8500,
+            ])->id;
+        });
+
+        Mail::fake();
+
+        $domain = $tenant->primaryDomain();
+        $buyUrl = 'http://'.$domain.'/uhren/'.$watchId.'/kaufen';
+
+        // Kaufseite erreichbar, zahlungspflichtig-Button vorhanden
+        $this->get($buyUrl)
+            ->assertOk()
+            ->assertSee('zahlungspflichtig kaufen')
+            ->assertSee('8.500,00');
+
+        // Kauf ausführen
+        $this->from($buyUrl)
+            ->post($buyUrl, [
+                'first_name' => 'Erika',
+                'last_name' => 'Mustermann',
+                'email' => 'erika@example.test',
+                'street' => 'Musterweg 12',
+                'postal_code' => '12345',
+                'city' => 'Berlin',
+                'country' => 'Deutschland',
+                'accept_binding' => '1',
+            ])
+            ->assertRedirect($buyUrl)
+            ->assertSessionHas('purchase_success');
+
+        $tenant->run(function () use ($watchId) {
+            $watch = Watch::findOrFail($watchId);
+            $buyer = Contact::where('email', 'erika@example.test')->firstOrFail();
+
+            // Reserviert = raus aus dem Shop, noch kein Verkaufsbeleg
+            expect($watch->getAttribute('status'))->toBe(WatchStatus::Reserved)
+                ->and($buyer->street)->toBe('Musterweg 12')
+                ->and($watch->transactions()->where('type', 'sale')->count())->toBe(0);
+        });
+
+        // Käufer-Mail: verbindlich + Zahlungsdaten + Verwendungszweck
+        Mail::assertSent(
+            OrderConfirmationMail::class,
+            function (OrderConfirmationMail $mail): bool {
+                $mail->assertTo('erika@example.test');
+
+                $html = $mail->render();
+
+                return str_contains($html, 'verbindlichen Kauf')
+                    && str_contains($html, '8.500,00')
+                    && str_contains($html, 'DE02 1203')
+                    && str_contains($html, 'Kauf 126610LN Mustermann');
+            },
+        );
+
+        // Händler-Mail an den Inhaber
+        Mail::assertSent(
+            OrderReceivedMail::class,
+            fn (OrderReceivedMail $mail): bool => $mail->hasTo('owner@example.test'),
+        );
+
+        // Uhr ist reserviert → Shop zeigt sie nicht mehr, Kauf erneut unmöglich
+        $this->get('http://'.$domain.'/')->assertDontSee('Kauf Submariner');
+        $this->get($buyUrl)->assertNotFound();
     } finally {
         tenancy()->end();
         destroyTenant($tenant);
