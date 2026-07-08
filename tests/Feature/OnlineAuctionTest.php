@@ -24,11 +24,13 @@ use App\Actions\Auctions\PlaceBidAction;
 use App\Actions\Auctions\SettleLotAction;
 use App\Enums\AuctionStatus;
 use App\Enums\AuctionVenue;
+use App\Mail\BidConfirmationMail;
 use App\Models\Auction;
 use App\Models\AuctionLot;
 use App\Models\Brand;
 use App\Models\Contact;
 use App\Models\Watch;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Helper: Live-Online-Auktion mit einem offenen Los (Startpreis 1.000 €).
@@ -154,6 +156,41 @@ it('enforces minimum bids with increment steps', function () {
                 ->and(AuctionLot::bidIncrementFor(1500))->toBe(100.0)
                 ->and(AuctionLot::bidIncrementFor(9999))->toBe(500.0)
                 ->and(AuctionLot::bidIncrementFor(60000))->toBe(2500.0);
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('sends a binding confirmation mail to the bidder', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            Mail::fake();
+
+            [, $lot] = liveOnlineAuctionWithLot();
+
+            app(PlaceBidAction::class)->execute($lot, [
+                'bidder_name' => 'Erika Mustermann',
+                'bidder_email' => 'erika@example.test',
+                'amount' => 1500,
+            ]);
+
+            Mail::assertSent(
+                BidConfirmationMail::class,
+                function (BidConfirmationMail $mail): bool {
+                    $mail->assertTo('erika@example.test');
+
+                    // Rendering prüfen: Betrag, Verbindlichkeit, Los-Link
+                    $html = $mail->render();
+
+                    return str_contains($html, '1.500 €')
+                        && str_contains($html, 'verbindlich')
+                        && str_contains($html, 'Los 1')
+                        && str_contains($html, '/auktionen/');
+                },
+            );
         });
     } finally {
         destroyTenant($tenant);

@@ -134,15 +134,28 @@ nur im Panel („Gebote"-Modal, auctions.view).
   automatisch an (SettleLotAction::contactFromBid — Wiedererkennung
   per E-Mail, kein Duplikat bei Stammkunden; Typ Privatperson).
 
-### Tests (`tests/Feature/OnlineAuctionTest.php`, 4 Tests)
+### Gebotsbestätigung per E-Mail
+
+Jedes angenommene Gebot löst eine `BidConfirmationMail` an den Bieter
+aus (Premium-Design: weiße Karte, blaue Kopfzeile mit Gebotsbetrag,
+Uhr-Kachel mit Foto, Eckdaten, **Verbindlichkeits-Hinweis**, CTA zum
+Los; Tabellen-Layout + Inline-CSS für E-Mail-Clients —
+`resources/views/emails/bid-confirmation.blade.php`).
+Versand synchron NACH der DB-Transaktion; ein Mail-Fehler verhindert
+das Gebot nie (try/catch + report). In Produktion mit Horizon auf
+ShouldQueue umstellen. CLI-Versand (Tinker/Jobs) braucht
+`URL::forceRootUrl(...)`, sonst zeigen Links auf die zentrale Domain.
+
+### Tests (`tests/Feature/OnlineAuctionTest.php`, 6 Tests)
 
 Guards (Saalauktion/Bietfenster/Endzeit), Mindestgebot + Staffel,
-öffentliche Seiten (Entwurf 404), HTTP-Bietflow (Erfolg + Ablehnung
-als Formularfehler, IP gespeichert).
+Bestätigungsmail (Empfänger + gerendeter Inhalt), Zuschlag an Bieter
+(Kontakt-Anlage/-Wiedererkennung), öffentliche Seiten (Entwurf 404),
+HTTP-Bietflow (Erfolg + Ablehnung als Formularfehler, IP gespeichert).
 
 ## Mögliche Erweiterungen
 
-- E-Mail-Benachrichtigungen (überboten / Zuschlag erhalten)
+- Weitere Bieter-Mails: überboten / Zuschlag erhalten / Auktion endet bald
 - Live-Aktualisierung des Gebotsstands (Polling/Websockets)
 - Bieter-Konten mit Verifizierung; Maximalgebote (Bietagent)
 - Aufgeld (buyer's premium) + Einlieferer-Provision → Abrechnung

@@ -29,10 +29,13 @@ declare(strict_types=1);
 
 namespace App\Actions\Auctions;
 
+use App\Mail\BidConfirmationMail;
 use App\Models\AuctionBid;
 use App\Models\AuctionLot;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use RuntimeException;
+use Throwable;
 
 class PlaceBidAction
 {
@@ -55,7 +58,7 @@ class PlaceBidAction
             throw new RuntimeException('Dieses Los ist nicht mehr verfügbar.');
         }
 
-        return DB::transaction(function () use ($lot, $data): AuctionBid {
+        $bid = DB::transaction(function () use ($lot, $data): AuctionBid {
             // Sperre auf den Geboten des Loses: paralleles Gebot muss
             // warten und sieht danach das aktualisierte Mindestgebot.
             $lot->bids()->lockForUpdate()->get();
@@ -78,5 +81,15 @@ class PlaceBidAction
                 'ip_address' => $data['ip_address'] ?? null,
             ]);
         });
+
+        // Bestätigung NACH der Transaktion (Gebot ist sicher gespeichert);
+        // ein Mail-Fehler darf das Gebot nie verhindern — nur loggen.
+        try {
+            Mail::to($bid->bidder_email)->send(new BidConfirmationMail($bid));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        return $bid;
     }
 }
