@@ -128,7 +128,11 @@ nur im Panel („Gebote"-Modal, auctions.view).
   Mindestgebot-Anzeige, Kurzdaten) — „Auktionen"-Link im Shop-Header
 - Panel: Höchstgebot-Spalte (+Anzahl) im LotsRelationManager,
   „Gebote"-Modal (`resources/views/filament/auction-lot-bids.blade.php`),
-  Zuschlag-Modal mit Höchstgebot vorbefüllt
+  Zuschlag-Modal: Käufer-Feld gruppiert „Bieter dieses Loses" +
+  „Kundenstamm" (Höchstbietender vorausgewählt; Bieter-Auswahl setzt
+  den Hammerpreis live). Zuschlag an einen Bieter legt den Kontakt
+  automatisch an (SettleLotAction::contactFromBid — Wiedererkennung
+  per E-Mail, kein Duplikat bei Stammkunden; Typ Privatperson).
 
 ### Tests (`tests/Feature/OnlineAuctionTest.php`, 4 Tests)
 

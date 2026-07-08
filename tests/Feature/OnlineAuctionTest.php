@@ -21,11 +21,13 @@ declare(strict_types=1);
 
 use App\Actions\Auctions\AddLotToAuctionAction;
 use App\Actions\Auctions\PlaceBidAction;
+use App\Actions\Auctions\SettleLotAction;
 use App\Enums\AuctionStatus;
 use App\Enums\AuctionVenue;
 use App\Models\Auction;
 use App\Models\AuctionLot;
 use App\Models\Brand;
+use App\Models\Contact;
 use App\Models\Watch;
 
 /**
@@ -152,6 +154,59 @@ it('enforces minimum bids with increment steps', function () {
                 ->and(AuctionLot::bidIncrementFor(1500))->toBe(100.0)
                 ->and(AuctionLot::bidIncrementFor(9999))->toBe(500.0)
                 ->and(AuctionLot::bidIncrementFor(60000))->toBe(2500.0);
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('settles a lot to a bidder and creates or reuses the buyer contact', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $placeBid = app(PlaceBidAction::class);
+            $settle = app(SettleLotAction::class);
+
+            // Fall 1: Neuer Bieter → Kontakt wird automatisch angelegt
+            [, $lot] = liveOnlineAuctionWithLot();
+
+            $bid = $placeBid->execute($lot, [
+                'bidder_name' => 'Erika Mustermann',
+                'bidder_email' => 'erika@example.test',
+                'bidder_phone' => '+49 170 1234567',
+                'amount' => 1500,
+            ]);
+
+            $settle->sold($lot, [
+                'hammer_price' => 1500,
+                'winning_bid_id' => $bid->id,
+            ]);
+
+            $contact = Contact::where('email', 'erika@example.test')->firstOrFail();
+
+            expect($contact->first_name)->toBe('Erika')
+                ->and($contact->last_name)->toBe('Mustermann')
+                ->and($contact->phone)->toBe('+49 170 1234567')
+                ->and($lot->refresh()->buyer_contact_id)->toBe($contact->id)
+                ->and($lot->watch->transactions()->where('type', 'sale')->firstOrFail()->contact_id)->toBe($contact->id);
+
+            // Fall 2: Bieter ist Stammkunde (gleiche E-Mail) → KEIN Duplikat
+            [, $secondLot] = liveOnlineAuctionWithLot();
+
+            $secondBid = $placeBid->execute($secondLot, [
+                'bidder_name' => 'Erika M.',
+                'bidder_email' => 'erika@example.test',
+                'amount' => 2000,
+            ]);
+
+            $settle->sold($secondLot, [
+                'hammer_price' => 2000,
+                'winning_bid_id' => $secondBid->id,
+            ]);
+
+            expect(Contact::where('email', 'erika@example.test')->count())->toBe(1)
+                ->and($secondLot->refresh()->buyer_contact_id)->toBe($contact->id);
         });
     } finally {
         destroyTenant($tenant);

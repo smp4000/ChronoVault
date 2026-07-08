@@ -128,7 +128,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Actions\Services\CompleteServiceAction` — Abschluss + Status-RESTORE (kein Override bei zwischenzeitlicher Änderung)
 - `App\Actions\Valuations\RecordValuationAction` — Bewertungs-Historie + Schnellzugriff-Sync (ältere Nachträge überschreiben nicht)
 - `App\Actions\Auctions\AddLotToAuctionAction` — Einliefern mit Guards; Losnummern fortlaufend; Uhr → „In Auktion" (Status gemerkt)
-- `App\Actions\Auctions\SettleLotAction` — sold() (Verkaufsbeleg + Uhr „Verkauft"), unsold()/withdraw() (Status-RESTORE)
+- `App\Actions\Auctions\SettleLotAction` — sold() (Verkaufsbeleg + Uhr „Verkauft"; winning_bid_id → Bieter wird automatisch Kontakt, E-Mail-Wiedererkennung), unsold()/withdraw() (Status-RESTORE)
 - `App\Actions\Auctions\PlaceBidAction` — Online-Gebot mit Guards (Bietfenster, Mindestgebot) + Race-Schutz (lockForUpdate)
 
 ## Enums

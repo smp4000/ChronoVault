@@ -40,6 +40,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\TextColumn;
@@ -238,12 +239,17 @@ class LotsRelationManager extends RelationManager
                 && (auth()->user()?->can('auctions.update') ?? false))
             ->modalHeading(fn (AuctionLot $lot): string => 'Zuschlag für Los '.$lot->lot_number)
             ->modalSubmitActionLabel('Zuschlag erfassen')
-            // Höchstes Online-Gebot als Vorschlag — Saal-/Telefongebote
-            // können den Wert im Modal einfach überschreiben.
-            ->fillForm(fn (AuctionLot $lot): array => [
-                'hammer_price' => $lot->highestBidAmount(),
-                'settled_at' => now(),
-            ])
+            // Höchstes Online-Gebot als Vorschlag (Preis + Bieter) —
+            // Saal-/Telefongebote können beides einfach überschreiben.
+            ->fillForm(function (AuctionLot $lot): array {
+                $topBid = $lot->bids()->first();
+
+                return [
+                    'hammer_price' => $lot->highestBidAmount(),
+                    'buyer_key' => $topBid !== null ? 'bid:'.$topBid->getKey() : null,
+                    'settled_at' => now(),
+                ];
+            })
             ->form([
                 TextInput::make('hammer_price')
                     ->label('Hammerpreis')
@@ -255,16 +261,48 @@ class LotsRelationManager extends RelationManager
                         ? 'Vorbefüllt mit dem höchsten Online-Gebot.'
                         : null),
 
-                Select::make('buyer_contact_id')
+                // Bieter des Loses UND Kundenstamm in einem Feld — der
+                // Höchstbietende ist vorausgewählt. Bieter werden beim
+                // Zuschlag automatisch als Kontakt angelegt (Action).
+                Select::make('buyer_key')
                     ->label('Käufer')
-                    ->options(fn (): array => Contact::query()
-                        ->orderBy('company_name')
-                        ->orderBy('last_name')
-                        ->get()
-                        ->mapWithKeys(fn (Contact $contact): array => [$contact->id => $contact->displayName()])
-                        ->all())
+                    ->options(function (AuctionLot $lot): array {
+                        $options = [];
+
+                        $bidders = $lot->bids()->get()
+                            ->mapWithKeys(fn ($bid): array => [
+                                'bid:'.$bid->getKey() => $bid->bidder_name
+                                    .' — '.number_format((float) $bid->amount, 0, ',', '.').' €'
+                                    .' ('.$bid->bidder_email.')',
+                            ])
+                            ->all();
+
+                        if ($bidders !== []) {
+                            $options['Bieter dieses Loses'] = $bidders;
+                        }
+
+                        $options['Kundenstamm'] = Contact::query()
+                            ->orderBy('company_name')
+                            ->orderBy('last_name')
+                            ->get()
+                            ->mapWithKeys(fn (Contact $contact): array => ['contact:'.$contact->id => $contact->displayName()])
+                            ->all();
+
+                        return $options;
+                    })
                     ->searchable()
-                    ->helperText('Optional — für den Verkaufsbeleg.'),
+                    ->live()
+                    // Bieter gewählt → Hammerpreis auf dessen Gebot setzen
+                    ->afterStateUpdated(function (?string $state, Set $set, AuctionLot $lot): void {
+                        if ($state !== null && str_starts_with($state, 'bid:')) {
+                            $bid = $lot->bids()->find(substr($state, 4));
+
+                            if ($bid !== null) {
+                                $set('hammer_price', (float) $bid->amount);
+                            }
+                        }
+                    })
+                    ->helperText('Optional — Bieter werden beim Zuschlag automatisch als Kontakt angelegt.'),
 
                 Select::make('payment_method')
                     ->label('Zahlungsart')
@@ -277,6 +315,17 @@ class LotsRelationManager extends RelationManager
                     ->maxDate(now()),
             ])
             ->action(function (AuctionLot $lot, array $data): void {
+                // buyer_key ("bid:<id>" | "contact:<id>") in die
+                // Action-Parameter übersetzen.
+                $buyerKey = $data['buyer_key'] ?? null;
+                unset($data['buyer_key']);
+
+                if (is_string($buyerKey) && str_starts_with($buyerKey, 'bid:')) {
+                    $data['winning_bid_id'] = substr($buyerKey, 4);
+                } elseif (is_string($buyerKey) && str_starts_with($buyerKey, 'contact:')) {
+                    $data['buyer_contact_id'] = substr($buyerKey, 8);
+                }
+
                 try {
                     app(SettleLotAction::class)->sold($lot, $data);
                 } catch (RuntimeException $exception) {
