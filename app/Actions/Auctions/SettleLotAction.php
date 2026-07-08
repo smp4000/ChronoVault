@@ -81,6 +81,9 @@ class SettleLotAction
             'notes' => $data['notes'] ?? $lot->notes,
         ])->save();
 
+        // Letztes offenes Los abgerechnet? → Auktion automatisch beenden.
+        $lot->auction->refresh()->completeIfFullySettled();
+
         return $lot;
     }
 
@@ -113,6 +116,9 @@ class SettleLotAction
         ])->save();
 
         $this->restoreWatchStatus($lot->watch, $lot);
+
+        // Letztes offenes Los abgerechnet? → Auktion automatisch beenden.
+        $lot->auction->refresh()->completeIfFullySettled();
 
         return $lot;
     }

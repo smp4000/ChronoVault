@@ -49,6 +49,8 @@ class AuctionCatalogController extends Controller
      */
     public function index(): View
     {
+        $this->startDueAuctions();
+
         $auctions = Auction::query()
             ->whereIn('status', array_column(self::VISIBLE_STATUSES, 'value'))
             ->withCount('lots')
@@ -130,8 +132,27 @@ class AuctionCatalogController extends Controller
 
     private function visibleAuction(string $auctionId): Auction
     {
-        return Auction::query()
+        $auction = Auction::query()
             ->whereIn('status', array_column(self::VISIBLE_STATUSES, 'value'))
             ->findOrFail($auctionId);
+
+        // Pünktlicher Start auch ohne Scheduler: Seitenaufruf genügt.
+        $auction->startIfDue();
+
+        return $auction;
+    }
+
+    /**
+     * Alle fälligen geplanten Auktionen in einem Rutsch starten —
+     * Fallback für den Scheduler (auctions:start-due), damit der
+     * Katalog auch lokal ohne laufenden Cron korrekt ist.
+     */
+    private function startDueAuctions(): void
+    {
+        Auction::query()
+            ->where('status', AuctionStatus::Scheduled->value)
+            ->whereNotNull('starts_at')
+            ->where('starts_at', '<=', now())
+            ->update(['status' => AuctionStatus::Live->value]);
     }
 }

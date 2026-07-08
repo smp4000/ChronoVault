@@ -99,6 +99,20 @@ ist dabei im Zuschlag-Modal vorbefüllt.
 oder Hybrid + Status „Läuft" + Endzeit (falls gesetzt) nicht
 überschritten. Saalauktionen zeigen den Katalog nur zur Ansicht.
 
+**Automatischer Start** (`Auction::startIfDue()`): Geplante Auktionen
+mit erreichter Startzeit werden auf „Läuft" gesetzt — dreifach
+abgesichert: (1) Katalog-/Losseiten-Aufruf und Gebotsabgabe starten
+fällige Auktionen sofort (Fallback ohne Cron), (2) Scheduler
+`tenants:run auctions:start-due` jede Minute (routes/console.php;
+Produktion: Cron `schedule:run`, lokal `php artisan schedule:work`).
+
+**Automatischer Abschluss** (`Auction::completeIfFullySettled()`):
+Sobald das LETZTE offene Los abgerechnet ist (Zuschlag, Rückgang oder
+Rückzug), setzt die SettleLotAction die laufende Auktion auf
+„Abgeschlossen". Danach sind keine Einlieferungen mehr möglich
+(acceptsLots) — für Nachzügler den Status manuell zurück auf „Läuft"
+stellen.
+
 **Mindestgebot** (`AuctionLot::minimumNextBid()`): Höchstgebot +
 Erhöhungsschritt, sonst Startpreis (Fallback: untere Schätzung, 50 €).
 Erhöhungsstaffel (`bidIncrementFor`): <100→10, <500→25, <1000→50,

@@ -30,6 +30,7 @@ use App\Models\AuctionLot;
 use App\Models\Brand;
 use App\Models\Contact;
 use App\Models\Watch;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -156,6 +157,87 @@ it('enforces minimum bids with increment steps', function () {
                 ->and(AuctionLot::bidIncrementFor(1500))->toBe(100.0)
                 ->and(AuctionLot::bidIncrementFor(9999))->toBe(500.0)
                 ->and(AuctionLot::bidIncrementFor(60000))->toBe(2500.0);
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('starts scheduled auctions automatically when their start time is reached', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $brandId = Brand::where('name', 'Rolex')->firstOrFail()->id;
+
+            // Geplante Auktion, Startzeit bereits erreicht
+            $auction = Auction::factory()->create([
+                'venue' => AuctionVenue::Online,
+                'status' => AuctionStatus::Scheduled,
+                'starts_at' => now()->subMinutes(5),
+                'ends_at' => now()->addDay(),
+            ]);
+            $lot = app(AddLotToAuctionAction::class)->execute(
+                $auction,
+                Watch::factory()->create(['brand_id' => $brandId]),
+                ['starting_price' => 1000],
+            );
+
+            // Gebot startet die fällige Auktion automatisch
+            Mail::fake();
+            app(PlaceBidAction::class)->execute($lot, [
+                'bidder_name' => 'Max Bieter',
+                'bidder_email' => 'max@example.test',
+                'amount' => 1000,
+            ]);
+
+            expect($auction->refresh()->status)->toBe(AuctionStatus::Live);
+
+            // Scheduler-Befehl startet fällige Auktionen ebenfalls
+            $second = Auction::factory()->create([
+                'venue' => AuctionVenue::Online,
+                'status' => AuctionStatus::Scheduled,
+                'starts_at' => now()->subMinute(),
+            ]);
+            $future = Auction::factory()->create([
+                'venue' => AuctionVenue::Online,
+                'status' => AuctionStatus::Scheduled,
+                'starts_at' => now()->addDay(),
+            ]);
+
+            Artisan::call('auctions:start-due');
+
+            expect($second->refresh()->status)->toBe(AuctionStatus::Live)
+                // Zukünftige Auktionen bleiben geplant
+                ->and($future->refresh()->status)->toBe(AuctionStatus::Scheduled);
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('completes the auction automatically once the last open lot is settled', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $brandId = Brand::where('name', 'Rolex')->firstOrFail()->id;
+
+            [$auction, $firstLot] = liveOnlineAuctionWithLot();
+            $secondLot = app(AddLotToAuctionAction::class)->execute(
+                $auction,
+                Watch::factory()->create(['brand_id' => $brandId]),
+            );
+
+            $settle = app(SettleLotAction::class);
+
+            // Erstes Los abgerechnet → Auktion läuft weiter (Los 2 offen)
+            $settle->sold($firstLot, ['hammer_price' => 2000]);
+            expect($auction->refresh()->status)->toBe(AuctionStatus::Live);
+
+            // Letztes Los abgerechnet (Rückgang) → Auktion beendet
+            $settle->unsold($secondLot);
+            expect($auction->refresh()->status)->toBe(AuctionStatus::Completed);
         });
     } finally {
         destroyTenant($tenant);

@@ -46,6 +46,10 @@ class PlaceBidAction
     {
         $auction = $lot->auction;
 
+        // Pünktlicher Start auch ohne Scheduler: Ist die Startzeit einer
+        // geplanten Auktion erreicht, gilt sie ab jetzt als "Läuft".
+        $auction->startIfDue();
+
         if (! $auction->allowsOnlineBidding()) {
             throw new RuntimeException('Diese Auktion nimmt keine Online-Gebote entgegen.');
         }

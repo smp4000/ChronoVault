@@ -158,6 +158,47 @@ class Auction extends Model
     }
 
     /**
+     * Automatischer Start: Geplante Auktion, deren Startzeit erreicht
+     * ist, wird auf "Läuft" gesetzt. Wird beim öffentlichen Aufruf und
+     * vom Scheduler (auctions:start-due) aufgerufen — so startet die
+     * Auktion pünktlich, auch ohne dass jemand im Panel klickt.
+     */
+    public function startIfDue(): bool
+    {
+        $startsAt = $this->getAttribute('starts_at');
+
+        if ($this->getAttribute('status') !== AuctionStatus::Scheduled
+            || ! $startsAt instanceof Carbon
+            || $startsAt->isFuture()) {
+            return false;
+        }
+
+        $this->forceFill(['status' => AuctionStatus::Live])->saveQuietly();
+
+        return true;
+    }
+
+    /**
+     * Automatischer Abschluss: Sobald das letzte offene Los abgerechnet
+     * ist (Zuschlag/Rückgang/Rückzug), gilt die laufende Auktion als
+     * beendet. Aufgerufen von der SettleLotAction.
+     */
+    public function completeIfFullySettled(): bool
+    {
+        if ($this->getAttribute('status') !== AuctionStatus::Live) {
+            return false;
+        }
+
+        if ($this->openLotsCount() > 0) {
+            return false;
+        }
+
+        $this->forceFill(['status' => AuctionStatus::Completed])->saveQuietly();
+
+        return true;
+    }
+
+    /**
      * Anzahl noch offener (nicht abgerechneter) Lose — z. B. als Guard
      * für den Abschluss der Auktion.
      */

@@ -75,7 +75,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Models\Brand` — Tenant; HasUuids + SoftDeletes; hasMany Calibers/Watches (Werkhersteller wie ETA sind auch Brands)
 - `App\Models\Caliber` — Tenant; HasUuids + SoftDeletes; belongsTo Brand; hasMany Watches; MovementType-Cast
 - `App\Models\Watch` — Tenant; HasUuids + SoftDeletes + Scout Searchable; belongsTo Brand/Caliber; fullName(); Shop: scopePublishedInShop() + formattedAskingPrice()
-- `App\Models\Auction` — Tenant; HasUuids + SoftDeletes; hasMany Lots (Katalog-Reihenfolge); acceptsLots()/isCompleted()/openLotsCount()
+- `App\Models\Auction` — Tenant; HasUuids + SoftDeletes; hasMany Lots (Katalog-Reihenfolge); acceptsLots()/isCompleted()/openLotsCount(); Automatik: startIfDue() (pünktlicher Start) + completeIfFullySettled() (Abschluss nach letztem Los)
 - `App\Models\AuctionLot` — Tenant; HasUuids + SoftDeletes; belongsTo Auction/Watch/Buyer(Contact); isOpen()/isSold(); Gebote: bids()/highestBidAmount()/minimumNextBid()/bidIncrementFor()
 - `App\Models\AuctionBid` — Tenant; HasUuids; belongsTo AuctionLot; Online-Gebot (Name/E-Mail, kein Konto)
 
@@ -147,9 +147,10 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - Modul 7: `ValuationSource` (manual/ai_research/external)
 - Modul 8: `AuctionStatus` (draft/scheduled/live/completed/cancelled, acceptingLots()), `AuctionVenue` (saleroom/online/hybrid), `AuctionLotStatus` (open/sold/unsold/withdrawn); `WatchStatus` um `in_auction` erweitert (NICHT sellable)
 
-## Jobs
+## Jobs / Scheduler
 
-- _Eigene: keine._ Genutzt werden stancl-Jobs: CreateDatabase, MigrateDatabase, SeedDatabase, DeleteDatabase
+- _Eigene Jobs: keine._ Genutzt werden stancl-Jobs: CreateDatabase, MigrateDatabase, SeedDatabase, DeleteDatabase
+- Scheduler (routes/console.php): `tenants:run auctions:start-due` jede Minute — startet geplante Auktionen pünktlich (Command `App\Console\Commands\StartDueAuctionsCommand`; zusätzlich Fallback beim Katalog-Aufruf). Produktion: Cron `schedule:run`; lokal `php artisan schedule:work`
 
 ## Events
 
