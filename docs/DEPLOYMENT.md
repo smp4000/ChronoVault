@@ -148,7 +148,7 @@ APP_TIMEZONE=Europe/Berlin
 CENTRAL_DOMAIN=ihre-domain.de
 TENANT_DOMAIN_SUFFIX=ihre-domain.de
 
-DB_CONNECTION=central
+DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_DATABASE=chronovault
 DB_USERNAME=chronovault
