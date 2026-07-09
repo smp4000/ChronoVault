@@ -23,20 +23,26 @@ namespace App\Filament\App\Resources\PriceProposals\Tables;
 
 use App\Actions\Shop\AcceptPriceProposalAction;
 use App\Actions\Shop\CounterPriceProposalAction;
+use App\Actions\Shop\SendProposalReplyAction;
 use App\Enums\PriceProposalStatus;
 use App\Models\PriceProposal;
+use App\Services\ProposalReplyService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use RuntimeException;
+use Throwable;
 
 class PriceProposalsTable
 {
@@ -115,12 +121,7 @@ class PriceProposalsTable
                     ->label('Papierkorb'),
             ])
             ->recordActions([
-                Action::make('reply')
-                    ->label('Antworten')
-                    ->icon('heroicon-m-envelope')
-                    ->color('gray')
-                    ->url(fn (PriceProposal $record): string => 'mailto:'.$record->email
-                        .'?subject='.rawurlencode('Ihr Preisvorschlag zu '.($record->watch?->fullName() ?? 'unserer Uhr'))),
+                self::replyAction(),
 
                 self::acceptAction(),
                 self::counterAction(),
@@ -136,6 +137,105 @@ class PriceProposalsTable
             ->emptyStateHeading('Keine Preisvorschläge')
             ->emptyStateDescription('Preisvorschläge von der Shop-Detailseite erscheinen hier — zusätzlich zur E-Mail-Benachrichtigung.')
             ->emptyStateIcon('heroicon-o-currency-euro');
+    }
+
+    /**
+     * Antworten: Formular mit KI-Entwurf — Tenor + Stichpunkte wählen,
+     * „KI-Entwurf erstellen" füllt die Nachricht (ProposalReplyService),
+     * der Händler prüft/ändert und sendet (SendProposalReplyAction).
+     * Bewusst KEINE Statusänderung.
+     */
+    private static function replyAction(): Action
+    {
+        return Action::make('reply')
+            ->label('Antworten')
+            ->icon('heroicon-m-envelope')
+            ->color('gray')
+            ->visible(fn (PriceProposal $record): bool => ! $record->trashed()
+                && (auth()->user()?->can('watches.update') ?? false))
+            ->modalHeading(fn (PriceProposal $record): string => 'Antwort an '.$record->name)
+            ->modalDescription(fn (PriceProposal $record): string => 'Wunschpreis '
+                .number_format((float) $record->proposed_price, 0, ',', '.').' € für „'
+                .($record->watch?->fullName() ?? 'unbekannte Uhr').'"'
+                .(filled($record->message) ? ' — Kundennachricht: „'.str($record->message)->limit(120).'"' : ''))
+            ->modalSubmitActionLabel('Antwort senden')
+            ->modalWidth('2xl')
+            ->form(fn (PriceProposal $record): array => [
+                Select::make('tone')
+                    ->label('Tenor der Antwort')
+                    ->options(ProposalReplyService::TONES)
+                    ->default('negotiate')
+                    ->required()
+                    ->native(false),
+
+                TextInput::make('key_points')
+                    ->label('Stichpunkte für die KI (optional)')
+                    ->placeholder('z. B. Besichtigung in Fulda möglich, Service 2024 gemacht')
+                    ->maxLength(500),
+
+                TextInput::make('subject')
+                    ->label('Betreff')
+                    ->default('Ihr Preisvorschlag zu '.($record->watch?->fullName() ?? 'unserer Uhr'))
+                    ->required()
+                    ->maxLength(150),
+
+                Textarea::make('message')
+                    ->label('Nachricht')
+                    ->rows(12)
+                    ->required()
+                    ->helperText('„KI-Entwurf erstellen" schreibt einen Vorschlag — Sie prüfen, passen an und senden.')
+                    ->hintAction(
+                        Action::make('generateDraft')
+                            ->label('KI-Entwurf erstellen')
+                            ->icon('heroicon-m-sparkles')
+                            ->action(function (Get $get, Set $set, PriceProposal $record): void {
+                                try {
+                                    $draft = app(ProposalReplyService::class)->draft(
+                                        $record,
+                                        (string) ($get('tone') ?? 'negotiate'),
+                                        filled($get('key_points')) ? (string) $get('key_points') : null,
+                                    );
+                                } catch (Throwable $exception) {
+                                    report($exception);
+
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('KI-Entwurf fehlgeschlagen')
+                                        ->body($exception->getMessage())
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $set('message', $draft);
+                            }),
+                    ),
+            ])
+            ->action(function (PriceProposal $record, array $data): void {
+                try {
+                    app(SendProposalReplyAction::class)->execute(
+                        $record,
+                        (string) $data['subject'],
+                        (string) $data['message'],
+                    );
+                } catch (Throwable $exception) {
+                    report($exception);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Antwort konnte nicht gesendet werden')
+                        ->body('Bitte Mail-Konfiguration prüfen — Details im Log.')
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title('Antwort gesendet')
+                    ->body('Die Nachricht ist auf dem Weg an '.$record->email.'.')
+                    ->send();
+            });
     }
 
     /**

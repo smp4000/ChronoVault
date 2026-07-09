@@ -19,14 +19,18 @@ declare(strict_types=1);
 
 use App\Actions\Shop\AcceptPriceProposalAction;
 use App\Actions\Shop\CounterPriceProposalAction;
+use App\Actions\Shop\SendProposalReplyAction;
 use App\Enums\PriceProposalStatus;
 use App\Enums\WatchStatus;
 use App\Mail\CounterOfferMail;
+use App\Mail\DealerReplyMail;
 use App\Mail\ProposalAcceptedMail;
 use App\Models\Brand;
 use App\Models\Contact;
 use App\Models\PriceProposal;
 use App\Models\Watch;
+use App\Services\ProposalReplyService;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 
 it('accepts a proposal: sale at wish price, invoice mail, other proposals declined', function () {
@@ -157,6 +161,70 @@ it('sends a counter offer with the dealer price and message', function () {
 
             // Gegenangebot bleibt offen — Annehmen danach weiter möglich
             expect($proposal->getAttribute('status')->isOpen())->toBeTrue();
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('drafts an ai reply and sends the dealer reply mail', function () {
+    $tenant = provisionTenant();
+
+    $tenant->update(['notification_email' => 'verkauf@example.test']);
+
+    try {
+        $tenant->run(function () {
+            config(['services.perplexity.api_key' => 'test-key']);
+
+            Http::fake([
+                'api.perplexity.ai/*' => Http::response([
+                    'choices' => [[
+                        'message' => ['content' => "Sehr geehrter Herr Meier,\n\nvielen Dank fuer Ihren Vorschlag.\n\nMit freundlichen Gruessen"],
+                    ]],
+                ]),
+            ]);
+
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Antwort GMT',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 4800,
+            ]);
+
+            $proposal = PriceProposal::create([
+                'watch_id' => $watch->id,
+                'name' => 'Pauli Meier',
+                'email' => 'pauli@example.test',
+                'proposed_price' => 4000,
+                'asking_price_at_time' => 4800,
+                'message' => 'machst du letzte preis bitte',
+            ]);
+
+            // KI-Entwurf (Perplexity-Weg, gefakt)
+            $draft = app(ProposalReplyService::class)->draft($proposal, 'firm', 'Service 2024 gemacht');
+
+            expect($draft)->toContain('Sehr geehrter Herr Meier');
+
+            // Versand der (angepassten) Antwort
+            Mail::fake();
+
+            app(SendProposalReplyAction::class)->execute(
+                $proposal,
+                'Ihr Preisvorschlag zu Rolex Antwort GMT',
+                $draft,
+            );
+
+            Mail::assertSent(DealerReplyMail::class, function (DealerReplyMail $mail): bool {
+                $mail->assertTo('pauli@example.test');
+                $mail->assertHasReplyTo('verkauf@example.test');
+                $mail->assertHasSubject('Ihr Preisvorschlag zu Rolex Antwort GMT');
+
+                $html = $mail->render();
+
+                return str_contains($html, 'Sehr geehrter Herr Meier')
+                    && str_contains($html, 'Antwort GMT');
+            });
         });
     } finally {
         destroyTenant($tenant);
