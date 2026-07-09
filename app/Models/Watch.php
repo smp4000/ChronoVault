@@ -346,6 +346,8 @@ class Watch extends Model implements HasMedia
      * Erstes Foto als Binärdaten für E-Mails (Inline-Einbettung via
      * $message->embedData). Extern verlinkte Bilder blockieren viele
      * Mailprogramme — eingebettet wird das Foto immer angezeigt.
+     * WebP/AVIF (typisch für Hersteller-CDNs) werden nach JPEG
+     * konvertiert — Outlook zeigt diese Formate sonst nicht an.
      * null, wenn kein Foto vorhanden oder die Datei fehlt.
      *
      * @return array{data: string, mime: string, name: string}|null
@@ -361,11 +363,11 @@ class Watch extends Model implements HasMedia
                 return null;
             }
 
-            return [
-                'data' => (string) file_get_contents($path),
-                'mime' => (string) $media->mime_type,
-                'name' => (string) $media->file_name,
-            ];
+            return $this->mailSafePhoto(
+                (string) file_get_contents($path),
+                (string) $media->mime_type,
+                (string) $media->file_name,
+            );
         }
 
         // Fallback auf die Alt-Spalte photos (JSON-Pfade auf der public-Disk)
@@ -376,11 +378,54 @@ class Watch extends Model implements HasMedia
             return null;
         }
 
-        return [
-            'data' => (string) Storage::disk('public')->get($firstPath),
-            'mime' => (string) (Storage::disk('public')->mimeType($firstPath) ?: 'image/jpeg'),
-            'name' => basename($firstPath),
-        ];
+        return $this->mailSafePhoto(
+            (string) Storage::disk('public')->get($firstPath),
+            (string) (Storage::disk('public')->mimeType($firstPath) ?: 'image/jpeg'),
+            basename($firstPath),
+        );
+    }
+
+    /**
+     * Mail-taugliches Format erzwingen: WebP/AVIF via GD nach JPEG
+     * konvertieren. Schlägt die Konvertierung fehl, wird das Original
+     * geliefert (besser als gar kein Bild).
+     *
+     * @return array{data: string, mime: string, name: string}
+     */
+    private function mailSafePhoto(string $data, string $mime, string $name): array
+    {
+        $original = ['data' => $data, 'mime' => $mime, 'name' => $name];
+
+        if (! in_array($mime, ['image/webp', 'image/avif'], true)) {
+            return $original;
+        }
+
+        try {
+            $image = @imagecreatefromstring($data);
+
+            if ($image === false) {
+                return $original;
+            }
+
+            ob_start();
+            imagejpeg($image, null, 85);
+            $jpeg = (string) ob_get_clean();
+            imagedestroy($image);
+
+            if ($jpeg === '') {
+                return $original;
+            }
+
+            return [
+                'data' => $jpeg,
+                'mime' => 'image/jpeg',
+                'name' => pathinfo($name, PATHINFO_FILENAME).'.jpg',
+            ];
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return $original;
+        }
     }
 
     /**

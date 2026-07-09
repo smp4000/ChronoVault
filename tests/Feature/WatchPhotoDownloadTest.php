@@ -192,3 +192,49 @@ it('does not download again when photos already exist', function () {
         destroyTenant($tenant);
     }
 });
+
+it('converts webp photos to jpeg for e-mail embedding', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            Storage::fake('public');
+            Http::fake();
+
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+            ]);
+
+            // Echtes WebP via GD erzeugen (Outlook kann WebP nicht anzeigen)
+            $canvas = imagecreatetruecolor(4, 4);
+            ob_start();
+            imagewebp($canvas);
+            $webp = (string) ob_get_clean();
+            imagedestroy($canvas);
+
+            $watch->addMediaFromString($webp)
+                ->usingFileName('cdn-foto.webp')
+                ->toMediaCollection('photos');
+
+            $photo = $watch->refresh()->firstPhotoForEmail();
+
+            expect($photo)->not->toBeNull()
+                ->and($photo['mime'])->toBe('image/jpeg')
+                ->and($photo['name'])->toBe('cdn-foto.jpg')
+                ->and(str_starts_with($photo['data'], "\xFF\xD8"))->toBeTrue();
+
+            // JPEGs bleiben unangetastet
+            $watch->clearMediaCollection('photos');
+            $watch->addMediaFromString(tinyGif())
+                ->usingFileName('normal.gif')
+                ->toMediaCollection('photos');
+
+            $gifPhoto = $watch->refresh()->firstPhotoForEmail();
+
+            expect($gifPhoto['mime'])->toBe('image/gif')
+                ->and($gifPhoto['name'])->toBe('normal.gif');
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
