@@ -84,7 +84,7 @@ it('accepts a proposal: sale at wish price, invoice mail, other proposals declin
                 'street' => 'Musterweg 12',
                 'postal_code' => '12345',
                 'city' => 'Berlin',
-            ]);
+            ], null, null, 'Eine hervorragende Wahl — wir freuen uns mit Ihnen!');
 
             $buyer = Contact::where('email', 'pauli@example.test')->firstOrFail();
             $sale = $watch->transactions()->where('type', 'sale')->firstOrFail();
@@ -106,6 +106,7 @@ it('accepts a proposal: sale at wish price, invoice mail, other proposals declin
 
                 return str_contains($html, '4.000,00')
                     && str_contains($html, 'angenommen')
+                    && str_contains($html, 'Eine hervorragende Wahl')
                     && $mail->invoice !== null
                     && str_starts_with($mail->invoice->invoice_number, 'RE-')
                     && count($mail->attachments()) === 2;
@@ -216,6 +217,12 @@ it('drafts an ai reply and sends the dealer reply mail', function () {
             $draft = app(ProposalReplyService::class)->draft($proposal, 'firm', 'Service 2024 gemacht');
 
             expect($draft)->toContain('Sehr geehrter Herr Meier');
+
+            // Dialog-Bausteine (Annehmen/Ablehnen/Gegenangebot) über
+            // dieselbe Provider-Leitung
+            $intentDraft = app(ProposalReplyService::class)->draftForIntent($proposal, 'counter', 4500.0, 49.90);
+
+            expect($intentDraft)->toContain('Sehr geehrter Herr Meier');
 
             // Versand der (angepassten) Antwort
             Mail::fake();

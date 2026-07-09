@@ -45,15 +45,41 @@ class ProposalReplyService
     public function __construct(private ?Client $client = null) {}
 
     /**
-     * Entwirft die Antwort auf einen Preisvorschlag.
+     * Entwirft die komplette Antwort-Mail auf einen Preisvorschlag
+     * (Antworten-Dialog: Anrede bis Grußformel).
      *
      * @throws RuntimeException ohne API-Key oder bei Provider-Fehlern
      */
     public function draft(PriceProposal $proposal, string $tone, ?string $keyPoints = null): string
     {
-        set_time_limit(120);
+        return $this->generate($this->buildPrompt($proposal, $tone, $keyPoints));
+    }
 
-        $prompt = $this->buildPrompt($proposal, $tone, $keyPoints);
+    /**
+     * Entwirft den Text-Baustein für die Dialoge Annehmen (persönliche
+     * Ergänzung der Zusage-Mail), Ablehnen (Absage-Text) und
+     * Gegenangebot (Einleitungstext) — jeweils OHNE Anrede/Grußformel,
+     * die setzen die Mails automatisch.
+     *
+     * @param  'accept'|'decline'|'counter'  $intent
+     *
+     * @throws RuntimeException ohne API-Key oder bei Provider-Fehlern
+     */
+    public function draftForIntent(
+        PriceProposal $proposal,
+        string $intent,
+        ?float $counterPrice = null,
+        ?float $shippingPrice = null,
+    ): string {
+        return $this->generate($this->buildIntentPrompt($proposal, $intent, $counterPrice, $shippingPrice));
+    }
+
+    /**
+     * Provider-Auswahl (Perplexity bevorzugt, Anthropic-Fallback).
+     */
+    private function generate(string $prompt): string
+    {
+        set_time_limit(120);
 
         // Injizierter Anthropic-Client (Tests) hat Vorrang.
         if ($this->client !== null) {
@@ -127,25 +153,57 @@ class ProposalReplyService
     private function systemPrompt(): string
     {
         return 'Du schreibst als erfahrener, freundlicher Uhrenhändler professionelle '
-            .'deutsche Kunden-E-Mails. Antworte AUSSCHLIESSLICH mit dem reinen E-Mail-Text '
-            .'(Anrede bis Grußformel) — ohne Betreff, ohne Platzhalter in eckigen Klammern, '
-            .'ohne Markdown, ohne Begleitkommentar. Kurz, wertschätzend, verbindlich im Ton. '
+            .'deutsche Kunden-E-Mails. Antworte AUSSCHLIESSLICH mit dem reinen Text — '
+            .'ohne Betreff, ohne Platzhalter in eckigen Klammern, ohne Markdown, '
+            .'ohne Begleitkommentar. Kurz, wertschätzend, verbindlich im Ton. '
+            .'WICHTIG zur Formatierung: Gliedere in KURZE Absätze (2–4 Sätze), '
+            .'getrennt durch je eine Leerzeile — niemals ein einziger Textblock. '
             .'Nenne NIEMALS interne Informationen wie Einkaufspreise oder Limits.';
     }
 
-    private function buildPrompt(PriceProposal $proposal, string $tone, ?string $keyPoints): string
+    /**
+     * Prompt für die Dialog-Bausteine (Annehmen/Ablehnen/Gegenangebot).
+     */
+    private function buildIntentPrompt(PriceProposal $proposal, string $intent, ?float $counterPrice, ?float $shippingPrice): string
+    {
+        $lines = $this->contextLines($proposal);
+
+        $lines[] = match ($intent) {
+            'accept' => 'Der Händler NIMMT den Preisvorschlag AN — der Kauf kommt zum Wunschpreis zustande. '
+                .'Schreibe 2–3 herzliche Sätze als persönliche Ergänzung für die Zusage-Mail '
+                .'(Freude über die Einigung, gute Wahl, Vorfreude aufs Versenden). '
+                .'OHNE Anrede und OHNE Grußformel — beides setzt die Mail automatisch.',
+            'counter' => 'Der Händler macht ein GEGENANGEBOT'
+                .($counterPrice !== null ? ' über '.number_format($counterPrice, 0, ',', '.').' € für die Uhr' : '')
+                .($shippingPrice !== null && $shippingPrice > 0 ? ' zzgl. '.number_format($shippingPrice, 2, ',', '.').' € versichertem Versand' : '')
+                .'. Schreibe den Einleitungstext der Gegenangebots-Mail: Beginne klein geschrieben '
+                .'(die Anrede „Guten Tag …," steht bereits davor), 1–2 kurze Absätze mit Leerzeile, '
+                .'begründe den Preis wertschätzend (Zustand, Lieferumfang, Service/Prüfung), '
+                .'und ende mit einer Überleitung wie „daher machen wir Ihnen gerne dieses Angebot:". '
+                .'Die Preisaufstellung zeigt die Mail direkt darunter — nenne die Angebotszahlen NICHT selbst. '
+                .'KEINE Grußformel.',
+            default => 'Der Händler LEHNT den Preisvorschlag freundlich AB. '
+                .'Schreibe den Text der Absage-Mail: Beginne klein geschrieben '
+                .'(die Anrede „Guten Tag …," steht bereits davor), 1–2 kurze Absätze mit Leerzeile, '
+                .'bedanke dich fürs Interesse, begründe kurz und wertschätzend, ohne konkrete '
+                .'Schmerzgrenzen zu nennen, und lade ein, die Kollektion im Blick zu behalten. '
+                .'KEINE Grußformel.',
+        };
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Gemeinsame Kontextzeilen für alle Prompts.
+     *
+     * @return array<int, string>
+     */
+    private function contextLines(PriceProposal $proposal): array
     {
         $watch = $proposal->watch;
 
-        $toneInstruction = match ($tone) {
-            'thanks' => 'Bedanke dich für das Interesse und stelle eine höfliche Rückfrage (z. B. zur Vorstellung des Kunden oder zu einer Besichtigung).',
-            'negotiate' => 'Signalisiere Verhandlungsbereitschaft, ohne bereits einen konkreten neuen Preis zu nennen — lade zu einem Gespräch ein.',
-            'firm' => 'Bleibe freundlich, aber klar beim aktuellen Angebotspreis und begründe kurz den Wert der Uhr (Zustand, Lieferumfang, Service).',
-            default => 'Lehne den Vorschlag höflich und wertschätzend ab und lade ein, bei anderen Uhren in Kontakt zu bleiben.',
-        };
-
         $lines = [
-            'Schreibe die Antwort auf folgenden Preisvorschlag eines Kunden:',
+            'Kontext eines Preisvorschlags im Uhren-Shop:',
             'Händler: '.((string) tenant('name')),
             'Uhr: '.($watch?->fullName() ?? 'unbekannt'),
             'Angebotspreis im Shop: '.($proposal->asking_price_at_time !== null ? number_format((float) $proposal->asking_price_at_time, 0, ',', '.').' €' : 'auf Anfrage'),
@@ -157,13 +215,29 @@ class ProposalReplyService
             $lines[] = 'Nachricht des Kunden: "'.$proposal->message.'"';
         }
 
+        return $lines;
+    }
+
+    private function buildPrompt(PriceProposal $proposal, string $tone, ?string $keyPoints): string
+    {
+        $toneInstruction = match ($tone) {
+            'thanks' => 'Bedanke dich für das Interesse und stelle eine höfliche Rückfrage (z. B. zur Vorstellung des Kunden oder zu einer Besichtigung).',
+            'negotiate' => 'Signalisiere Verhandlungsbereitschaft, ohne bereits einen konkreten neuen Preis zu nennen — lade zu einem Gespräch ein.',
+            'firm' => 'Bleibe freundlich, aber klar beim aktuellen Angebotspreis und begründe kurz den Wert der Uhr (Zustand, Lieferumfang, Service).',
+            default => 'Lehne den Vorschlag höflich und wertschätzend ab und lade ein, bei anderen Uhren in Kontakt zu bleiben.',
+        };
+
+        $lines = $this->contextLines($proposal);
+
+        $lines[] = 'Schreibe die komplette Antwort-Mail auf diesen Preisvorschlag.';
         $lines[] = 'Gewünschter Tenor: '.$toneInstruction;
 
         if (filled($keyPoints)) {
             $lines[] = 'Diese Punkte des Händlers unbedingt einarbeiten: '.$keyPoints;
         }
 
-        $lines[] = 'Unterschreibe mit "Mit freundlichen Grüßen" und dem Händlernamen.';
+        $lines[] = 'Anrede und Grußformel jeweils in einer eigenen Zeile; '
+            .'unterschreibe mit "Mit freundlichen Grüßen" und dem Händlernamen.';
 
         return implode("\n", $lines);
     }

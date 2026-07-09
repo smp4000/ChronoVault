@@ -45,6 +45,7 @@ class ProposalAcceptedMail extends Mailable
         public readonly PriceProposal $proposal,
         public readonly ?Invoice $invoice = null,
         public readonly ?float $salePrice = null,
+        public readonly ?string $personalNote = null,
     ) {}
 
     public function envelope(): Envelope
@@ -92,6 +93,7 @@ class ProposalAcceptedMail extends Mailable
                 'remittance' => $remittance,
                 'qrPng' => $qrPng,
                 'invoiceNumber' => $this->invoice?->invoice_number,
+                'personalNote' => $this->personalNote,
                 // Adresse vorhanden? Sonst bittet die Mail um Antwort damit
                 'hasAddress' => filled($this->buyer->street) && filled($this->buyer->city),
             ],

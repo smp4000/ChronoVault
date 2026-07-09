@@ -52,8 +52,9 @@ class AcceptPriceProposalAction
      * @param  array{street?: string|null, postal_code?: string|null, city?: string|null}  $address  Optionale Lieferadresse aus dem Annehmen-Dialog
      * @param  float|null  $priceOverride  Abweichender Verkaufspreis (z. B. Gegenangebot inkl. Versand) — sonst Wunschpreis
      * @param  string|null  $priceNote  Zusatz für den Beleg (z. B. Versand-Aufschlüsselung)
+     * @param  string|null  $personalNote  Persönlicher Absatz für die Zusage-Mail (optional, ggf. KI-entworfen)
      */
-    public function execute(PriceProposal $proposal, array $address = [], ?float $priceOverride = null, ?string $priceNote = null): PriceProposal
+    public function execute(PriceProposal $proposal, array $address = [], ?float $priceOverride = null, ?string $priceNote = null, ?string $personalNote = null): PriceProposal
     {
         $status = $proposal->getAttribute('status');
 
@@ -108,7 +109,7 @@ class AcceptPriceProposalAction
         }
 
         try {
-            Mail::to($buyer->email)->send(new ProposalAcceptedMail($watch->refresh(), $buyer, $proposal, $invoice, $salePrice));
+            Mail::to($buyer->email)->send(new ProposalAcceptedMail($watch->refresh(), $buyer, $proposal, $invoice, $salePrice, $personalNote));
         } catch (Throwable $exception) {
             report($exception);
         }

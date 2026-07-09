@@ -240,6 +240,41 @@ class PriceProposalsTable
     }
 
     /**
+     * KI-Entwurf-Knopf für die Textfelder der Dialoge: entwirft je nach
+     * Absicht (accept/decline/counter) den passenden Baustein über den
+     * ProposalReplyService und schreibt ihn ins Zielfeld — der Händler
+     * prüft und passt an, gesendet wird nie automatisch.
+     */
+    private static function aiDraftAction(string $intent, string $targetField): Action
+    {
+        return Action::make('generate_'.$intent)
+            ->label('KI-Entwurf erstellen')
+            ->icon('heroicon-m-sparkles')
+            ->action(function (Get $get, Set $set, PriceProposal $record) use ($intent, $targetField): void {
+                try {
+                    $draft = app(ProposalReplyService::class)->draftForIntent(
+                        $record,
+                        $intent,
+                        filled($get('counter_price')) ? (float) $get('counter_price') : null,
+                        filled($get('shipping_price')) ? (float) $get('shipping_price') : null,
+                    );
+                } catch (Throwable $exception) {
+                    report($exception);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('KI-Entwurf fehlgeschlagen')
+                        ->body($exception->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                $set($targetField, $draft);
+            });
+    }
+
+    /**
      * Sichtbarkeit der Bearbeitungs-Aktionen: nur offene Vorschläge
      * (Neu/Gegenangebot), nicht gelöscht, mit watches.update-Recht.
      */
@@ -284,6 +319,13 @@ class PriceProposalsTable
                 TextInput::make('city')
                     ->label('Ort')
                     ->maxLength(255),
+
+                Textarea::make('personal_note')
+                    ->label('Persönliche Nachricht in der Zusage-Mail (optional)')
+                    ->rows(4)
+                    ->maxLength(2000)
+                    ->helperText('Erscheint zusätzlich zum Standardtext der Zusage-Mail.')
+                    ->hintAction(self::aiDraftAction('accept', 'personal_note')),
             ])
             ->action(function (PriceProposal $record, array $data): void {
                 // Läuft ein Gegenangebot, gilt dessen Gesamtpreis (inkl.
@@ -296,6 +338,7 @@ class PriceProposalsTable
                         $data,
                         $total,
                         $total !== null ? 'Gegenangebot angenommen (inkl. Versand).' : null,
+                        filled($data['personal_note'] ?? null) ? (string) $data['personal_note'] : null,
                     );
                 } catch (RuntimeException $exception) {
                     Notification::make()->danger()->title($exception->getMessage())->send();
@@ -353,7 +396,8 @@ class PriceProposalsTable
                     ->default('vielen Dank für Ihren Preisvorschlag über '
                         .number_format((float) $record->proposed_price, 0, ',', '.')
                         .' €. Ganz können wir Ihnen dabei leider nicht entgegenkommen — aber wir machen Ihnen gerne dieses Angebot:')
-                    ->helperText('Frei anpassbar — die Anrede „Guten Tag '.$record->name.'," setzt die Mail automatisch davor.'),
+                    ->helperText('Frei anpassbar — die Anrede „Guten Tag '.$record->name.'," setzt die Mail automatisch davor.')
+                    ->hintAction(self::aiDraftAction('counter', 'intro')),
             ])
             ->action(function (PriceProposal $record, array $data): void {
                 try {
@@ -399,7 +443,8 @@ class PriceProposalsTable
                     ->maxLength(3000)
                     ->default('schade, dass wir diesmal nicht zusammengekommen sind — vielen Dank trotzdem für Ihr Interesse! '
                         .'Unsere Kollektion wächst laufend: Schauen Sie gerne wieder vorbei, vielleicht ist bald genau das richtige Stück für Sie dabei.')
-                    ->helperText('Frei anpassbar — die Anrede „Guten Tag '.$record->name.'," setzt die Mail automatisch davor.'),
+                    ->helperText('Frei anpassbar — die Anrede „Guten Tag '.$record->name.'," setzt die Mail automatisch davor.')
+                    ->hintAction(self::aiDraftAction('decline', 'message')),
             ])
             ->action(function (PriceProposal $record, array $data): void {
                 try {

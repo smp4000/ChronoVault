@@ -71,6 +71,9 @@ $iban, $bic, $remittance, $qrPng (binär|null), $invoiceNumber, $hasAddress.
                                             {{ $formatEur($amount) }} (inkl. MwSt., zzgl. Versand)
                                             zustande gekommen. Der Versand erfolgt nach Zahlungseingang.
                                         </p>
+                                        @if (filled($personalNote ?? null))
+                                            <p style="margin:14px 0 0 0; font-size:15px; line-height:1.7; color:#3f3f46; white-space:pre-line;">{{ $personalNote }}</p>
+                                        @endif
                                         @unless ($hasAddress)
                                             <p style="margin:14px 0 0 0; font-size:15px; line-height:1.6; color:#3f3f46;">
                                                 <strong>Bitte antworten Sie auf diese E-Mail mit Ihrer
