@@ -86,10 +86,10 @@ Bieternamen erscheinen NIE öffentlich — nur Höchstgebot und Anzahl.
                                 <span class="absolute left-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-neutral-900 shadow-sm">
                                     Los {{ $lot->lot_code }}
                                 </span>
-                                @if ($lot->status === AuctionLotStatus::Sold)
-                                    <span class="absolute right-3 top-3 z-10 rounded-full bg-blue-800 px-3 py-1 text-xs font-semibold text-white">Zugeschlagen</span>
-                                @elseif ($lot->status !== AuctionLotStatus::Open)
-                                    <span class="absolute right-3 top-3 z-10 rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-600">{{ $lot->status->getLabel() }}</span>
+                                {{-- Neutral: Ergebnis (Zuschlag/Rückgang) wird
+                                     öffentlich nicht verraten --}}
+                                @if ($lot->status !== AuctionLotStatus::Open)
+                                    <span class="absolute right-3 top-3 z-10 rounded-full bg-neutral-200 px-3 py-1 text-xs font-medium text-neutral-600">Beendet</span>
                                 @endif
 
                                 @if ($lot->watch->firstPhotoUrl())
@@ -120,9 +120,7 @@ Bieternamen erscheinen NIE öffentlich — nur Höchstgebot und Anzahl.
                                     </p>
                                 @endif
                                 <p class="pt-1 text-sm">
-                                    @if ($lot->status === AuctionLotStatus::Sold && $lot->hammer_price !== null)
-                                        <span class="font-semibold text-neutral-900">Zuschlag: {{ $formatEur($lot->hammer_price) }}</span>
-                                    @elseif ($lot->bids_max_amount !== null)
+                                    @if ($lot->bids_max_amount !== null)
                                         <span class="font-semibold text-blue-900">Gebot: {{ $formatEur($lot->bids_max_amount) }}</span>
                                         <span class="text-neutral-400">({{ $lot->bids_count }})</span>
                                     @elseif ($lot->starting_price !== null)

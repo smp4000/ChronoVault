@@ -86,30 +86,20 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                         </div>
                     @endif
 
-                    @if ($lot->status === AuctionLotStatus::Sold && $lot->hammer_price !== null)
-                        <div class="rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
-                            <dt class="text-xs text-blue-900">Zuschlag</dt>
-                            <dd class="mt-1 text-xl font-semibold text-blue-900">{{ $formatEur($lot->hammer_price) }}</dd>
-                        </div>
-                    @else
-                        <div class="rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
-                            <dt class="text-xs text-blue-900">{{ $highest !== null ? 'Aktuelles Gebot' : 'Aufruf' }}</dt>
-                            <dd class="mt-1 text-xl font-semibold text-blue-900">
-                                {{ $highest !== null ? $formatEur($highest) : ($lot->starting_price !== null ? $formatEur($lot->starting_price) : '—') }}
-                            </dd>
-                            <dd class="mt-0.5 text-xs text-blue-900/70">
-                                {{ $lot->bids_count }} {{ $lot->bids_count === 1 ? 'Gebot' : 'Gebote' }}
-                            </dd>
-                            {{-- Limit-Hinweis OHNE Betrag (Geschäftsgeheimnis des Einlieferers) --}}
-                            @if ($lot->isOpen() && $lot->bids_count > 0 && ! $lot->isReserveMet())
-                                <dd class="mt-2">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                                        Limit noch nicht erreicht
-                                    </span>
-                                </dd>
-                            @endif
-                        </div>
-                    @endif
+                    {{-- Gebotsstand — bewusst KEIN Limit-Hinweis und KEIN
+                         Zuschlag-Ergebnis auf der Seite (nur per Mail an
+                         die Bieter) --}}
+                    <div class="rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
+                        <dt class="text-xs text-blue-900">
+                            {{ $lot->isOpen() ? ($highest !== null ? 'Aktuelles Gebot' : 'Aufruf') : 'Letztes Gebot' }}
+                        </dt>
+                        <dd class="mt-1 text-xl font-semibold text-blue-900">
+                            {{ $highest !== null ? $formatEur($highest) : ($lot->starting_price !== null ? $formatEur($lot->starting_price) : '—') }}
+                        </dd>
+                        <dd class="mt-0.5 text-xs text-blue-900/70">
+                            {{ $lot->bids_count }} {{ $lot->bids_count === 1 ? 'Gebot' : 'Gebote' }}
+                        </dd>
+                    </div>
                 </dl>
 
                 {{-- Live-Countdown bis zum Auktionsende --}}
@@ -160,9 +150,13 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                             </div>
                             <div>
                                 <label for="amount" class="block text-xs font-medium text-neutral-600">Gebot in € *</label>
+                                {{-- Bewusst NICHT vorbefüllt: nach der Abgabe
+                                     ist das Feld leer (nur bei Fehlern bleibt
+                                     die Eingabe via old() stehen). --}}
                                 <input type="number" id="amount" name="amount" required
                                        min="{{ (int) ceil($minimum) }}" step="1"
-                                       value="{{ old('amount', (int) ceil($minimum)) }}"
+                                       value="{{ old('amount') }}"
+                                       placeholder="mind. {{ (int) ceil($minimum) }}"
                                        class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
                                 @error('amount') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                             </div>
@@ -177,13 +171,10 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                             sind nur für das Auktionshaus sichtbar.
                         </p>
                     </form>
-                @elseif ($lot->status === AuctionLotStatus::Sold)
-                    <div class="mt-6 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
-                        Dieses Los wurde zugeschlagen.
-                    </div>
                 @elseif (! $lot->isOpen())
+                    {{-- Neutral: kein Ergebnis (Zuschlag/Rückgang) verraten --}}
                     <div class="mt-6 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
-                        Dieses Los ist nicht mehr verfügbar ({{ $lot->status->getLabel() }}).
+                        Für dieses Los können keine Gebote mehr abgegeben werden.
                     </div>
                 @elseif ($auction->allowsOnlineBidding())
                     <div class="mt-6 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
