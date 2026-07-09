@@ -30,7 +30,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BezelType;
 use App\Enums\BraceletMaterial;
+use App\Enums\CaseBack;
 use App\Enums\CaseMaterial;
 use App\Enums\ClaspType;
 use App\Enums\DialNumerals;
@@ -106,14 +108,18 @@ class Watch extends Model implements HasMedia
         'glass_type',
         'bezel_material',
         'bezel_color',
+        'bezel_type',
+        'case_back',
         'water_resistance_bar',
         'dial_color',
         'dial_numerals',
+        'dial_finish',
         'bracelet_material',
         'bracelet_color',
         'clasp_type',
         'clasp_material',
         'lug_width_mm',
+        'lug_to_lug_mm',
         'functions',
         'ownership_status',
         'owner_name',
@@ -163,6 +169,8 @@ class Watch extends Model implements HasMedia
             'glass_type' => GlassType::class,
             'bezel_material' => CaseMaterial::class,
             'bezel_color' => WatchColor::class,
+            'bezel_type' => BezelType::class,
+            'case_back' => CaseBack::class,
             'water_resistance_bar' => 'integer',
             'dial_color' => WatchColor::class,
             'dial_numerals' => DialNumerals::class,
@@ -171,6 +179,7 @@ class Watch extends Model implements HasMedia
             'clasp_type' => ClaspType::class,
             'clasp_material' => CaseMaterial::class,
             'lug_width_mm' => 'integer',
+            'lug_to_lug_mm' => 'decimal:2',
             // Funktionen als Array von WatchFunction-Codes (Mehrfachauswahl)
             'functions' => 'array',
             'ownership_status' => OwnershipStatus::class,

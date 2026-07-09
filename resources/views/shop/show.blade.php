@@ -44,6 +44,8 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
             'Geschlecht' => $watch->gender?->getLabel(),
             'Aufzug' => $watch->movement_type?->getLabel(),
             'Kaliber' => $watch->caliber?->name,
+            'Gangreserve' => $watch->caliber?->power_reserve_hours ? $watch->caliber->power_reserve_hours.' Std.' : null,
+            'Frequenz der Unruh' => $watch->caliber?->frequency_vph ? number_format((int) $watch->caliber->frequency_vph, 0, ',', '.').' A/h' : null,
             'Funktionen' => $functionLabels->isNotEmpty() ? $functionLabels->implode(', ') : null,
             'Limitierte Auflage' => $watch->is_limited_edition
                 ? trim(($watch->limited_edition_number ? 'Nr. '.$watch->limited_edition_number : '').($watch->limited_edition_total ? ' von '.$watch->limited_edition_total : '')) ?: 'Ja'
@@ -56,16 +58,20 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
             'Glas' => $watch->glass_type?->getLabel(),
             'Lünette' => $watch->bezel_material?->getLabel(),
             'Lünettenfarbe' => $watch->bezel_color?->getLabel(),
+            'Lünettentyp' => $watch->bezel_type?->getLabel(),
+            'Gehäuseboden' => $watch->case_back?->getLabel(),
             'Wasserdichtigkeit' => $watch->water_resistance_bar ? $watch->water_resistance_bar.' bar' : null,
         ],
         'Zifferblatt & Band' => [
             'Zifferblatt' => $watch->dial_color?->getLabel(),
             'Ziffern' => $watch->dial_numerals?->getLabel(),
+            'Finish' => $watch->dial_finish,
             'Bandmaterial' => $watch->bracelet_material?->getLabel(),
             'Bandfarbe' => $watch->bracelet_color?->getLabel(),
             'Schließe' => $watch->clasp_type?->getLabel(),
             'Schließenmaterial' => $watch->clasp_material?->getLabel(),
-            'Bandanstoß' => $watch->lug_width_mm ? $watch->lug_width_mm.' mm' : null,
+            'Bandanstoßbreite' => $watch->lug_width_mm ? $watch->lug_width_mm.' mm' : null,
+            'Bandanstoß zu Bandanstoß' => $watch->lug_to_lug_mm ? rtrim(rtrim(number_format((float) $watch->lug_to_lug_mm, 2, ',', '.'), '0'), ',').' mm' : null,
         ],
         'Lieferumfang' => [
             'Umfang' => $deliveryParts !== [] ? implode(', ', $deliveryParts) : null,

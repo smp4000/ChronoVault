@@ -31,7 +31,9 @@ declare(strict_types=1);
 namespace App\Filament\App\Resources\Watches\Schemas;
 
 use App\DataTransferObjects\WatchReferenceData;
+use App\Enums\BezelType;
 use App\Enums\BraceletMaterial;
+use App\Enums\CaseBack;
 use App\Enums\CaseMaterial;
 use App\Enums\ClaspType;
 use App\Enums\DialNumerals;
@@ -45,6 +47,7 @@ use App\Enums\WatchFunction;
 use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
 use App\Models\Brand;
+use App\Models\Caliber;
 use App\Models\Watch;
 use App\Services\WatchReferenceLookupService;
 use Filament\Actions\Action;
@@ -131,7 +134,45 @@ class WatchForm
                                     ->searchable()
                                     ->preload()
                                     ->disabled(fn (Get $get): bool => blank($get('brand_id')))
-                                    ->helperText('Optional — Auswahl erscheint nach Wahl der Marke.'),
+                                    // "+"-Button: fehlendes Kaliber direkt anlegen,
+                                    // ohne das Uhren-Formular zu verlassen.
+                                    ->createOptionForm([
+                                        TextInput::make('name')
+                                            ->label('Kaliberbezeichnung')
+                                            ->placeholder('z. B. Calibre 16')
+                                            ->required()
+                                            ->maxLength(255),
+
+                                        Select::make('movement_type')
+                                            ->label('Aufzug')
+                                            ->options(MovementType::class)
+                                            ->default(MovementType::Automatic)
+                                            ->required(),
+
+                                        TextInput::make('power_reserve_hours')
+                                            ->label('Gangreserve')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->suffix('Std.'),
+
+                                        TextInput::make('frequency_vph')
+                                            ->label('Frequenz der Unruh')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->suffix('A/h')
+                                            ->placeholder('z. B. 28800'),
+
+                                        TextInput::make('jewels')
+                                            ->label('Steine (Jewels)')
+                                            ->numeric()
+                                            ->minValue(0),
+                                    ])
+                                    ->createOptionUsing(fn (array $data, Get $get): string => Caliber::create([
+                                        ...$data,
+                                        'brand_id' => $get('brand_id'),
+                                        'is_active' => true,
+                                    ])->getKey())
+                                    ->helperText('Optional — Auswahl erscheint nach Wahl der Marke. Fehlt das Kaliber: über das + direkt anlegen.'),
 
                                 Select::make('movement_type')
                                     ->label('Aufzug')
@@ -328,12 +369,29 @@ class WatchForm
                                     ->options(WatchColor::class)
                                     ->searchable(),
 
+                                Select::make('bezel_type')
+                                    ->label('Lünettentyp')
+                                    ->options(BezelType::class),
+
+                                Select::make('case_back')
+                                    ->label('Gehäuseboden')
+                                    ->options(CaseBack::class),
+
                                 TextInput::make('water_resistance_bar')
                                     ->label('Wasserdichtigkeit')
                                     ->numeric()
                                     ->minValue(0)
                                     ->maxValue(200)
                                     ->suffix('bar'),
+
+                                TextInput::make('lug_to_lug_mm')
+                                    ->label('Bandanstoß zu Bandanstoß')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(100)
+                                    ->step(0.1)
+                                    ->suffix('mm')
+                                    ->helperText('Gehäuselänge über die Bandanstöße (Lug-to-Lug).'),
                             ]),
 
                         Tab::make('Zifferblatt & Band')
@@ -348,6 +406,11 @@ class WatchForm
                                 Select::make('dial_numerals')
                                     ->label('Zifferblatt-Zahlen')
                                     ->options(DialNumerals::class),
+
+                                TextInput::make('dial_finish')
+                                    ->label('Zifferblatt-Finish')
+                                    ->maxLength(255)
+                                    ->placeholder('z. B. Opalin & lackiert, Sonnenschliff'),
 
                                 Select::make('bracelet_material')
                                     ->label('Material Armband')
