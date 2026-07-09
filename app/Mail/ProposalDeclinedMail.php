@@ -6,12 +6,13 @@
  * =========================================================================
  *
  * Zweck:
- *   Freundlicher Abschluss, wenn der Kunde das Gegenangebot über den
- *   Ablehnen-Button ausschlägt: kurzes Bedauern, Einladung, die
- *   Kollektion im Blick zu behalten. Reply-To ist die
- *   Benachrichtigungs-Adresse des Betriebs.
+ *   Freundlicher Abschluss eines Preisvorschlags — beim Ablehnen durch
+ *   den Kunden (Link) UND durch den Händler (Panel): kurzes Bedauern,
+ *   Einladung, die Kollektion im Blick zu behalten. Der Händler kann
+ *   den Text im Panel frei formulieren (customText), sonst greift der
+ *   Standardtext. Reply-To ist die Benachrichtigungs-Adresse.
  *
- * Versand: ShopController::proposalDecision (Ablehnen-Link der Mail).
+ * Versand: DeclinePriceProposalAction.
  * =========================================================================
  */
 
@@ -34,6 +35,7 @@ class ProposalDeclinedMail extends Mailable
 
     public function __construct(
         public readonly PriceProposal $proposal,
+        public readonly ?string $customText = null,
     ) {}
 
     public function envelope(): Envelope
@@ -60,6 +62,7 @@ class ProposalDeclinedMail extends Mailable
                 'watch' => $this->proposal->watch,
                 'tenantName' => (string) tenant('name'),
                 'shopUrl' => route('shop.index'),
+                'customText' => $this->customText,
             ],
         );
     }

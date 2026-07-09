@@ -54,12 +54,16 @@ Erwartet: $proposal, $watch (nullable), $tenantName, $shopUrl.
                                         <p style="margin:0; font-size:15px; line-height:1.6; color:#3f3f46;">
                                             Guten Tag {{ $proposal->name }},
                                         </p>
-                                        <p style="margin:14px 0 0 0; font-size:15px; line-height:1.7; color:#3f3f46;">
-                                            schade, dass wir diesmal nicht zusammengekommen sind —
-                                            vielen Dank trotzdem für Ihr Interesse! Unsere Kollektion
-                                            wächst laufend: Schauen Sie gerne wieder vorbei, vielleicht
-                                            ist bald genau das richtige Stück für Sie dabei.
-                                        </p>
+                                        @if (filled($customText ?? null))
+                                            <p style="margin:14px 0 0 0; font-size:15px; line-height:1.7; color:#3f3f46; white-space:pre-line;">{{ $customText }}</p>
+                                        @else
+                                            <p style="margin:14px 0 0 0; font-size:15px; line-height:1.7; color:#3f3f46;">
+                                                schade, dass wir diesmal nicht zusammengekommen sind —
+                                                vielen Dank trotzdem für Ihr Interesse! Unsere Kollektion
+                                                wächst laufend: Schauen Sie gerne wieder vorbei, vielleicht
+                                                ist bald genau das richtige Stück für Sie dabei.
+                                            </p>
+                                        @endif
                                     </td>
                                 </tr>
 

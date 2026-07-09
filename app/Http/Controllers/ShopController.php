@@ -34,6 +34,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Shop\AcceptPriceProposalAction;
+use App\Actions\Shop\DeclinePriceProposalAction;
 use App\Actions\Shop\PurchaseWatchAction;
 use App\Enums\PriceProposalStatus;
 use App\Enums\UserRole;
@@ -41,7 +42,6 @@ use App\Http\Requests\PriceProposalRequest;
 use App\Http\Requests\PurchaseWatchRequest;
 use App\Http\Requests\WatchInquiryRequest;
 use App\Mail\PriceProposalMail;
-use App\Mail\ProposalDeclinedMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\PriceProposal;
@@ -52,7 +52,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
-use Throwable;
 
 class ShopController extends Controller
 {
@@ -330,13 +329,8 @@ class ShopController extends Controller
         }
 
         // Ablehnung: Vorgang schließen + freundliche „Schade"-Mail
-        $proposal->update(['status' => PriceProposalStatus::Declined]);
-
-        try {
-            Mail::to($proposal->email)->send(new ProposalDeclinedMail($proposal));
-        } catch (Throwable $exception) {
-            report($exception);
-        }
+        // (gleiche Action wie der Ablehnen-Knopf im Panel)
+        app(DeclinePriceProposalAction::class)->execute($proposal);
 
         return view('shop.proposal-decision', [
             'success' => false,

@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 use App\Actions\Shop\AcceptPriceProposalAction;
 use App\Actions\Shop\CounterPriceProposalAction;
+use App\Actions\Shop\DeclinePriceProposalAction;
 use App\Actions\Shop\SendProposalReplyAction;
 use App\Enums\PriceProposalStatus;
 use App\Enums\WatchStatus;
@@ -362,6 +363,57 @@ it('lets the customer accept or decline the counter offer via signed links', fun
         );
     } finally {
         tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('declines a proposal from the panel and mails the customer', function () {
+    $tenant = provisionTenant();
+
+    $tenant->update(['notification_email' => 'verkauf@example.test']);
+
+    try {
+        $tenant->run(function () {
+            Mail::fake();
+
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Absage Datejust',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 4800,
+            ]);
+
+            $proposal = PriceProposal::create([
+                'watch_id' => $watch->id,
+                'name' => 'Pauli Meier',
+                'email' => 'pauli@example.test',
+                'proposed_price' => 1500,
+                'asking_price_at_time' => 4800,
+            ]);
+
+            app(DeclinePriceProposalAction::class)->execute(
+                $proposal,
+                'leider liegt Ihr Vorschlag zu weit unter unserem Einstandspreis. Gerne bei der naechsten Uhr wieder!',
+            );
+
+            expect($proposal->refresh()->getAttribute('status'))->toBe(PriceProposalStatus::Declined);
+
+            Mail::assertSent(ProposalDeclinedMail::class, function (ProposalDeclinedMail $mail): bool {
+                $mail->assertTo('pauli@example.test');
+                $mail->assertHasReplyTo('verkauf@example.test');
+
+                $html = $mail->render();
+
+                return str_contains($html, 'zu weit unter unserem Einstandspreis')
+                    && str_contains($html, 'Absage Datejust');
+            });
+
+            // Abgeschlossen: erneutes Ablehnen wirft
+            expect(fn () => app(DeclinePriceProposalAction::class)->execute($proposal))
+                ->toThrow(RuntimeException::class);
+        });
+    } finally {
         destroyTenant($tenant);
     }
 });

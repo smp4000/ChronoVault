@@ -23,6 +23,7 @@ namespace App\Filament\App\Resources\PriceProposals\Tables;
 
 use App\Actions\Shop\AcceptPriceProposalAction;
 use App\Actions\Shop\CounterPriceProposalAction;
+use App\Actions\Shop\DeclinePriceProposalAction;
 use App\Actions\Shop\SendProposalReplyAction;
 use App\Enums\PriceProposalStatus;
 use App\Models\PriceProposal;
@@ -377,8 +378,8 @@ class PriceProposalsTable
     }
 
     /**
-     * Ablehnen: reiner Statuswechsel — die Absage formuliert der
-     * Händler bei Bedarf selbst über „Antworten".
+     * Ablehnen: schließt den Vorgang UND schickt dem Kunden die
+     * „Schade"-Mail — der Text ist frei editierbar (Vorlage vorbefüllt).
      */
     private static function declineAction(): Action
     {
@@ -387,15 +388,35 @@ class PriceProposalsTable
             ->icon('heroicon-m-x-circle')
             ->color('danger')
             ->visible(fn (PriceProposal $record): bool => self::actionVisible($record))
-            ->requiresConfirmation()
             ->modalHeading('Preisvorschlag ablehnen')
-            ->modalDescription('Der Status wird auf „Abgelehnt" gesetzt — eine Absage an den Kunden senden Sie bei Bedarf über „Antworten".')
-            ->action(function (PriceProposal $record): void {
-                $record->update(['status' => PriceProposalStatus::Declined]);
+            ->modalDescription('Der Vorgang wird geschlossen und der Kunde erhält die Absage per E-Mail.')
+            ->modalSubmitActionLabel('Ablehnen & Mail senden')
+            ->form(fn (PriceProposal $record): array => [
+                Textarea::make('message')
+                    ->label('Ihr Text an den Kunden')
+                    ->rows(5)
+                    ->required()
+                    ->maxLength(3000)
+                    ->default('schade, dass wir diesmal nicht zusammengekommen sind — vielen Dank trotzdem für Ihr Interesse! '
+                        .'Unsere Kollektion wächst laufend: Schauen Sie gerne wieder vorbei, vielleicht ist bald genau das richtige Stück für Sie dabei.')
+                    ->helperText('Frei anpassbar — die Anrede „Guten Tag '.$record->name.'," setzt die Mail automatisch davor.'),
+            ])
+            ->action(function (PriceProposal $record, array $data): void {
+                try {
+                    app(DeclinePriceProposalAction::class)->execute(
+                        $record,
+                        filled($data['message'] ?? null) ? (string) $data['message'] : null,
+                    );
+                } catch (RuntimeException $exception) {
+                    Notification::make()->danger()->title($exception->getMessage())->send();
+
+                    return;
+                }
 
                 Notification::make()
                     ->success()
                     ->title('Preisvorschlag abgelehnt')
+                    ->body('Die Absage ist per E-Mail an '.$record->email.' unterwegs.')
                     ->send();
             });
     }
