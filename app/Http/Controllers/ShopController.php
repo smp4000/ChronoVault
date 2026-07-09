@@ -145,10 +145,15 @@ class ShopController extends Controller
                 ->withErrors(['purchase' => $exception->getMessage()]);
         }
 
-        return back()->with(
-            'purchase_success',
-            'Vielen Dank für Ihren Kauf! Die Uhr ist für Sie reserviert — die Kaufbestätigung mit den Zahlungsinformationen ist auf dem Weg in Ihr Postfach.'
-        );
+        // NICHT back(): Die Uhr ist jetzt reserviert — Kauf- und
+        // Detailseite existieren für sie nicht mehr (404). Erfolg
+        // zeigt der Shop-Katalog als Banner.
+        return redirect()
+            ->route('shop.index')
+            ->with(
+                'purchase_success',
+                'Vielen Dank für Ihren Kauf! Die Uhr ist für Sie reserviert — die Kaufbestätigung mit den Zahlungsinformationen ist auf dem Weg in Ihr Postfach.'
+            );
     }
 
     /**

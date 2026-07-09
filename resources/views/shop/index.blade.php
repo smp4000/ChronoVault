@@ -12,6 +12,15 @@ außerhalb des Tailwind-@source-Scans, ihre Klassen fehlen im Build.
 @section('title', 'Kollektion')
 
 @section('content')
+    {{-- Erfolgsmeldung nach verbindlichem Kauf --}}
+    @if (session('purchase_success'))
+        <div class="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+            <div class="rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-900">
+                {{ session('purchase_success') }}
+            </div>
+        </div>
+    @endif
+
     {{-- Hero: ruhig, viel Weißraum, blaue Akzentlinie --}}
     <section class="mx-auto max-w-7xl px-4 pt-16 pb-10 sm:px-6 lg:px-8 lg:pt-24 lg:pb-14">
         <div class="max-w-2xl">

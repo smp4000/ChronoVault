@@ -254,7 +254,8 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
             ->assertSee('zahlungspflichtig kaufen')
             ->assertSee('8.500,00');
 
-        // Kauf ausführen
+        // Kauf ausführen — Redirect zum Shop-Katalog (die Kaufseite
+        // existiert für die nun reservierte Uhr nicht mehr)
         $this->from($buyUrl)
             ->post($buyUrl, [
                 'first_name' => 'Erika',
@@ -266,7 +267,7 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
                 'country' => 'Deutschland',
                 'accept_binding' => '1',
             ])
-            ->assertRedirect($buyUrl)
+            ->assertRedirect('http://'.$domain)
             ->assertSessionHas('purchase_success');
 
         $tenant->run(function () use ($watchId) {
