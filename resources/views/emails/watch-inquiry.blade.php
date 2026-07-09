@@ -5,7 +5,11 @@ E-Mail: Shop-Anfrage an den Händler (intern, Modul Shop)
 Erwartet: $watch, $inquiry (name/email/phone/message), $tenantName, $panelUrl.
 --}}
 @php
-    $photoUrl = $watch->firstPhotoUrl();
+    // Foto inline einbetten (cid) — extern verlinkte Bilder blockieren viele Mailprogramme
+    $photo = $watch->firstPhotoForEmail();
+    $photoSrc = ($photo !== null && isset($message))
+        ? $message->embedData($photo['data'], $photo['name'], $photo['mime'])
+        : null;
 @endphp
 <!DOCTYPE html>
 <html lang="de">
@@ -54,9 +58,9 @@ Erwartet: $watch, $inquiry (name/email/phone/message), $tenantName, $panelUrl.
                                     <td style="padding:28px 40px 0 40px;">
                                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e7e5e4; border-radius:16px;">
                                             <tr>
-                                                @if ($photoUrl)
+                                                @if ($photoSrc)
                                                     <td width="104" style="padding:14px 0 14px 14px;" valign="top">
-                                                        <img src="{{ $photoUrl }}" alt="" width="88" height="88"
+                                                        <img src="{{ $photoSrc }}" alt="" width="88" height="88"
                                                              style="display:block; width:88px; height:88px; object-fit:cover; border-radius:12px; border:1px solid #e7e5e4;">
                                                     </td>
                                                 @endif

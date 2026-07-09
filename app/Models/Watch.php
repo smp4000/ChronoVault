@@ -53,6 +53,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Scout\Searchable;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -335,6 +336,47 @@ class Watch extends Model implements HasMedia
     public function firstPhotoUrl(): ?string
     {
         return $this->photoUrls()[0] ?? null;
+    }
+
+    /**
+     * Erstes Foto als Binärdaten für E-Mails (Inline-Einbettung via
+     * $message->embedData). Extern verlinkte Bilder blockieren viele
+     * Mailprogramme — eingebettet wird das Foto immer angezeigt.
+     * null, wenn kein Foto vorhanden oder die Datei fehlt.
+     *
+     * @return array{data: string, mime: string, name: string}|null
+     */
+    public function firstPhotoForEmail(): ?array
+    {
+        $media = $this->getFirstMedia('photos');
+
+        if ($media !== null) {
+            $path = $media->getPath();
+
+            if (! is_file($path)) {
+                return null;
+            }
+
+            return [
+                'data' => (string) file_get_contents($path),
+                'mime' => (string) $media->mime_type,
+                'name' => (string) $media->file_name,
+            ];
+        }
+
+        // Fallback auf die Alt-Spalte photos (JSON-Pfade auf der public-Disk)
+        $legacy = $this->getAttribute('photos');
+        $firstPath = is_array($legacy) ? ($legacy[0] ?? null) : null;
+
+        if (! is_string($firstPath) || ! Storage::disk('public')->exists($firstPath)) {
+            return null;
+        }
+
+        return [
+            'data' => (string) Storage::disk('public')->get($firstPath),
+            'mime' => (string) (Storage::disk('public')->mimeType($firstPath) ?: 'image/jpeg'),
+            'name' => basename($firstPath),
+        ];
     }
 
     /**

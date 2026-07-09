@@ -6,7 +6,6 @@ Erwartet: $watch, $buyer, $tenantName, $amount, $remittance, $panelUrl.
 --}}
 @php
     $formatEur = fn ($value): string => number_format((float) $value, 2, ',', '.').' €';
-    $photoUrl = $watch->firstPhotoUrl();
 @endphp
 <!DOCTYPE html>
 <html lang="de">

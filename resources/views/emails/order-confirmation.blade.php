@@ -8,7 +8,11 @@ $bic, $remittance, $qrPng (binär|null).
 --}}
 @php
     $formatEur = fn ($value): string => number_format((float) $value, 2, ',', '.').' €';
-    $photoUrl = $watch->firstPhotoUrl();
+    // Foto inline einbetten (cid) — extern verlinkte Bilder blockieren viele Mailprogramme
+    $photo = $watch->firstPhotoForEmail();
+    $photoSrc = ($photo !== null && isset($message))
+        ? $message->embedData($photo['data'], $photo['name'], $photo['mime'])
+        : null;
 @endphp
 <!DOCTYPE html>
 <html lang="de">
@@ -76,9 +80,9 @@ $bic, $remittance, $qrPng (binär|null).
                                     <td style="padding:24px 40px 0 40px;">
                                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e7e5e4; border-radius:16px;">
                                             <tr>
-                                                @if ($photoUrl)
+                                                @if ($photoSrc)
                                                     <td width="120" style="padding:16px 0 16px 16px;" valign="top">
-                                                        <img src="{{ $photoUrl }}" alt="{{ $watch->fullName() }}" width="104" height="104"
+                                                        <img src="{{ $photoSrc }}" alt="{{ $watch->fullName() }}" width="104" height="104"
                                                              style="display:block; width:104px; height:104px; object-fit:cover; border-radius:12px; border:1px solid #e7e5e4;">
                                                     </td>
                                                 @endif
