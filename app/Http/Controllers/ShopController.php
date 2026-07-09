@@ -41,6 +41,7 @@ use App\Http\Requests\WatchInquiryRequest;
 use App\Mail\PriceProposalMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
+use App\Models\PriceProposal;
 use App\Models\User;
 use App\Models\Watch;
 use Illuminate\Contracts\View\View;
@@ -250,8 +251,21 @@ class ShopController extends Controller
             ->with('brand')
             ->findOrFail($watchId);
 
+        $validated = $request->validated();
+
+        // Zusätzlich zur Mail persistieren — der Händler sieht und
+        // beantwortet Vorschläge im Panel (Preisvorschläge-Ressource).
+        PriceProposal::create([
+            'watch_id' => $watch->getKey(),
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'proposed_price' => $validated['proposed_price'],
+            'asking_price_at_time' => $watch->getAttribute('asking_price'),
+            'message' => $validated['message'] ?? null,
+        ]);
+
         Mail::to($this->inquiryRecipients())
-            ->send(new PriceProposalMail($watch, $request->validated()));
+            ->send(new PriceProposalMail($watch, $validated));
 
         return back()->with(
             'proposal_success',

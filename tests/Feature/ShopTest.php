@@ -22,6 +22,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\PriceProposalStatus;
 use App\Enums\WatchCondition;
 use App\Enums\WatchStatus;
 use App\Mail\OrderConfirmationMail;
@@ -30,6 +31,7 @@ use App\Mail\PriceProposalMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\Contact;
+use App\Models\PriceProposal;
 use App\Models\Watch;
 use Illuminate\Support\Facades\Mail;
 
@@ -416,6 +418,17 @@ it('accepts price proposals with captcha and forwards them to the owner', functi
             return str_contains($html, '8.200')
                 && str_contains($html, 'Vorschlag Submariner')
                 && str_contains($html, 'Waere das fuer Sie machbar?');
+        });
+
+        // Vorschlag ist zusätzlich im Panel sichtbar (persistiert, Status Neu)
+        $tenant->run(function () use ($watchId) {
+            $proposal = PriceProposal::firstOrFail();
+
+            expect($proposal->watch_id)->toBe($watchId)
+                ->and((float) $proposal->proposed_price)->toBe(8200.0)
+                ->and((float) $proposal->asking_price_at_time)->toBe(9000.0)
+                ->and($proposal->email)->toBe('erika@example.test')
+                ->and($proposal->getAttribute('status'))->toBe(PriceProposalStatus::New);
         });
 
         // Falsche Rechenantwort -> Fehler, keine weitere Mail
