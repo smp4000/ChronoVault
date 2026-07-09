@@ -88,9 +88,21 @@ class TenantsTable
                     ->label('Öffnen')
                     ->icon('heroicon-m-arrow-top-right-on-square')
                     ->color('gray')
-                    ->url(fn (Tenant $record): ?string => $record->primaryDomain()
-                        ? 'http://'.$record->primaryDomain().':8000/app'
-                        : null)
+                    // Schema + Port kommen aus APP_URL — lokal
+                    // http://…:8000, in Produktion https://… ohne Port.
+                    ->url(function (Tenant $record): ?string {
+                        $domain = $record->primaryDomain();
+
+                        if ($domain === null) {
+                            return null;
+                        }
+
+                        $appUrl = parse_url((string) config('app.url'));
+                        $scheme = $appUrl['scheme'] ?? 'https';
+                        $port = isset($appUrl['port']) ? ':'.$appUrl['port'] : '';
+
+                        return $scheme.'://'.$domain.$port.'/app';
+                    })
                     ->openUrlInNewTab()
                     ->visible(fn (Tenant $record): bool => ! $record->trashed()),
 
