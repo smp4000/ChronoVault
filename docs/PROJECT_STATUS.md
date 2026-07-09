@@ -61,6 +61,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `calibers` (UUID, brand_id FK restrictOnDelete, movement_type, Kenndaten, unique brand_id+name, SoftDeletes)
 - `watches` (UUID, brand_id FK, caliber_id FK nullable, created_by_user_id FK, model/reference/serial/stock_number, condition, status, ownership_status + owner, Chrono24-Attribute [Aufzug, Geschlecht, Gehäuse/Lünette/Glas, Zifferblatt, Band/Schließe, Wasserdichtigkeit, Bandanstoß], functions JSON, Kauf [price/date/location/delivery_scope], Limited Edition, Lagerort, description + notes, Versicherung, photo_slots JSON [Modul 4], photos JSON [KI-Foto-Download], Bewertung [watchcharts_uuid/market_value — Modul 7], Shop [is_published + asking_price], research_data JSON [KI-Lookup], SoftDeletes)
 - `contacts` (UUID, type, Firma/Vor-/Nachname, E-Mail/Telefon/Adresse, SoftDeletes)
+- `invoices` (UUID, transaction_id FK unique restrictOnDelete, invoice_number unique [RE-Jahr-lfd.Nr.], issued_at, delivery_date, tax_mode, net/tax/total, seller/buyer/line als JSON-SNAPSHOT — GoBD; KEINE SoftDeletes)
 - `transactions` (UUID, watch_id + contact_id FK restrictOnDelete, created_by FK, type purchase/sale, price, currency, transacted_at, payment_method, document_number, SoftDeletes)
 - `service_records` (UUID, watch_id + contact_id FK restrictOnDelete, type, status, previous_watch_status [Restore!], cost/currency, submitted/completed/warranty, SoftDeletes)
 - `valuations` (UUID, watch_id FK restrictOnDelete, source, market_value + Spanne, currency, valued_at, summary, source_urls JSON, SoftDeletes)
@@ -112,7 +113,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - Sofortkauf: `App\Actions\Shop\PurchaseWatchAction` (Uhr → Reserviert unter DB-Sperre, Kontakt-Anlage/-Wiedererkennung) + `PurchaseWatchRequest` + `OrderConfirmationMail` (Käufer: GiroCode) / `OrderReceivedMail` (Inhaber); Routen `/uhren/{watch}/kaufen` GET+POST (throttle:5,1); Verkaufsbeleg nach Zahlungseingang manuell über „Verkaufen"
 - Bieter-Mails: `App\Mail\BidConfirmationMail` (Verbindlichkeit) + `App\Mail\ReserveNotMetMail` (Limit nicht erreicht — Limit wird NIE genannt) + `App\Mail\OutbidMail` (Überboten, Nachbieten-CTA) + `App\Mail\AuctionWonMail` (Zuschlag: Zahlungsinfos, GiroCode-QR via `App\Support\GiroCode` [EPC069-12, endroid/qr-code], signierter Daten-Link 14 Tage); Live-Countdown-Partial auf den Auktionsseiten
 - Gewinner-Datenseite: `shop.auctions.winner` (+`.save`) mit signed-Middleware — Adressformular aktualisiert den Käufer-Kontakt (`WinnerDetailsRequest`)
-- `App\Filament\App\Pages\BusinessSettings` — Betriebsdaten (Bankverbindung) im App-Panel (settings.manage; Speicherung im zentralen Tenant-data-JSON, IBAN normalisiert)
+- `App\Filament\App\Pages\BusinessSettings` — Betriebsdaten im App-Panel (settings.manage; zentrales Tenant-data-JSON): Anschrift, Steuernummer/USt-IdNr., Besteuerungsart (differential/regular/small_business), Bankverbindung (IBAN normalisiert)
 - `routes/tenant.php` — `shop.index` (`/`), `shop.show` (`/uhren/{watch}`), `shop.auctions.*` (`/auktionen...`, Gebots-POST mit throttle:10,1)
 - `resources/views/shop/` — layout, index, show, partials/watch-card, auctions/{index,show,lot} (grimmeissen-Stil in Blau, Tailwind only)
 
@@ -121,6 +122,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Services\WatchReferenceLookupService` — KI-Recherche zu Referenznummern: Perplexity sonar-pro (bevorzugt, Web-Suche eingebaut, citations→source_urls) mit Anthropic claude-opus-4-8 als Fallback; JSON-Parsing + Stammdaten-Matching; DTO `WatchReferenceData`; Konfiguration PERPLEXITY_API_KEY / ANTHROPIC_API_KEY
 - `App\Services\MarketValueLookupService` — KI-Marktwert-Recherche (Perplexity; Zustand/Lieferumfang/Baujahr im Prompt); DTO `MarketValueData` (Wert, Spanne, Quellen)
 - `App\Services\ReportingService` — Dashboard-Kennzahlen (Modul 9): salesByMonth/salesTotals/inventoryByStatus/topBrandsByInventoryValue; DB-agnostische PHP-Aggregation, Margen-Semantik (nur Verkäufe mit Einkaufspreis)
+- `App\Services\InvoiceService` — Rechnungen (lückenloser Nummernkreis unter Sperre, Snapshot), **E-Rechnung als ZUGFeRD/Factur-X EN 16931** (horstoeko/zugferd: XML in dompdf-PDF eingebettet), Kaufvertrag-PDF; Steuer-Modi differential (§ 25a)/regular (19 %)/small_business (§ 19); Pflichtangaben-Guards; Downloads als recordActions an Verkaufsbelegen (TransactionsTable)
 
 ## Actions
 
