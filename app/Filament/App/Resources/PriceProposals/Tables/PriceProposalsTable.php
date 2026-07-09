@@ -265,9 +265,11 @@ class PriceProposalsTable
             ->color('success')
             ->visible(fn (PriceProposal $record): bool => self::actionVisible($record))
             ->modalHeading('Preisvorschlag annehmen — Zuschlag erteilen')
-            ->modalDescription(fn (PriceProposal $record): string => 'Die Uhr wird verbindlich zum Wunschpreis von '
-                .number_format((float) $record->proposed_price, 2, ',', '.')
-                .' € verkauft. Der Kunde erhält die Zusage mit Zahlungsinformationen, Rechnung und Kaufvertrag per E-Mail.')
+            ->modalDescription(fn (PriceProposal $record): string => 'Die Uhr wird verbindlich zum Preis von '
+                .number_format($record->counterTotal() ?? (float) $record->proposed_price, 2, ',', '.')
+                .' € verkauft'
+                .($record->counterTotal() !== null ? ' (Ihr Gegenangebot inkl. Versand)' : ' (Wunschpreis des Kunden)')
+                .'. Der Kunde erhält die Zusage mit Zahlungsinformationen, Rechnung und Kaufvertrag per E-Mail.')
             ->modalSubmitActionLabel('Zuschlag erteilen')
             ->form([
                 TextInput::make('street')
@@ -283,8 +285,17 @@ class PriceProposalsTable
                     ->maxLength(255),
             ])
             ->action(function (PriceProposal $record, array $data): void {
+                // Läuft ein Gegenangebot, gilt dessen Gesamtpreis (inkl.
+                // Versand) — sonst der Wunschpreis des Kunden.
+                $total = $record->counterTotal();
+
                 try {
-                    app(AcceptPriceProposalAction::class)->execute($record, $data);
+                    app(AcceptPriceProposalAction::class)->execute(
+                        $record,
+                        $data,
+                        $total,
+                        $total !== null ? 'Gegenangebot angenommen (inkl. Versand).' : null,
+                    );
                 } catch (RuntimeException $exception) {
                     Notification::make()->danger()->title($exception->getMessage())->send();
 
@@ -311,10 +322,12 @@ class PriceProposalsTable
             ->color('info')
             ->visible(fn (PriceProposal $record): bool => self::actionVisible($record))
             ->modalHeading('Gegenangebot senden')
+            ->modalDescription('Die Mail enthält Annehmen-/Ablehnen-Buttons: Bei Annahme wird der Kauf automatisch abgewickelt (Verkauf, Rechnung, Kaufvertrag, Zahlungs-Mail), bei Ablehnung schließt sich der Vorgang.')
             ->modalSubmitActionLabel('Gegenangebot senden')
+            ->modalWidth('2xl')
             ->form(fn (PriceProposal $record): array => [
                 TextInput::make('counter_price')
-                    ->label('Ihr Angebot')
+                    ->label('Ihr Angebot für die Uhr')
                     ->numeric()
                     ->minValue(1)
                     ->prefix('€')
@@ -324,17 +337,30 @@ class PriceProposalsTable
                         : null)
                     ->helperText('Vorschlag des Kunden: '.number_format((float) $record->proposed_price, 0, ',', '.').' €'),
 
-                Textarea::make('message')
-                    ->label('Nachricht an den Kunden (optional)')
-                    ->rows(3)
-                    ->maxLength(2000),
+                TextInput::make('shipping_price')
+                    ->label('Porto & Verpackung (optional)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->prefix('€')
+                    ->helperText('Wird in der Mail separat ausgewiesen — der Kunde sieht Angebot + Versand = Gesamtpreis.'),
+
+                Textarea::make('intro')
+                    ->label('Ihr Text an den Kunden')
+                    ->rows(5)
+                    ->required()
+                    ->maxLength(3000)
+                    ->default('vielen Dank für Ihren Preisvorschlag über '
+                        .number_format((float) $record->proposed_price, 0, ',', '.')
+                        .' €. Ganz können wir Ihnen dabei leider nicht entgegenkommen — aber wir machen Ihnen gerne dieses Angebot:')
+                    ->helperText('Frei anpassbar — die Anrede „Guten Tag '.$record->name.'," setzt die Mail automatisch davor.'),
             ])
             ->action(function (PriceProposal $record, array $data): void {
                 try {
                     app(CounterPriceProposalAction::class)->execute(
                         $record,
                         (float) $data['counter_price'],
-                        filled($data['message'] ?? null) ? (string) $data['message'] : null,
+                        filled($data['shipping_price'] ?? null) ? (float) $data['shipping_price'] : null,
+                        filled($data['intro'] ?? null) ? (string) $data['intro'] : null,
                     );
                 } catch (RuntimeException $exception) {
                     Notification::make()->danger()->title($exception->getMessage())->send();
@@ -345,7 +371,7 @@ class PriceProposalsTable
                 Notification::make()
                     ->success()
                     ->title('Gegenangebot gesendet')
-                    ->body('Der Kunde wurde per E-Mail informiert — seine Antwort landet direkt bei Ihnen.')
+                    ->body('Der Kunde kann per Klick annehmen (Kauf wird komplett abgewickelt) oder ablehnen.')
                     ->send();
             });
     }

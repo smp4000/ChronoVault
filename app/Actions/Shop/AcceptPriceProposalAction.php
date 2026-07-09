@@ -50,8 +50,10 @@ class AcceptPriceProposalAction
 
     /**
      * @param  array{street?: string|null, postal_code?: string|null, city?: string|null}  $address  Optionale Lieferadresse aus dem Annehmen-Dialog
+     * @param  float|null  $priceOverride  Abweichender Verkaufspreis (z. B. Gegenangebot inkl. Versand) — sonst Wunschpreis
+     * @param  string|null  $priceNote  Zusatz für den Beleg (z. B. Versand-Aufschlüsselung)
      */
-    public function execute(PriceProposal $proposal, array $address = []): PriceProposal
+    public function execute(PriceProposal $proposal, array $address = [], ?float $priceOverride = null, ?string $priceNote = null): PriceProposal
     {
         $status = $proposal->getAttribute('status');
 
@@ -59,7 +61,9 @@ class AcceptPriceProposalAction
             throw new RuntimeException('Dieser Preisvorschlag ist bereits abschließend bearbeitet.');
         }
 
-        [$buyer, $sale, $watch] = DB::transaction(function () use ($proposal, $address): array {
+        $salePrice = $priceOverride ?? (float) $proposal->proposed_price;
+
+        [$buyer, $sale, $watch] = DB::transaction(function () use ($proposal, $address, $salePrice, $priceNote): array {
             $watch = Watch::query()
                 ->lockForUpdate()
                 ->findOrFail($proposal->getAttribute('watch_id'));
@@ -74,11 +78,11 @@ class AcceptPriceProposalAction
 
             $sale = $this->recordSale->execute($watch, [
                 'contact_id' => $buyer->getKey(),
-                'price' => (float) $proposal->proposed_price,
+                'price' => $salePrice,
                 'transacted_at' => now(),
                 'payment_method' => PaymentMethod::BankTransfer->value,
-                'notes' => 'Preisvorschlag angenommen (Shop) — Wunschpreis '
-                    .number_format((float) $proposal->proposed_price, 2, ',', '.').' €.',
+                'notes' => trim('Preisvorschlag angenommen (Shop) — Verkaufspreis '
+                    .number_format($salePrice, 2, ',', '.').' €. '.($priceNote ?? '')),
             ]);
 
             $proposal->update(['status' => PriceProposalStatus::Accepted]);
@@ -104,7 +108,7 @@ class AcceptPriceProposalAction
         }
 
         try {
-            Mail::to($buyer->email)->send(new ProposalAcceptedMail($watch->refresh(), $buyer, $proposal, $invoice));
+            Mail::to($buyer->email)->send(new ProposalAcceptedMail($watch->refresh(), $buyer, $proposal, $invoice, $salePrice));
         } catch (Throwable $exception) {
             report($exception);
         }

@@ -47,6 +47,7 @@ class PriceProposal extends Model
         'proposed_price',
         'asking_price_at_time',
         'counter_price',
+        'shipping_price',
         'message',
         'status',
     ];
@@ -60,8 +61,24 @@ class PriceProposal extends Model
             'proposed_price' => 'decimal:2',
             'asking_price_at_time' => 'decimal:2',
             'counter_price' => 'decimal:2',
+            'shipping_price' => 'decimal:2',
             'status' => PriceProposalStatus::class,
         ];
+    }
+
+    /**
+     * Gesamtpreis des Gegenangebots (Angebot + Versand) — null ohne
+     * Gegenangebot.
+     */
+    public function counterTotal(): ?float
+    {
+        $counter = $this->getAttribute('counter_price');
+
+        if ($counter === null) {
+            return null;
+        }
+
+        return round((float) $counter + (float) ($this->getAttribute('shipping_price') ?? 0), 2);
     }
 
     /**

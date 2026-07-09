@@ -33,12 +33,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Shop\AcceptPriceProposalAction;
 use App\Actions\Shop\PurchaseWatchAction;
+use App\Enums\PriceProposalStatus;
 use App\Enums\UserRole;
 use App\Http\Requests\PriceProposalRequest;
 use App\Http\Requests\PurchaseWatchRequest;
 use App\Http\Requests\WatchInquiryRequest;
 use App\Mail\PriceProposalMail;
+use App\Mail\ProposalDeclinedMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\PriceProposal;
@@ -49,6 +52,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
+use Throwable;
 
 class ShopController extends Controller
 {
@@ -271,6 +275,74 @@ class ShopController extends Controller
             'proposal_success',
             'Vielen Dank für Ihren Preisvorschlag — wir melden uns schnellstmöglich bei Ihnen.'
         );
+    }
+
+    /**
+     * Kunden-Entscheidung zum Gegenangebot (signierter Link aus der
+     * CounterOfferMail): Annahme wickelt den Kauf zum Gesamtpreis
+     * (Angebot + Versand) komplett ab — Verkauf, Rechnung, Kaufvertrag,
+     * Zahlungs-Mail. Ablehnung schließt den Vorgang und schickt eine
+     * freundliche „Schade"-Mail.
+     */
+    public function proposalDecision(string $proposalId, string $decision): View
+    {
+        $proposal = PriceProposal::query()
+            ->with('watch.brand')
+            ->findOrFail($proposalId);
+
+        $status = $proposal->getAttribute('status');
+
+        // Bereits abgeschlossen (z. B. Link doppelt geklickt)?
+        if (! $status instanceof PriceProposalStatus || ! $status->isOpen()) {
+            return view('shop.proposal-decision', [
+                'success' => $status === PriceProposalStatus::Accepted,
+                'heading' => 'Dieser Vorgang ist bereits abgeschlossen',
+                'text' => 'Ihre Entscheidung wurde schon verarbeitet — bei Fragen antworten Sie einfach auf unsere E-Mail.',
+            ]);
+        }
+
+        if ($decision === 'annehmen') {
+            $total = $proposal->counterTotal() ?? (float) $proposal->proposed_price;
+            $shipping = (float) ($proposal->getAttribute('shipping_price') ?? 0);
+
+            try {
+                app(AcceptPriceProposalAction::class)->execute(
+                    $proposal,
+                    [],
+                    $total,
+                    $shipping > 0
+                        ? 'Gegenangebot angenommen: Uhr '.number_format((float) $proposal->counter_price, 2, ',', '.').' € + Versand '.number_format($shipping, 2, ',', '.').' €.'
+                        : 'Gegenangebot angenommen.',
+                );
+            } catch (RuntimeException) {
+                return view('shop.proposal-decision', [
+                    'success' => false,
+                    'heading' => 'Diese Uhr ist leider nicht mehr verfügbar',
+                    'text' => 'Die Uhr wurde zwischenzeitlich anderweitig verkauft. Antworten Sie gerne auf unsere E-Mail — wir halten Ausschau nach einem vergleichbaren Stück.',
+                ]);
+            }
+
+            return view('shop.proposal-decision', [
+                'success' => true,
+                'heading' => 'Vielen Dank — der Kauf ist verbindlich zustande gekommen!',
+                'text' => 'Sie erhalten in wenigen Minuten eine E-Mail mit den Zahlungsinformationen, Ihrer Rechnung und dem Kaufvertrag. Nach Zahlungseingang versenden wir Ihre Uhr.',
+            ]);
+        }
+
+        // Ablehnung: Vorgang schließen + freundliche „Schade"-Mail
+        $proposal->update(['status' => PriceProposalStatus::Declined]);
+
+        try {
+            Mail::to($proposal->email)->send(new ProposalDeclinedMail($proposal));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        return view('shop.proposal-decision', [
+            'success' => false,
+            'heading' => 'Schade — vielleicht beim nächsten Mal',
+            'text' => 'Wir haben Ihre Entscheidung vermerkt. Schauen Sie gerne wieder in unserer Kollektion vorbei — vielleicht ist bald das passende Stück für Sie dabei.',
+        ]);
     }
 
     /**

@@ -2,11 +2,17 @@
 =============================================================================
 E-Mail: Gegenangebot des Händlers zum Preisvorschlag (Shop)
 =============================================================================
-Erwartet: $proposal, $watch (nullable), $tenantName, $dealerMessage, $watchUrl.
+Gesamtpreis gegliedert (Angebot + Versand), frei formulierter Text,
+Annehmen-/Ablehnen-Buttons (signierte Links — Annahme wickelt den Kauf
+automatisch ab, Ablehnung schließt den Vorgang).
+Erwartet: $proposal, $watch (nullable), $tenantName, $introText,
+$watchUrl, $acceptUrl, $declineUrl.
 =============================================================================
 --}}
 @php
-    $formatEur = fn ($value): string => number_format((float) $value, 0, ',', '.').' €';
+    $formatEur = fn ($value): string => number_format((float) $value, 2, ',', '.').' €';
+    $shipping = (float) ($proposal->shipping_price ?? 0);
+    $total = $proposal->counterTotal();
     // Foto inline einbetten (cid) — extern verlinkte Bilder blockieren viele Mailprogramme
     $photo = $watch?->firstPhotoForEmail();
     $photoSrc = ($photo !== null && isset($message))
@@ -23,7 +29,7 @@ Erwartet: $proposal, $watch (nullable), $tenantName, $dealerMessage, $watchUrl.
 <body style="margin:0; padding:0; background-color:#f5f5f4; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
     <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
-        Unser Angebot zu Ihrem Preisvorschlag: {{ $formatEur($proposal->counter_price) }}.
+        Unser Angebot zu Ihrem Preisvorschlag: {{ $formatEur($total) }} gesamt.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f4; padding:32px 16px;">
@@ -44,14 +50,14 @@ Erwartet: $proposal, $watch (nullable), $tenantName, $dealerMessage, $watchUrl.
                         <td style="background-color:#ffffff; border-radius:24px; border:1px solid #e7e5e4; overflow:hidden;">
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 
-                                {{-- Blaue Kopfzeile: unser Angebot --}}
+                                {{-- Blaue Kopfzeile: Gesamtpreis des Angebots --}}
                                 <tr>
                                     <td style="background-color:#1e40af; padding:36px 40px;" align="center">
                                         <p style="margin:0; font-size:12px; font-weight:600; letter-spacing:3px; text-transform:uppercase; color:#bfdbfe;">
                                             Unser Angebot für Sie
                                         </p>
                                         <p style="margin:12px 0 0 0; font-size:40px; font-weight:700; color:#ffffff; letter-spacing:-1px;">
-                                            {{ $formatEur($proposal->counter_price) }}
+                                            {{ $formatEur($total) }}
                                         </p>
                                         <p style="margin:8px 0 0 0; font-size:14px; color:#bfdbfe;">
                                             {{ $watch?->fullName() ?? 'Ihre Wunschuhr' }} · Ihr Vorschlag: {{ $formatEur($proposal->proposed_price) }}
@@ -64,23 +70,44 @@ Erwartet: $proposal, $watch (nullable), $tenantName, $dealerMessage, $watchUrl.
                                         <p style="margin:0; font-size:15px; line-height:1.6; color:#3f3f46;">
                                             Guten Tag {{ $proposal->name }},
                                         </p>
-                                        <p style="margin:14px 0 0 0; font-size:15px; line-height:1.6; color:#3f3f46;">
-                                            vielen Dank für Ihren Preisvorschlag über
-                                            <strong>{{ $formatEur($proposal->proposed_price) }}</strong>.
-                                            Ganz können wir Ihnen dabei leider nicht entgegenkommen —
-                                            aber wir machen Ihnen gerne dieses Angebot:
-                                            <strong>{{ $formatEur($proposal->counter_price) }}</strong>.
-                                        </p>
-                                        @if (filled($dealerMessage))
-                                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px; background-color:#f8fafc; border-radius:16px;">
-                                                <tr>
-                                                    <td style="padding:18px 22px;">
-                                                        <p style="margin:0; font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:#71717a;">Nachricht</p>
-                                                        <p style="margin:8px 0 0 0; font-size:14px; line-height:1.7; color:#3f3f46; white-space:pre-line;">{{ $dealerMessage }}</p>
-                                                    </td>
-                                                </tr>
-                                            </table>
+                                        @if (filled($introText))
+                                            <p style="margin:14px 0 0 0; font-size:15px; line-height:1.7; color:#3f3f46; white-space:pre-line;">{{ $introText }}</p>
+                                        @else
+                                            <p style="margin:14px 0 0 0; font-size:15px; line-height:1.6; color:#3f3f46;">
+                                                vielen Dank für Ihren Preisvorschlag über
+                                                <strong>{{ $formatEur($proposal->proposed_price) }}</strong>.
+                                                Ganz können wir Ihnen dabei leider nicht entgegenkommen —
+                                                aber wir machen Ihnen gerne dieses Angebot:
+                                            </p>
                                         @endif
+                                    </td>
+                                </tr>
+
+                                {{-- Preisgliederung: Angebot + Versand = Gesamt --}}
+                                <tr>
+                                    <td style="padding:24px 40px 0 40px;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc; border-radius:16px;">
+                                            <tr>
+                                                <td style="padding:18px 22px;">
+                                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                                        <tr>
+                                                            <td style="padding:7px 0; font-size:14px; color:#71717a;">Unser Angebot für die Uhr</td>
+                                                            <td style="padding:7px 0; font-size:14px; font-weight:600; color:#18181b;" align="right">{{ $formatEur($proposal->counter_price) }}</td>
+                                                        </tr>
+                                                        @if ($shipping > 0)
+                                                            <tr>
+                                                                <td style="padding:7px 0; font-size:14px; color:#71717a;">Versichertes Porto &amp; Verpackung</td>
+                                                                <td style="padding:7px 0; font-size:14px; font-weight:600; color:#18181b;" align="right">{{ $formatEur($shipping) }}</td>
+                                                            </tr>
+                                                        @endif
+                                                        <tr>
+                                                            <td style="padding:10px 0 0 0; border-top:1px solid #e4e4e7; font-size:15px; font-weight:700; color:#18181b;">Gesamtpreis</td>
+                                                            <td style="padding:10px 0 0 0; border-top:1px solid #e4e4e7; font-size:15px; font-weight:700; color:#1e40af;" align="right">{{ $formatEur($total) }}</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
 
@@ -115,16 +142,30 @@ Erwartet: $proposal, $watch (nullable), $tenantName, $dealerMessage, $watchUrl.
                                     </tr>
                                 @endif
 
-                                {{-- CTA --}}
+                                {{-- Entscheidung: Annehmen (verbindlicher Kauf) oder Ablehnen --}}
                                 <tr>
-                                    <td style="padding:28px 40px 36px 40px;" align="center">
-                                        <a href="{{ $watchUrl }}"
-                                           style="display:inline-block; background-color:#1e40af; color:#ffffff; font-size:14px; font-weight:600; text-decoration:none; padding:13px 34px; border-radius:999px;">
-                                            Uhr ansehen
+                                    <td style="padding:28px 40px 8px 40px;" align="center">
+                                        <a href="{{ $acceptUrl }}"
+                                           style="display:inline-block; background-color:#047857; color:#ffffff; font-size:15px; font-weight:700; text-decoration:none; padding:14px 38px; border-radius:999px;">
+                                            Angebot annehmen — {{ $formatEur($total) }}
                                         </a>
-                                        <p style="margin:14px 0 0 0; font-size:12px; color:#a1a1aa;">
-                                            Einverstanden? Antworten Sie einfach auf diese E-Mail —
-                                            wir machen den Kauf dann für Sie fertig.
+                                        <p style="margin:10px 0 0 0; font-size:11px; color:#a1a1aa;">
+                                            Mit Klick auf „Angebot annehmen" kommt der Kauf zum
+                                            Gesamtpreis verbindlich zustande — Sie erhalten sofort
+                                            Rechnung, Kaufvertrag und die Zahlungsinformationen.
+                                        </p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:10px 40px 36px 40px;" align="center">
+                                        <a href="{{ $declineUrl }}"
+                                           style="display:inline-block; border:1px solid #d4d4d8; color:#71717a; font-size:13px; font-weight:600; text-decoration:none; padding:10px 28px; border-radius:999px;">
+                                            Ablehnen
+                                        </a>
+                                        <p style="margin:12px 0 0 0; font-size:12px; color:#a1a1aa;">
+                                            Fragen? Antworten Sie einfach auf diese E-Mail.
+                                            <a href="{{ $watchUrl }}" style="color:#1e40af;">Uhr ansehen</a> ·
+                                            Beide Buttons sind 14 Tage gültig.
                                         </p>
                                     </td>
                                 </tr>

@@ -55,6 +55,13 @@ Route::middleware([
         ->middleware('throttle:5,1')
         ->name('shop.propose');
 
+    // Kunden-Entscheidung zum Gegenangebot (Buttons in der Mail) — nur
+    // über den signierten Link erreichbar (14 Tage gültig).
+    Route::get('/preisvorschlag/{proposal}/{decision}', [ShopController::class, 'proposalDecision'])
+        ->middleware('signed')
+        ->whereIn('decision', ['annehmen', 'ablehnen'])
+        ->name('shop.proposal.decision');
+
     // Öffentlicher Auktionskatalog (Modul 8b) — Gebots-POST mit Throttle
     // gegen Skript-Missbrauch (10 Gebote/Minute je IP reichen jedem Bieter).
     Route::get('/auktionen', [AuctionCatalogController::class, 'index'])->name('shop.auctions.index');

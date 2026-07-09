@@ -44,6 +44,7 @@ class ProposalAcceptedMail extends Mailable
         public readonly Contact $buyer,
         public readonly PriceProposal $proposal,
         public readonly ?Invoice $invoice = null,
+        public readonly ?float $salePrice = null,
     ) {}
 
     public function envelope(): Envelope
@@ -55,7 +56,9 @@ class ProposalAcceptedMail extends Mailable
 
     public function content(): Content
     {
-        $amount = (float) $this->proposal->proposed_price;
+        // Abweichender Verkaufspreis (z. B. angenommenes Gegenangebot
+        // inkl. Versand) hat Vorrang vor dem Wunschpreis.
+        $amount = $this->salePrice ?? (float) $this->proposal->proposed_price;
         $remittance = $this->invoice !== null
             ? $this->invoice->invoice_number
             : trim('Kauf '.($this->watch->reference_number ?? $this->watch->model_name).' '.$this->buyer->last_name);

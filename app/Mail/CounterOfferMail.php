@@ -6,10 +6,11 @@
  * =========================================================================
  *
  * Zweck:
- *   Teilt dem Kunden das Gegenangebot mit (Wunschpreis vs. Angebot des
- *   Händlers, optionale Nachricht) und verlinkt zur Uhr. Reply-To ist
- *   die Benachrichtigungs-Adresse des Betriebs — die Antwort des
- *   Kunden landet direkt beim Händler.
+ *   Teilt dem Kunden das Gegenangebot mit: gegliederter Preis (Angebot
+ *   + Versand = Gesamt), frei formulierter Händler-Text sowie
+ *   Annehmen-/Ablehnen-Buttons (signierte Links, 14 Tage gültig).
+ *   Annahme wickelt den Kauf automatisch ab, Ablehnung schließt den
+ *   Vorgang. Reply-To ist die Benachrichtigungs-Adresse des Betriebs.
  *
  * Versand: CounterPriceProposalAction (Panel-Aktion „Gegenangebot").
  * =========================================================================
@@ -26,6 +27,7 @@ use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\URL;
 
 class CounterOfferMail extends Mailable
 {
@@ -34,7 +36,7 @@ class CounterOfferMail extends Mailable
 
     public function __construct(
         public readonly PriceProposal $proposal,
-        public readonly ?string $dealerMessage = null,
+        public readonly ?string $introText = null,
     ) {}
 
     public function envelope(): Envelope
@@ -58,14 +60,24 @@ class CounterOfferMail extends Mailable
     {
         $watch = $this->proposal->watch;
 
+        // Signierte Entscheidungs-Links (14 Tage): Annahme wickelt den
+        // Kauf ab, Ablehnung schließt den Vorgang — beides ohne Login.
+        $decisionUrl = fn (string $decision): string => URL::temporarySignedRoute(
+            'shop.proposal.decision',
+            now()->addDays(14),
+            ['proposal' => $this->proposal->getKey(), 'decision' => $decision],
+        );
+
         return new Content(
             view: 'emails.counter-offer',
             with: [
                 'proposal' => $this->proposal,
                 'watch' => $watch,
                 'tenantName' => (string) tenant('name'),
-                'dealerMessage' => $this->dealerMessage,
+                'introText' => $this->introText,
                 'watchUrl' => $watch !== null ? route('shop.show', $watch) : route('shop.index'),
+                'acceptUrl' => $decisionUrl('annehmen'),
+                'declineUrl' => $decisionUrl('ablehnen'),
             ],
         );
     }
