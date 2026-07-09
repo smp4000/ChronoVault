@@ -12,11 +12,12 @@
  *   (grimmeissen.de-Stil, Blau als Akzentfarbe).
  *
  * Verantwortlichkeiten:
- *   - Nur Uhren im Scope publishedInShop() ausliefern (Opt-in des
- *     Händlers, verkäuflicher Status, keine Soft-Deleted).
+ *   - Listing/Detail im Scope visibleInShop(): auch Reserviert/In
+ *     Auktion/Verkauft bleiben mit Badge sichtbar (Referenzen).
+ *   - Kaufen/Anfragen nur im Scope publishedInShop() (kaufbar).
  *   - Markenfilter + Pagination fürs Listing.
- *   - 404 für unveröffentlichte/verkaufte Uhren auf der Detailseite —
- *     bewusst KEIN 403, Interna bleiben unsichtbar.
+ *   - 404 für unveröffentlichte Uhren — bewusst KEIN 403,
+ *     Interna bleiben unsichtbar.
  *
  * Abhängigkeiten:
  *   - Tenancy ist durch die Routen-Middleware bereits initialisiert;
@@ -56,10 +57,13 @@ class ShopController extends Controller
     {
         $brandId = $request->query('marke');
 
+        // Kaufbare zuerst, dann Reserviert/In Auktion, Verkauft ans Ende —
+        // Besucher sehen das Verfügbare, Verkauftes bleibt als Referenz.
         $watches = Watch::query()
-            ->publishedInShop()
+            ->visibleInShop()
             ->with(['brand', 'media'])
             ->when($brandId, fn ($query) => $query->where('brand_id', $brandId))
+            ->orderByRaw("CASE WHEN status IN ('in_stock', 'consignment') THEN 0 WHEN status IN ('reserved', 'in_auction') THEN 1 ELSE 2 END")
             ->orderByDesc('created_at')
             ->paginate(12)
             ->withQueryString();
@@ -67,7 +71,7 @@ class ShopController extends Controller
         // Markenfilter zeigt nur Marken, die aktuell im Shop vertreten sind —
         // ein leerer Filter-Eintrag wäre eine Sackgasse für Besucher.
         $shopBrandIds = Watch::query()
-            ->publishedInShop()
+            ->visibleInShop()
             ->distinct()
             ->pluck('brand_id');
 
@@ -84,18 +88,19 @@ class ShopController extends Controller
     }
 
     /**
-     * Detailseite einer Uhr — nur für veröffentlichte, verkäufliche
-     * Uhren erreichbar, alles andere ist ein sauberes 404.
+     * Detailseite einer Uhr — für alle im Shop sichtbaren Uhren
+     * erreichbar (auch Verkauft/Reserviert, dann mit Badge statt
+     * Kauf-Button). Unveröffentlichtes ist ein sauberes 404.
      */
     public function show(string $watchId): View
     {
         $watch = Watch::query()
-            ->publishedInShop()
+            ->visibleInShop()
             ->with(['brand', 'caliber', 'media'])
             ->findOrFail($watchId);
 
         // Weitere Uhren desselben Händlers als "Das könnte Sie auch
-        // interessieren" — bevorzugt dieselbe Marke.
+        // interessieren" — bevorzugt dieselbe Marke, nur Kaufbares.
         $related = Watch::query()
             ->publishedInShop()
             ->with(['brand', 'media'])
@@ -164,8 +169,10 @@ class ShopController extends Controller
      */
     public function inquire(WatchInquiryRequest $request, string $watchId): RedirectResponse
     {
+        // Bewusst visibleInShop: Auch zu verkauften/reservierten Uhren
+        // sind Anfragen willkommen (Interesse an vergleichbaren Stücken).
         $watch = Watch::query()
-            ->publishedInShop()
+            ->visibleInShop()
             ->with('brand')
             ->findOrFail($watchId);
 

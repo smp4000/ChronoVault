@@ -106,7 +106,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 
 ## Öffentlicher Shop (außerhalb Filament)
 
-- `App\Http\Controllers\ShopController` — Listing (Markenfilter, Pagination) + Detailseite (404 für Unveröffentlichtes)
+- `App\Http\Controllers\ShopController` — Listing (Markenfilter, Pagination) + Detailseite (404 für Unveröffentlichtes); Verkauft/Reserviert/In Auktion bleiben mit Badge sichtbar (Scope `visibleInShop`, kaufbar zuerst sortiert), kaufbar nur `publishedInShop` (`isBuyableInShop()`/`shopStatusBadge()` am Watch-Model)
 - `App\Http\Controllers\AuctionCatalogController` — Auktionskatalog + Online-Gebote (Modul 8b; Entwurf/Abgesagt → 404, Bieterdaten nie öffentlich)
 - `App\Http\Requests\PlaceBidRequest` — Formalvalidierung des Gebotsformulars (deutsche Meldungen)
 - `App\Http\Requests\WatchInquiryRequest` + `App\Mail\WatchInquiryMail` — Shop-Anfrage an die Inhaber (Reply-To Kunde, Panel-Link); POST `/uhren/{watch}/anfrage` (throttle:5,1)

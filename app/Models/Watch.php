@@ -374,9 +374,8 @@ class Watch extends Model implements HasMedia
     }
 
     /**
-     * Scope: im öffentlichen Shop sichtbare Uhren — veröffentlicht UND
-     * verkäuflich (An Lager/Kommission). Verkaufte oder im Service
-     * befindliche Uhren verschwinden automatisch aus dem Schaufenster.
+     * Scope: im öffentlichen Shop KAUFBARE Uhren — veröffentlicht UND
+     * verkäuflich (An Lager/Kommission). Basis für Sofortkauf & Anfragen.
      *
      * @param  Builder<Watch>  $query
      * @return Builder<Watch>
@@ -386,6 +385,50 @@ class Watch extends Model implements HasMedia
         return $query
             ->where('is_published', true)
             ->whereIn('status', array_column(WatchStatus::sellableStatuses(), 'value'));
+    }
+
+    /**
+     * Scope: im Shop SICHTBARE Uhren — zusätzlich zu den verkäuflichen
+     * auch Reserviert, In Auktion und Verkauft. Die bleiben bewusst als
+     * Referenz mit Badge im Schaufenster (sonst wirkt der Shop leer),
+     * sind aber nicht kaufbar. Nur „Im Service" bleibt intern.
+     *
+     * @param  Builder<Watch>  $query
+     * @return Builder<Watch>
+     */
+    public function scopeVisibleInShop(Builder $query): Builder
+    {
+        return $query
+            ->where('is_published', true)
+            ->whereIn('status', [
+                WatchStatus::InStock->value,
+                WatchStatus::Consignment->value,
+                WatchStatus::Reserved->value,
+                WatchStatus::InAuction->value,
+                WatchStatus::Sold->value,
+            ]);
+    }
+
+    /**
+     * Ist die Uhr im Shop aktuell kaufbar (An Lager/Kommission)?
+     */
+    public function isBuyableInShop(): bool
+    {
+        return in_array($this->getAttribute('status'), WatchStatus::sellableStatuses(), true);
+    }
+
+    /**
+     * Badge-Text fürs Schaufenster — null, wenn die Uhr normal
+     * kaufbar ist (dann braucht die Kachel kein Badge).
+     */
+    public function shopStatusBadge(): ?string
+    {
+        return match ($this->getAttribute('status')) {
+            WatchStatus::Sold => 'Verkauft',
+            WatchStatus::Reserved => 'Reserviert',
+            WatchStatus::InAuction => 'In Auktion',
+            default => null,
+        };
     }
 
     /**

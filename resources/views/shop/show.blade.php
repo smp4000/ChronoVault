@@ -133,7 +133,21 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                 @endif
 
                 <div class="mt-6">
-                    @if ($watch->formattedAskingPrice())
+                    @if (! $watch->isBuyableInShop())
+                        {{-- Verkauft/Reserviert/In Auktion: Badge statt Kauf-Button --}}
+                        <span class="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-5 py-2 text-sm font-semibold tracking-wide text-white">
+                            <span class="h-2 w-2 rounded-full {{ $watch->shopStatusBadge() === 'Verkauft' ? 'bg-neutral-400' : ($watch->shopStatusBadge() === 'Reserviert' ? 'bg-amber-400' : 'bg-blue-400') }}"></span>
+                            {{ $watch->shopStatusBadge() }}
+                        </span>
+                        @if ($watch->formattedAskingPrice())
+                            <p class="mt-4 text-2xl font-semibold text-neutral-400 line-through decoration-1">{{ $watch->formattedAskingPrice() }}</p>
+                        @endif
+                        <p class="mt-2 text-sm text-neutral-500">
+                            {{ $watch->shopStatusBadge() === 'In Auktion'
+                                ? 'Diese Uhr wird aktuell in unserer Auktion angeboten.'
+                                : 'Diese Uhr ist nicht mehr verfügbar — gerne informieren wir Sie über vergleichbare Stücke.' }}
+                        </p>
+                    @elseif ($watch->formattedAskingPrice())
                         <p class="text-3xl font-semibold text-blue-900">{{ $watch->formattedAskingPrice() }}</p>
                         <p class="mt-1 text-xs text-neutral-400">inkl. MwSt., zzgl. Versand</p>
 
@@ -175,11 +189,19 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                     </div>
                 @else
                     <div class="mt-8 rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
-                        <p class="font-medium text-neutral-900">Interesse an dieser Uhr?</p>
-                        <p class="mt-1 text-sm leading-relaxed text-neutral-600">
-                            Senden Sie uns eine Anfrage — wir beraten Sie gerne persönlich,
-                            auch zu Inzahlungnahme und Versand.
-                        </p>
+                        @if ($watch->isBuyableInShop())
+                            <p class="font-medium text-neutral-900">Interesse an dieser Uhr?</p>
+                            <p class="mt-1 text-sm leading-relaxed text-neutral-600">
+                                Senden Sie uns eine Anfrage — wir beraten Sie gerne persönlich,
+                                auch zu Inzahlungnahme und Versand.
+                            </p>
+                        @else
+                            <p class="font-medium text-neutral-900">Interesse an einer vergleichbaren Uhr?</p>
+                            <p class="mt-1 text-sm leading-relaxed text-neutral-600">
+                                Senden Sie uns eine Anfrage — wir halten gerne Ausschau nach
+                                einem vergleichbaren Stück für Sie.
+                            </p>
+                        @endif
 
                         <form method="POST" action="{{ route('shop.inquire', $watch) }}" class="mt-4">
                             @csrf
@@ -208,7 +230,7 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                                     <label for="inquiry_message" class="block text-xs font-medium text-neutral-600">Ihre Nachricht *</label>
                                     <textarea id="inquiry_message" name="message" rows="3" required
                                               placeholder="z. B. Fragen zu Zustand, Besichtigung oder Inzahlungnahme …"
-                                              class="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">{{ old('message', 'Ich interessiere mich für die '.$watch->fullName().'. Bitte kontaktieren Sie mich.') }}</textarea>
+                                              class="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">{{ old('message', $watch->isBuyableInShop() ? 'Ich interessiere mich für die '.$watch->fullName().'. Bitte kontaktieren Sie mich.' : 'Ich interessiere mich für eine vergleichbare Uhr wie die '.$watch->fullName().'. Bitte kontaktieren Sie mich.') }}</textarea>
                                     @error('message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 </div>
                             </div>

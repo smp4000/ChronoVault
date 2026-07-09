@@ -8,6 +8,7 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
 --}}
 @php
     $photoUrl = $watch->firstPhotoUrl();
+    $statusBadge = $watch->shopStatusBadge();
     $specParts = array_filter([
         $watch->reference_number ? 'Ref. '.$watch->reference_number : null,
         $watch->production_year ? ($watch->is_production_year_approximate ? 'ca. ' : '').$watch->production_year : null,
@@ -16,12 +17,12 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
 @endphp
 
 <a href="{{ route('shop.show', $watch) }}" class="group block">
-    <div class="aspect-square overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition group-hover:border-blue-200 group-hover:shadow-lg group-hover:shadow-blue-900/5">
+    <div class="relative aspect-square overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition group-hover:border-blue-200 group-hover:shadow-lg group-hover:shadow-blue-900/5">
         @if ($photoUrl)
             <img src="{{ $photoUrl }}"
                  alt="{{ $watch->fullName() }}"
                  loading="lazy"
-                 class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]">
+                 class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] {{ $statusBadge === 'Verkauft' ? 'opacity-80 saturate-[0.85]' : '' }}">
         @else
             {{-- Eleganter Empty-State statt gebrochenem Bild --}}
             <div class="flex h-full w-full items-center justify-center">
@@ -29,6 +30,14 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
             </div>
+        @endif
+
+        {{-- Status-Badge (Verkauft/Reserviert/In Auktion) — weißer Pill wie beim Design-Vorbild --}}
+        @if ($statusBadge)
+            <span class="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold tracking-wide text-neutral-900 shadow-sm ring-1 ring-black/5 backdrop-blur">
+                <span class="h-1.5 w-1.5 rounded-full {{ $statusBadge === 'Verkauft' ? 'bg-neutral-400' : ($statusBadge === 'Reserviert' ? 'bg-amber-500' : 'bg-blue-700') }}"></span>
+                {{ $statusBadge }}
+            </span>
         @endif
     </div>
 

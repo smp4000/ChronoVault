@@ -6,11 +6,12 @@
  * =========================================================================
  *
  * Abgedeckt:
- *   - Listing zeigt nur veröffentlichte UND verkäufliche Uhren
+ *   - Listing zeigt veröffentlichte Uhren; Verkauft/Reserviert bleiben
+ *     mit Badge sichtbar, Unveröffentlichtes nie
  *   - Preisanzeige (formatiert) vs. „Preis auf Anfrage"
  *   - Markenfilter (?marke=<brand_id>)
- *   - Detailseite: 200 für veröffentlichte, 404 für unveröffentlichte
- *     und verkaufte Uhren (Interna bleiben unsichtbar)
+ *   - Detailseite: 200 für veröffentlichte (auch verkaufte, mit Badge),
+ *     404 für unveröffentlichte (Interna bleiben unsichtbar)
  *
  * WICHTIG (Muster aus WatchPhotoDownloadTest): HTTP-Requests auf die
  * Tenant-Domain initialisieren Tenancy und beenden sie nicht — ohne
@@ -30,7 +31,7 @@ use App\Models\Contact;
 use App\Models\Watch;
 use Illuminate\Support\Facades\Mail;
 
-it('lists only published sellable watches in the shop', function () {
+it('lists published watches and shows sold ones with a badge', function () {
     $tenant = provisionTenant();
 
     try {
@@ -62,11 +63,13 @@ it('lists only published sellable watches in the shop', function () {
 
         $response = $this->get('http://'.$tenant->primaryDomain().'/');
 
+        // Verkaufte Uhren bleiben als Referenz sichtbar — mit Badge
         $response->assertOk()
             ->assertSee('Sichtbare Submariner')
             ->assertSee('12.500')
             ->assertDontSee('Unveroeffentlichte GMT')
-            ->assertDontSee('Verkaufte Daytona');
+            ->assertSee('Verkaufte Daytona')
+            ->assertSee('Verkauft');
     } finally {
         tenancy()->end();
         destroyTenant($tenant);
@@ -301,8 +304,10 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
             fn (OrderReceivedMail $mail): bool => $mail->hasTo('owner@example.test'),
         );
 
-        // Uhr ist reserviert → Shop zeigt sie nicht mehr, Kauf erneut unmöglich
-        $this->get('http://'.$domain.'/')->assertDontSee('Kauf Submariner');
+        // Uhr ist reserviert → bleibt mit Badge im Shop, Kauf erneut unmöglich
+        $this->get('http://'.$domain.'/')
+            ->assertSee('Kauf Submariner')
+            ->assertSee('Reserviert');
         $this->get($buyUrl)->assertNotFound();
     } finally {
         tenancy()->end();
@@ -310,7 +315,7 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
     }
 });
 
-it('returns 404 for unpublished and sold watches on the detail page', function () {
+it('returns 404 for unpublished watches but shows sold ones with a badge', function () {
     $tenant = provisionTenant();
 
     try {
@@ -328,15 +333,27 @@ it('returns 404 for unpublished and sold watches on the detail page', function (
 
             $soldId = Watch::factory()->create([
                 'brand_id' => $rolex->id,
+                'model_name' => 'Verkaufte Referenz-Daytona',
                 'status' => WatchStatus::Sold,
                 'is_published' => true,
+                'asking_price' => 25000,
             ])->id;
         });
 
         $domain = $tenant->primaryDomain();
 
+        // Unveröffentlicht bleibt unsichtbar (Interna)
         $this->get('http://'.$domain.'/uhren/'.$unpublishedId)->assertNotFound();
-        $this->get('http://'.$domain.'/uhren/'.$soldId)->assertNotFound();
+
+        // Verkauft bleibt als Referenz sichtbar — Badge statt Kauf-Button
+        $this->get('http://'.$domain.'/uhren/'.$soldId)
+            ->assertOk()
+            ->assertSee('Verkaufte Referenz-Daytona')
+            ->assertSee('Verkauft')
+            ->assertDontSee('Jetzt verbindlich kaufen');
+
+        // Kaufseite existiert für Verkauftes weiterhin nicht
+        $this->get('http://'.$domain.'/uhren/'.$soldId.'/kaufen')->assertNotFound();
     } finally {
         tenancy()->end();
         destroyTenant($tenant);
