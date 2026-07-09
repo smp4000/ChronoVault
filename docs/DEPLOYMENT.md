@@ -88,7 +88,28 @@ Das ist ab jetzt Ihre Server-Oberfläche.
    - PHP-Version: **8.3**
    - Site User: `chronovault` + sicheres Passwort (notieren!)
 2. Site öffnen → **Domains**: `*.ihre-domain.de` als weitere Domain
-   hinzufügen (die Wildcard für die Händler-Shops).
+   hinzufügen (die Wildcard für die Händler-Shops). Hat die CloudPanel-
+   Version keinen Domains-Reiter: im **Vhost**-Editor in BEIDEN Zeilen
+   `server_name ihre-domain.de www1.ihre-domain.de;` die Wildcard
+   ergänzen: `… *.ihre-domain.de;`
+3. **Vhost-Pflichtblock für Uhrenfotos:** nginx behandelt alle Adressen
+   mit Bild-/JS-Endung als statische Dateien — die tenant-isolierten
+   Fotos (`/tenancy/assets/….jpg`) liefert aber Laravel dynamisch aus.
+   Im **Vhost**-Editor im ERSTEN großen server-Block (der mit
+   `listen 443`) direkt ÜBER der Zeile, die mit
+   `location ~* ^.+\.(css|js|` beginnt, diesen Block einfügen:
+
+   ```nginx
+   location ^~ /tenancy/ {
+       proxy_pass http://127.0.0.1:8080;
+       proxy_set_header Host $http_host;
+       proxy_set_header X-Forwarded-Host $http_host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+   }
+   ```
+
+   → Speichern. (`^~` hat Vorrang vor den Endungs-Regeln.)
 3. **SSL/TLS → Actions → Import Certificate**: das
    Cloudflare-Origin-Zertifikat + Private Key aus Schritt 2 einfügen.
 4. **Settings → Root Directory**: auf `chronovault/public` stellen
