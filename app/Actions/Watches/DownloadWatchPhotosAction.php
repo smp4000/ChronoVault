@@ -84,6 +84,13 @@ class DownloadWatchPhotosAction
                     continue;
                 }
 
+                // Winzlinge aussortieren: Tracking-Pixel, Platzhalter und
+                // Fehler-Antworten mit Bild-Content-Type sind wenige hundert
+                // Bytes — ein echtes Produktfoto ist deutlich größer.
+                if (strlen($response->body()) < 5120) {
+                    continue;
+                }
+
                 $watch->addMediaFromString($response->body())
                     ->usingFileName('ai-'.($index + 1).'.'.$extension)
                     ->withCustomProperties(['origin' => 'ai_lookup', 'source_url' => $url])

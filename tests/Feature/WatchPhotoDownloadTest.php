@@ -28,6 +28,14 @@ function tinyGif(): string
     return base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
 }
 
+// "Download-taugliches" GIF: der Foto-Download verwirft Winzlinge
+// (< 5 KB — Tracking-Pixel/Platzhalter), daher aufgepolstert. Die
+// Magic Bytes am Anfang bleiben gültig → finfo erkennt image/gif.
+function downloadableGif(): string
+{
+    return tinyGif().str_repeat("\0", 6000);
+}
+
 it('downloads ai image sources as photos after saving', function () {
     $tenant = provisionTenant();
 
@@ -35,9 +43,11 @@ it('downloads ai image sources as photos after saving', function () {
         $tenant->run(function () {
             Storage::fake('public');
             Http::fake([
-                'cdn.example.com/*' => Http::response(tinyGif(), 200, ['Content-Type' => 'image/gif']),
+                'cdn.example.com/*' => Http::response(downloadableGif(), 200, ['Content-Type' => 'image/gif']),
                 'shop.example.com/*' => Http::response('<html>Produktseite</html>', 200, ['Content-Type' => 'text/html; charset=utf-8']),
                 'kaputt.example.com/*' => Http::response('', 404),
+                // Tracking-Pixel/Platzhalter (winzig, aber image/*) → übersprungen
+                'pixel.example.com/*' => Http::response(tinyGif(), 200, ['Content-Type' => 'image/gif']),
             ]);
 
             $watch = Watch::factory()->create([
@@ -46,7 +56,7 @@ it('downloads ai image sources as photos after saving', function () {
                     'image_urls' => [
                         'https://cdn.example.com/a.jpg',
                         'https://shop.example.com/produkt',   // HTML → übersprungen
-                        'https://kaputt.example.com/b.jpg',   // 404 → übersprungen
+                        'https://pixel.example.com/px.gif',   // Winzling → übersprungen
                         'https://cdn.example.com/c.jpg',
                     ],
                 ],
@@ -161,7 +171,7 @@ it('does not download again when photos already exist', function () {
         $tenant->run(function () {
             Storage::fake('public');
             Http::fake([
-                'cdn.example.com/*' => Http::response(tinyGif(), 200, ['Content-Type' => 'image/gif']),
+                'cdn.example.com/*' => Http::response(downloadableGif(), 200, ['Content-Type' => 'image/gif']),
             ]);
 
             // Erste Speicherung lädt herunter …
