@@ -140,6 +140,16 @@ class TenancyServiceProvider extends ServiceProvider
             ]);
         });
 
+        // Livewire-JavaScript OHNE ".js"-Endung ausliefern: nginx-Setups
+        // (CloudPanel/Produktion) fangen *.js-Adressen als statische
+        // Dateien ab und antworten 404 — dieses Skript kommt aber
+        // dynamisch aus Laravel. Ohne das Skript funktioniert kein
+        // Login (Filament ist Livewire). Keine Middleware nötig:
+        // statischer JS-Inhalt, domain-unabhängig.
+        Livewire::setScriptRoute(function ($handle) {
+            return Route::get('/livewire-script', $handle);
+        });
+
         // Datei-VORSCHAU (GET) der Livewire-Uploads: liest aus dem
         // tenant-gesuffixten Temp-Storage → braucht ebenfalls Tenancy.
         // Die Upload-Route (POST) wird über config/livewire.php →
