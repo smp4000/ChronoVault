@@ -34,6 +34,7 @@ use App\Models\AuctionBid;
 use App\Models\AuctionLot;
 use App\Models\Contact;
 use App\Models\Watch;
+use App\Services\InvoiceService;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
 use Throwable;
@@ -70,7 +71,7 @@ class SettleLotAction
         $settledAt = $data['settled_at'] ?? now();
 
         // Verkaufsbeleg (Modul 5) — setzt die Uhr auf "Verkauft".
-        $this->recordSale->execute($watch, [
+        $sale = $this->recordSale->execute($watch, [
             'contact_id' => $data['buyer_contact_id'] ?? null,
             'price' => $data['hammer_price'],
             'transacted_at' => $settledAt,
@@ -89,14 +90,26 @@ class SettleLotAction
         // Letztes offenes Los abgerechnet? → Auktion automatisch beenden.
         $lot->auction->refresh()->completeIfFullySettled();
 
-        // Gewinner-Mail (Zahlungsinfos + GiroCode + Datenerfassungs-Link) —
-        // beim AUTOMATISCHEN Zuschlag (FinalizeAuctionAction) UND beim
-        // manuellen Zuschlag im Panel, sofern ein Gewinner-Gebot vorliegt.
-        // Ein Mail-Fehler darf die Abrechnung nie zurückrollen (nur loggen).
+        // Rechnung zum Zuschlag erstellen (für den PDF-Anhang der
+        // Gewinner-Mail). Unvollständige Betriebsdaten dürfen den
+        // Zuschlag nie scheitern lassen — dann geht die Mail ohne
+        // Anhang raus und die Rechnung wird später im Panel erzeugt.
+        $invoice = null;
+
+        try {
+            $invoice = app(InvoiceService::class)->getOrCreateForSale($sale);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        // Gewinner-Mail (Zahlungsinfos + GiroCode + Datenerfassungs-Link +
+        // Rechnungs-PDF) — beim AUTOMATISCHEN Zuschlag (FinalizeAuctionAction)
+        // UND beim manuellen Zuschlag im Panel, sofern ein Gewinner-Gebot
+        // vorliegt. Ein Mail-Fehler darf die Abrechnung nie zurückrollen.
         if ($winningBid !== null) {
             try {
                 Mail::to($winningBid->bidder_email)
-                    ->send(new AuctionWonMail($lot->refresh(), $winningBid));
+                    ->send(new AuctionWonMail($lot->refresh(), $winningBid, $invoice));
             } catch (Throwable $exception) {
                 report($exception);
             }

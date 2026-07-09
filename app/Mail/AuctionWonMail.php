@@ -13,6 +13,8 @@
  *   - GiroCode-QR (EPC069-12) als cid-Anhang — mit der Banking-App
  *     scannen, Überweisung ist vorausgefüllt
  *   - Signierter Link (14 Tage gültig) zur Erfassung der Lieferdaten
+ *   - Rechnung als PDF-Anhang (ZUGFeRD-E-Rechnung inkl. GiroCode),
+ *     sofern die Rechnung beim Zuschlag erstellt werden konnte
  *
  * Ohne hinterlegte Bankverbindung entfallen Zahlungsblock/QR — die
  * Mail weist dann auf separate Zahlungsinformationen hin.
@@ -25,13 +27,17 @@ namespace App\Mail;
 
 use App\Models\AuctionBid;
 use App\Models\AuctionLot;
+use App\Models\Invoice;
+use App\Services\InvoiceService;
 use App\Support\GiroCode;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
+use Throwable;
 
 class AuctionWonMail extends Mailable
 {
@@ -41,6 +47,7 @@ class AuctionWonMail extends Mailable
     public function __construct(
         public readonly AuctionLot $lot,
         public readonly AuctionBid $winningBid,
+        public readonly ?Invoice $invoice = null,
     ) {}
 
     public function envelope(): Envelope
@@ -89,6 +96,7 @@ class AuctionWonMail extends Mailable
                 'bic' => tenant('bank_bic'),
                 'remittance' => $remittance,
                 'qrPng' => $qrPng,
+                'invoiceNumber' => $this->invoice?->invoice_number,
                 // Signierter Link zur Datenerfassung — 14 Tage gültig
                 'dataUrl' => URL::temporarySignedRoute(
                     'shop.auctions.winner',
@@ -97,5 +105,31 @@ class AuctionWonMail extends Mailable
                 ),
             ],
         );
+    }
+
+    /**
+     * Rechnung als PDF-Anhang (ZUGFeRD/E-Rechnung inkl. GiroCode) —
+     * ein Render-Fehler darf den Mailversand nie verhindern.
+     *
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        if ($this->invoice === null) {
+            return [];
+        }
+
+        try {
+            $pdf = app(InvoiceService::class)->renderZugferdPdf($this->invoice);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+
+        return [
+            Attachment::fromData(fn (): string => $pdf, 'Rechnung-'.$this->invoice->invoice_number.'.pdf')
+                ->withMime('application/pdf'),
+        ];
     }
 }

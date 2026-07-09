@@ -183,6 +183,13 @@ blockieren viele Mail-Clients.
                                                 Bitte überweisen Sie den Betrag innerhalb von 7 Tagen.
                                                 Der Versand erfolgt nach Zahlungseingang.
                                             </p>
+                                            @if ($invoiceNumber)
+                                                <p style="margin:10px 0 0 0; font-size:13px; line-height:1.6; color:#3f3f46;">
+                                                    Ihre Rechnung <strong>{{ $invoiceNumber }}</strong> finden Sie
+                                                    als PDF im Anhang — inklusive E-Rechnungs-Daten (ZUGFeRD)
+                                                    und GiroCode zum Scannen.
+                                                </p>
+                                            @endif
                                         @else
                                             <p style="margin:10px 0 0 0; font-size:14px; line-height:1.6; color:#3f3f46;">
                                                 Die Zahlungsinformationen erhalten Sie in einer

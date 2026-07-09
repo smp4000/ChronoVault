@@ -39,11 +39,16 @@ use Illuminate\Support\Facades\URL;
 it('finalizes ended auctions: hammer only when the reserve is met', function () {
     $tenant = provisionTenant();
 
-    // Bankverbindung des Betriebs (zentrales data-JSON)
+    // Betriebsdaten (zentrales data-JSON) — vollständig, damit beim
+    // Zuschlag auch die Rechnung erstellt und angehängt werden kann.
     $tenant->update([
         'bank_account_holder' => 'Test Uhrenhandel GmbH',
         'bank_iban' => 'DE02120300000000202051',
         'bank_bic' => 'BYLADEM1001',
+        'company_street' => 'Uhrmacherweg 1',
+        'company_postal_code' => '10115',
+        'company_city' => 'Berlin',
+        'tax_number' => '12/345/67890',
     ]);
 
     try {
@@ -105,6 +110,7 @@ it('finalizes ended auctions: hammer only when the reserve is met', function () 
                 ->and($auction->refresh()->status)->toBe(AuctionStatus::Completed);
 
             // Gewinner-Mail: nur an den Gewinner, mit Zahlungsdaten + Link
+            // + automatisch erstellter Rechnung (PDF-Anhang, ZUGFeRD)
             Mail::assertSent(AuctionWonMail::class, 1);
             Mail::assertSent(AuctionWonMail::class, function (AuctionWonMail $mail): bool {
                 $mail->assertTo('erika@example.test');
@@ -116,7 +122,11 @@ it('finalizes ended auctions: hammer only when the reserve is met', function () 
                     && str_contains($html, 'DE02 1203')
                     && str_contains($html, 'BYLADEM1001')
                     && str_contains($html, '/gewinner')
-                    && str_contains($html, 'signature=');
+                    && str_contains($html, 'signature=')
+                    && $mail->invoice !== null
+                    && str_starts_with($mail->invoice->invoice_number, 'RE-')
+                    && str_contains($html, $mail->invoice->invoice_number)
+                    && $mail->attachments() !== [];
             });
 
             // Verlierer bekommt KEINE Zuschlag-Mail

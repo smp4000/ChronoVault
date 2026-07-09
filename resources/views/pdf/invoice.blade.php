@@ -131,11 +131,24 @@ Erwartet: $invoice.
     @if (! empty($seller['bank_iban']))
         <div class="payment">
             <div class="head">Zahlung per Überweisung</div>
-            Bitte überweisen Sie den Rechnungsbetrag innerhalb von 7 Tagen ohne Abzug:<br>
-            <strong>{{ $seller['bank_account_holder'] ?? $seller['name'] }}</strong> ·
-            IBAN {{ trim(chunk_split((string) $seller['bank_iban'], 4, ' ')) }}
-            @if (! empty($seller['bank_bic'])) · BIC {{ $seller['bank_bic'] }} @endif<br>
-            Verwendungszweck: <strong>{{ $invoice->invoice_number }}</strong>
+            <table width="100%" style="border-collapse: collapse;">
+                <tr>
+                    <td valign="top" style="font-size: 9pt; line-height: 1.6; padding-right: 16px;">
+                        Bitte überweisen Sie den Rechnungsbetrag innerhalb von 7 Tagen ohne Abzug:<br>
+                        <strong>{{ $seller['bank_account_holder'] ?? $seller['name'] }}</strong> ·
+                        IBAN {{ trim(chunk_split((string) $seller['bank_iban'], 4, ' ')) }}
+                        @if (! empty($seller['bank_bic'])) · BIC {{ $seller['bank_bic'] }} @endif<br>
+                        Verwendungszweck: <strong>{{ $invoice->invoice_number }}</strong>
+                    </td>
+                    @if (! empty($giroQr ?? null))
+                        <td width="110" valign="top" style="text-align: center;">
+                            {{-- GiroCode: Überweisung per Banking-App-Scan vorausgefüllt --}}
+                            <img src="data:image/png;base64,{{ $giroQr }}" width="96" height="96" style="width: 96px; height: 96px;">
+                            <div style="font-size: 6.5pt; color: #71717a; margin-top: 2px;">GiroCode — mit der<br>Banking-App scannen</div>
+                        </td>
+                    @endif
+                </tr>
+            </table>
         </div>
     @endif
 

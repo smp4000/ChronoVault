@@ -35,12 +35,14 @@ use App\Enums\TransactionType;
 use App\Enums\WatchCondition;
 use App\Models\Invoice;
 use App\Models\Transaction;
+use App\Support\GiroCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 use horstoeko\zugferd\ZugferdDocumentBuilder;
 use horstoeko\zugferd\ZugferdDocumentPdfBuilder;
 use horstoeko\zugferd\ZugferdProfiles;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Throwable;
 
 class InvoiceService
 {
@@ -119,11 +121,44 @@ class InvoiceService
     }
 
     /**
-     * Klassisches Rechnungs-PDF (aus dem Snapshot, nie aus Live-Daten).
+     * Klassisches Rechnungs-PDF (aus dem Snapshot, nie aus Live-Daten) —
+     * inkl. GiroCode-QR im Zahlungsblock (sofern Bankdaten hinterlegt).
      */
     public function renderInvoicePdf(Invoice $invoice): string
     {
-        return Pdf::loadView('pdf.invoice', ['invoice' => $invoice])->output();
+        return Pdf::loadView('pdf.invoice', [
+            'invoice' => $invoice,
+            'giroQr' => $this->giroQrBase64($invoice),
+        ])->output();
+    }
+
+    /**
+     * GiroCode (EPC-QR, Verwendungszweck = Rechnungsnummer) als
+     * Base64-PNG für die PDF — null ohne Bankdaten; ein QR-Fehler
+     * darf die Rechnung nie verhindern (nur loggen).
+     */
+    private function giroQrBase64(Invoice $invoice): ?string
+    {
+        $seller = $invoice->sellerData();
+        $iban = $seller['bank_iban'] ?? null;
+
+        if (! is_string($iban) || $iban === '') {
+            return null;
+        }
+
+        try {
+            return base64_encode(GiroCode::png(
+                accountHolder: (string) ($seller['bank_account_holder'] ?? $seller['name'] ?? ''),
+                iban: $iban,
+                bic: isset($seller['bank_bic']) ? (string) $seller['bank_bic'] : null,
+                amount: (float) $invoice->total_amount,
+                remittance: $invoice->invoice_number,
+            ));
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
     }
 
     /**
