@@ -24,6 +24,7 @@ use App\Actions\Auctions\PlaceBidAction;
 use App\Actions\Auctions\SettleLotAction;
 use App\Enums\AuctionStatus;
 use App\Enums\AuctionVenue;
+use App\Mail\AuctionWonMail;
 use App\Mail\BidConfirmationMail;
 use App\Mail\OutbidMail;
 use App\Mail\ReserveNotMetMail;
@@ -406,6 +407,8 @@ it('settles a lot to a bidder and creates or reuses the buyer contact', function
 
     try {
         $tenant->run(function () {
+            Mail::fake();
+
             $placeBid = app(PlaceBidAction::class);
             $settle = app(SettleLotAction::class);
 
@@ -431,6 +434,12 @@ it('settles a lot to a bidder and creates or reuses the buyer contact', function
                 ->and($contact->phone)->toBe('+49 170 1234567')
                 ->and($lot->refresh()->buyer_contact_id)->toBe($contact->id)
                 ->and($lot->watch->transactions()->where('type', 'sale')->firstOrFail()->contact_id)->toBe($contact->id);
+
+            // Auch der MANUELLE Zuschlag verschickt die Gewinner-Mail
+            Mail::assertSent(
+                AuctionWonMail::class,
+                fn (AuctionWonMail $mail): bool => $mail->hasTo('erika@example.test'),
+            );
 
             // Fall 2: Bieter ist Stammkunde (gleiche E-Mail) → KEIN Duplikat
             [, $secondLot] = liveOnlineAuctionWithLot();

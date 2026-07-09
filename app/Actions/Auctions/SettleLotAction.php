@@ -29,11 +29,14 @@ use App\Actions\Transactions\RecordSaleAction;
 use App\Enums\AuctionLotStatus;
 use App\Enums\ContactType;
 use App\Enums\WatchStatus;
+use App\Mail\AuctionWonMail;
 use App\Models\AuctionBid;
 use App\Models\AuctionLot;
 use App\Models\Contact;
 use App\Models\Watch;
+use Illuminate\Support\Facades\Mail;
 use RuntimeException;
+use Throwable;
 
 class SettleLotAction
 {
@@ -56,9 +59,11 @@ class SettleLotAction
 
         // Gewinner-Gebot → Käufer-Kontakt (Bieter sind keine Kontakte,
         // erst der Zuschlag macht sie zu Kunden).
+        $winningBid = null;
+
         if (! empty($data['winning_bid_id'])) {
-            $bid = $lot->bids()->findOrFail($data['winning_bid_id']);
-            $data['buyer_contact_id'] = $this->contactFromBid($bid)->getKey();
+            $winningBid = $lot->bids()->findOrFail($data['winning_bid_id']);
+            $data['buyer_contact_id'] = $this->contactFromBid($winningBid)->getKey();
         }
 
         $watch = $lot->watch;
@@ -83,6 +88,19 @@ class SettleLotAction
 
         // Letztes offenes Los abgerechnet? → Auktion automatisch beenden.
         $lot->auction->refresh()->completeIfFullySettled();
+
+        // Gewinner-Mail (Zahlungsinfos + GiroCode + Datenerfassungs-Link) —
+        // beim AUTOMATISCHEN Zuschlag (FinalizeAuctionAction) UND beim
+        // manuellen Zuschlag im Panel, sofern ein Gewinner-Gebot vorliegt.
+        // Ein Mail-Fehler darf die Abrechnung nie zurückrollen (nur loggen).
+        if ($winningBid !== null) {
+            try {
+                Mail::to($winningBid->bidder_email)
+                    ->send(new AuctionWonMail($lot->refresh(), $winningBid));
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
 
         return $lot;
     }

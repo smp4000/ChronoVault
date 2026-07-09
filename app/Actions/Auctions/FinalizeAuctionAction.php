@@ -11,9 +11,12 @@
  *   - Höchstgebot vorhanden UND Limit (reserve_price) erreicht bzw.
  *     kein Limit gesetzt → ZUSCHLAG an den Höchstbietenden
  *     (SettleLotAction::sold: Verkaufsbeleg, Käufer-Kontakt, Uhr
- *     „Verkauft") + Gewinner-Mail mit Zahlungsinfos/GiroCode und
- *     signiertem Link zur Datenerfassung (AuctionWonMail).
- *   - sonst (kein Gebot / unter Limit) → RÜCKGANG (Status-Restore).
+ *     „Verkauft" + Gewinner-Mail mit Zahlungsinfos/GiroCode und
+ *     signiertem Link — die Mail verschickt die SettleLotAction,
+ *     damit sie auch beim manuellen Zuschlag im Panel rausgeht).
+ *   - sonst (kein Gebot / unter Limit) → RÜCKGANG (Status-Restore);
+ *     gab es Gebote, wird der Höchstbietende per AuctionNotAwardedMail
+ *     informiert (Limit wird NIE genannt).
  *   Nach dem letzten Los schließt die Auktion automatisch
  *   (completeIfFullySettled in der SettleLotAction).
  *
@@ -28,7 +31,7 @@ declare(strict_types=1);
 namespace App\Actions\Auctions;
 
 use App\Enums\AuctionStatus;
-use App\Mail\AuctionWonMail;
+use App\Mail\AuctionNotAwardedMail;
 use App\Models\Auction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
@@ -88,9 +91,23 @@ class FinalizeAuctionAction
                 $this->settle->unsold($lot);
                 $result['unsold']++;
 
+                // Höchstbietenden informieren: Auktion beendet, Limit nicht
+                // erreicht — das Limit selbst wird NIE genannt. Mail-Fehler
+                // dürfen die Abwicklung der übrigen Lose nie stoppen.
+                if ($topBid !== null) {
+                    try {
+                        Mail::to($topBid->bidder_email)
+                            ->send(new AuctionNotAwardedMail($lot->refresh(), $topBid));
+                    } catch (Throwable $exception) {
+                        report($exception);
+                    }
+                }
+
                 continue;
             }
 
+            // Die Gewinner-Mail verschickt die SettleLotAction selbst —
+            // damit geht sie auch beim manuellen Zuschlag im Panel raus.
             $this->settle->sold($lot, [
                 'hammer_price' => (float) $topBid->amount,
                 'winning_bid_id' => $topBid->getKey(),
@@ -98,15 +115,6 @@ class FinalizeAuctionAction
                 'notes' => 'Automatischer Zuschlag bei Auktionsende.',
             ]);
             $result['sold']++;
-
-            // Gewinner-Mail — ein Mail-Fehler darf die Abwicklung der
-            // übrigen Lose nie stoppen (nur loggen).
-            try {
-                Mail::to($topBid->bidder_email)
-                    ->send(new AuctionWonMail($lot->refresh(), $topBid));
-            } catch (Throwable $exception) {
-                report($exception);
-            }
         }
 
         return $result;

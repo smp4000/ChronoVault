@@ -26,6 +26,7 @@ use App\Enums\AuctionLotStatus;
 use App\Enums\AuctionStatus;
 use App\Enums\AuctionVenue;
 use App\Enums\WatchStatus;
+use App\Mail\AuctionNotAwardedMail;
 use App\Mail\AuctionWonMail;
 use App\Models\Auction;
 use App\Models\Brand;
@@ -120,6 +121,19 @@ it('finalizes ended auctions: hammer only when the reserve is met', function () 
 
             // Verlierer bekommt KEINE Zuschlag-Mail
             Mail::assertNotSent(AuctionWonMail::class, fn (AuctionWonMail $mail): bool => $mail->hasTo('max@example.test'));
+
+            // … aber die Kein-Zuschlag-Mail (Limit verfehlt, Limit NIE genannt);
+            // das Los ohne Gebote löst keine solche Mail aus.
+            Mail::assertSent(AuctionNotAwardedMail::class, 1);
+            Mail::assertSent(AuctionNotAwardedMail::class, function (AuctionNotAwardedMail $mail): bool {
+                $mail->assertTo('max@example.test');
+
+                $html = $mail->render();
+
+                return str_contains($html, 'kein Zuschlag')
+                    && str_contains($html, '1.200')
+                    && ! str_contains($html, '5.000');
+            });
         });
     } finally {
         destroyTenant($tenant);
