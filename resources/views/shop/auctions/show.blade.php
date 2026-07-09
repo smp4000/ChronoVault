@@ -136,4 +136,7 @@ Bieternamen erscheinen NIE öffentlich — nur Höchstgebot und Anzahl.
             @endif
         </section>
     </div>
+
+    {{-- Live-Update: neu laden bei Start/Ende/neuem Gebot --}}
+    @include('shop.partials.live-refresh', ['statusUrl' => $liveStatusUrl, 'fingerprint' => $liveFingerprint])
 @endsection

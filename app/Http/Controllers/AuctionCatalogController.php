@@ -36,7 +36,10 @@ use App\Models\Auction;
 use App\Models\AuctionLot;
 use App\Models\Contact;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 use Throwable;
 
@@ -68,6 +71,31 @@ class AuctionCatalogController extends Controller
 
         return view('shop.auctions.index', [
             'auctions' => $auctions,
+            'liveStatusUrl' => route('shop.auctions.status'),
+            'liveFingerprint' => $this->liveFingerprint(),
+        ]);
+    }
+
+    /**
+     * Leichter Status-Endpunkt fürs Live-Polling der Auktionsseiten:
+     * liefert einen Fingerprint des sichtbaren Zustands — ändert er
+     * sich (Start, Ende, Zuschlag, neues Gebot), lädt die Seite neu.
+     * Nebeneffekt: Start/Abwicklung passieren dadurch auch ohne Cron
+     * pünktlich, solange irgendjemand die Seite offen hat.
+     */
+    public function status(Request $request): JsonResponse
+    {
+        $this->startDueAuctions();
+        $this->finalizeDueAuctions();
+
+        $auctionId = $request->query('auction');
+        $lotId = $request->query('lot');
+
+        return response()->json([
+            'fingerprint' => $this->liveFingerprint(
+                is_string($auctionId) ? $auctionId : null,
+                is_string($lotId) ? $lotId : null,
+            ),
         ]);
     }
 
@@ -87,6 +115,8 @@ class AuctionCatalogController extends Controller
         return view('shop.auctions.show', [
             'auction' => $auction,
             'lots' => $lots,
+            'liveStatusUrl' => route('shop.auctions.status', ['auction' => $auction->getKey()]),
+            'liveFingerprint' => $this->liveFingerprint((string) $auction->getKey()),
         ]);
     }
 
@@ -105,6 +135,11 @@ class AuctionCatalogController extends Controller
         return view('shop.auctions.lot', [
             'auction' => $auction,
             'lot' => $lot,
+            'liveStatusUrl' => route('shop.auctions.status', [
+                'auction' => $auction->getKey(),
+                'lot' => $lot->getKey(),
+            ]),
+            'liveFingerprint' => $this->liveFingerprint((string) $auction->getKey(), (string) $lot->getKey()),
         ]);
     }
 
@@ -238,5 +273,68 @@ class AuctionCatalogController extends Controller
             ->whereNotNull('starts_at')
             ->where('starts_at', '<=', now())
             ->update(['status' => AuctionStatus::Live->value]);
+    }
+
+    /**
+     * Fingerprint des öffentlich sichtbaren Zustands — bewusst nur
+     * stabile Werte (Status, Gebotszahl, Höchstgebot, Endzeit), damit
+     * das Polling ausschließlich bei ECHTEN Änderungen neu lädt.
+     * Bieterdaten fließen nie ein (Datenschutz).
+     */
+    private function liveFingerprint(?string $auctionId = null, ?string $lotId = null): string
+    {
+        // Katalogübersicht: die Status aller sichtbaren Auktionen
+        if ($auctionId === null) {
+            $parts = Auction::query()
+                ->whereIn('status', array_column(self::VISIBLE_STATUSES, 'value'))
+                ->orderBy('id')
+                ->get(['id', 'status'])
+                ->map(fn (Auction $auction): string => $auction->getKey().':'.$this->auctionStatusValue($auction))
+                ->all();
+
+            return sha1(implode('|', $parts));
+        }
+
+        $auction = Auction::query()
+            ->whereIn('status', array_column(self::VISIBLE_STATUSES, 'value'))
+            ->find($auctionId);
+
+        if (! $auction instanceof Auction) {
+            return 'gone';
+        }
+
+        $endsAt = $auction->getAttribute('ends_at');
+
+        $parts = [
+            $this->auctionStatusValue($auction),
+            $endsAt instanceof Carbon ? (string) $endsAt->getTimestamp() : '',
+        ];
+
+        $lots = $auction->lots()
+            ->when($lotId !== null, fn ($query) => $query->whereKey($lotId))
+            ->withCount('bids')
+            ->withMax('bids', 'amount')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($lots as $lot) {
+            $lotStatus = $lot->getAttribute('status');
+
+            $parts[] = implode(':', [
+                (string) $lot->getKey(),
+                $lotStatus instanceof AuctionLotStatus ? $lotStatus->value : '',
+                (string) $lot->getAttribute('bids_count'),
+                (string) $lot->getAttribute('bids_max_amount'),
+            ]);
+        }
+
+        return sha1(implode('|', $parts));
+    }
+
+    private function auctionStatusValue(Auction $auction): string
+    {
+        $status = $auction->getAttribute('status');
+
+        return $status instanceof AuctionStatus ? $status->value : '';
     }
 }

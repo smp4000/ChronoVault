@@ -80,4 +80,7 @@ Erwartet: $auctions (Collection mit lots_count; laufende zuerst).
             </div>
         @endif
     </section>
+
+    {{-- Live-Update: neu laden, wenn eine Auktion startet oder endet --}}
+    @include('shop.partials.live-refresh', ['statusUrl' => $liveStatusUrl, 'fingerprint' => $liveFingerprint])
 @endsection

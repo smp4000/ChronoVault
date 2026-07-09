@@ -52,6 +52,13 @@ Route::middleware([
     // Öffentlicher Auktionskatalog (Modul 8b) — Gebots-POST mit Throttle
     // gegen Skript-Missbrauch (10 Gebote/Minute je IP reichen jedem Bieter).
     Route::get('/auktionen', [AuctionCatalogController::class, 'index'])->name('shop.auctions.index');
+
+    // Live-Status fürs Polling — VOR der {auction}-Wildcard registrieren,
+    // sonst würde "status" als Auktions-ID interpretiert (404).
+    Route::get('/auktionen/status', [AuctionCatalogController::class, 'status'])
+        ->middleware('throttle:120,1')
+        ->name('shop.auctions.status');
+
     Route::get('/auktionen/{auction}', [AuctionCatalogController::class, 'show'])->name('shop.auctions.show');
     Route::get('/auktionen/{auction}/los/{lot}', [AuctionCatalogController::class, 'lot'])->name('shop.auctions.lot');
     Route::post('/auktionen/{auction}/los/{lot}/bieten', [AuctionCatalogController::class, 'bid'])

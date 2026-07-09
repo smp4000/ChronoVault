@@ -52,11 +52,25 @@ class FinalizeAuctionAction
         $endsAt = $auction->getAttribute('ends_at');
 
         if (! $auction->allowsOnlineBidding()
-            || $auction->getAttribute('status') !== AuctionStatus::Live
             || ! $endsAt instanceof Carbon
             || $endsAt->isFuture()) {
             return $result;
         }
+
+        // Atomarer Claim gegen Doppel-Abwicklung: Scheduler, Seiten-Fallback
+        // und Status-Polling können gleichzeitig eintreffen — nur der
+        // Prozess, der dieses UPDATE gewinnt, wickelt ab (verhindert
+        // doppelte Zuschläge und doppelte Gewinner-Mails).
+        $claimed = Auction::query()
+            ->whereKey($auction->getKey())
+            ->where('status', AuctionStatus::Live->value)
+            ->update(['status' => AuctionStatus::Completed->value]);
+
+        if ($claimed === 0) {
+            return $result;
+        }
+
+        $auction->refresh();
 
         foreach ($auction->lots()->get() as $lot) {
             if (! $lot->isOpen()) {

@@ -235,6 +235,9 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
         </div>
     </div>
 
+    {{-- Live-Update: neu laden bei Start/Ende/neuem Gebot (pausiert beim Tippen) --}}
+    @include('shop.partials.live-refresh', ['statusUrl' => $liveStatusUrl, 'fingerprint' => $liveFingerprint])
+
     {{-- Galerie-Wechsel (identisch zur Shop-Detailseite) --}}
     @if (count($photos) > 1)
         <script>

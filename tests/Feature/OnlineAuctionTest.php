@@ -551,3 +551,62 @@ it('accepts online bids via http and rejects too low bids as form errors', funct
         destroyTenant($tenant);
     }
 });
+
+it('serves a live status fingerprint and starts due auctions on poll', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $auctionId = null;
+        $lotId = null;
+
+        $tenant->run(function () use (&$auctionId, &$lotId) {
+            // Faellige, aber noch "geplante" Auktion — der Poll muss sie starten
+            $auction = Auction::factory()->create([
+                'venue' => AuctionVenue::Online,
+                'status' => AuctionStatus::Scheduled,
+                'starts_at' => now()->subMinute(),
+                'ends_at' => now()->addDay(),
+            ]);
+
+            $lot = app(AddLotToAuctionAction::class)->execute(
+                $auction,
+                Watch::factory()->create([
+                    'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                ]),
+                ['starting_price' => 1000],
+            );
+
+            $auctionId = $auction->id;
+            $lotId = $lot->id;
+        });
+
+        Mail::fake();
+
+        $statusUrl = 'http://'.$tenant->primaryDomain()
+            .'/auktionen/status?auction='.$auctionId.'&lot='.$lotId;
+
+        $first = $this->get($statusUrl)->assertOk()->json('fingerprint');
+
+        expect($first)->toBeString()->not->toBe('gone');
+
+        $tenant->run(function () use ($auctionId, $lotId) {
+            // Der Poll hat die faellige Auktion gestartet (Scheduled -> Live)
+            expect(Auction::findOrFail($auctionId)->getAttribute('status'))
+                ->toBe(AuctionStatus::Live);
+
+            // Neues Gebot -> Fingerprint muss sich aendern
+            app(PlaceBidAction::class)->execute(AuctionLot::findOrFail($lotId), [
+                'bidder_name' => 'Max Bieter',
+                'bidder_email' => 'max@example.test',
+                'amount' => 1000,
+            ]);
+        });
+
+        $second = $this->get($statusUrl)->assertOk()->json('fingerprint');
+
+        expect($second)->toBeString()->not->toBe($first);
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
