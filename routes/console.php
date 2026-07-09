@@ -29,3 +29,9 @@ Schedule::command('tenants:run', ['auctions:start-due'])
 Schedule::command('tenants:run', ['auctions:finalize-due'])
     ->everyMinute()
     ->withoutOverlapping();
+
+// Nächtliche KI-Wertermittlung (Modul 7): unverkaufte Uhren mit
+// Referenznummer, Ergebnis als Bewertung in der Historie.
+Schedule::command('tenants:run', ['watches:update-market-values'])
+    ->dailyAt('00:00')
+    ->withoutOverlapping();

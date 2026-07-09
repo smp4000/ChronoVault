@@ -19,10 +19,12 @@ declare(strict_types=1);
 use App\Actions\Valuations\RecordValuationAction;
 use App\Enums\UserRole;
 use App\Enums\ValuationSource;
+use App\Enums\WatchStatus;
 use App\Models\Brand;
 use App\Models\User;
 use App\Models\Watch;
 use App\Services\MarketValueLookupService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 
 it('records valuations and keeps the watch snapshot in sync', function () {
@@ -140,6 +142,80 @@ it('fails with clear german messages on missing key or missing value', function 
 
             expect(fn () => app(MarketValueLookupService::class)->lookup($watch))
                 ->toThrow(RuntimeException::class, 'keinen Marktwert');
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('updates market values for due watches via the nightly command', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            config()->set('services.perplexity.api_key', 'pplx-test');
+
+            Http::fake([
+                'api.perplexity.ai/*' => Http::response([
+                    'choices' => [[
+                        'message' => [
+                            'content' => json_encode([
+                                'market_value_eur' => 9200,
+                                'value_low_eur' => 8800,
+                                'value_high_eur' => 9700,
+                                'summary' => 'Nachtlauf-Recherche.',
+                                'source_urls' => ['https://www.chrono24.de/n'],
+                            ]),
+                        ],
+                    ]],
+                    'citations' => [],
+                ]),
+            ]);
+
+            $brandId = Brand::where('name', 'Rolex')->firstOrFail()->id;
+
+            // Fällig: unverkauft, Referenz, nie bewertet
+            $due = Watch::factory()->create([
+                'brand_id' => $brandId,
+                'reference_number' => '126610LN',
+            ]);
+
+            // Nicht fällig: vor 1 Stunde bewertet
+            $fresh = Watch::factory()->create([
+                'brand_id' => $brandId,
+                'reference_number' => '126334',
+                'last_valuation_at' => now()->subHour(),
+            ]);
+
+            // Nie automatisch bewerten: verkauft bzw. ohne Referenz
+            $sold = Watch::factory()->create([
+                'brand_id' => $brandId,
+                'reference_number' => '116500LN',
+                'status' => WatchStatus::Sold,
+            ]);
+            $noReference = Watch::factory()->create([
+                'brand_id' => $brandId,
+                'reference_number' => null,
+            ]);
+
+            Artisan::call('watches:update-market-values');
+
+            expect($due->refresh()->valuations()->count())->toBe(1)
+                ->and((float) $due->current_market_value)->toBe(9200.0)
+                ->and($due->valuations()->first()->source)->toBe(ValuationSource::AiResearch)
+                ->and($fresh->refresh()->valuations()->count())->toBe(0)
+                ->and($sold->refresh()->valuations()->count())->toBe(0)
+                ->and($noReference->refresh()->valuations()->count())->toBe(0);
+
+            // Zweiter Lauf direkt danach: nichts mehr fällig (20-h-Sperre)
+            Artisan::call('watches:update-market-values');
+
+            expect($due->refresh()->valuations()->count())->toBe(1);
+
+            // --force übersteuert die Sperre
+            Artisan::call('watches:update-market-values', ['--force' => true]);
+
+            expect($due->refresh()->valuations()->count())->toBe(2);
         });
     } finally {
         destroyTenant($tenant);

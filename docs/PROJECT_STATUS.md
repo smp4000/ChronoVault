@@ -156,7 +156,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 ## Jobs / Scheduler
 
 - _Eigene Jobs: keine._ Genutzt werden stancl-Jobs: CreateDatabase, MigrateDatabase, SeedDatabase, DeleteDatabase
-- Scheduler (routes/console.php): `tenants:run auctions:start-due` + `tenants:run auctions:finalize-due` jede Minute — startet geplante Auktionen pünktlich und wickelt abgelaufene ab (Zuschlag bei erreichtem Limit + Gewinner-Mail, sonst Rückgang); zusätzlich Fallback beim Katalog-Aufruf. Produktion: Cron `schedule:run`; lokal `php artisan schedule:work`
+- Scheduler (routes/console.php): `tenants:run auctions:start-due` + `tenants:run auctions:finalize-due` jede Minute — startet geplante Auktionen pünktlich und wickelt abgelaufene ab (Zuschlag bei erreichtem Limit + Gewinner-Mail, sonst Rückgang); zusätzlich Fallback beim Katalog-Aufruf. `tenants:run watches:update-market-values` täglich 00:00 — nächtliche KI-Wertermittlung (unverkaufte Uhren mit Referenz, 20-h-Sperre gegen Doppel-Läufe, --limit/--force). Produktion: Cron `schedule:run`; lokal `php artisan schedule:work`
 
 ## Events
 
