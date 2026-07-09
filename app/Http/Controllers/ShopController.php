@@ -35,8 +35,10 @@ namespace App\Http\Controllers;
 
 use App\Actions\Shop\PurchaseWatchAction;
 use App\Enums\UserRole;
+use App\Http\Requests\PriceProposalRequest;
 use App\Http\Requests\PurchaseWatchRequest;
 use App\Http\Requests\WatchInquiryRequest;
+use App\Mail\PriceProposalMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\User;
@@ -53,20 +55,65 @@ class ShopController extends Controller
      * Shop-Startseite: Grid aller veröffentlichten Uhren,
      * optional nach Marke gefiltert (?marke=<brand_id>).
      */
+    /** Durchmesser-Filterbereiche: Schlüssel => [min, max] in mm. */
+    private const DIAMETER_RANGES = [
+        'bis36' => [null, 36],
+        '36-40' => [36, 40],
+        'ab40' => [40, null],
+    ];
+
+    /** Preis-Filterbereiche: Schlüssel => [min, max] in Euro. */
+    private const PRICE_RANGES = [
+        'bis1000' => [null, 1000],
+        '1000-5000' => [1000, 5000],
+        '5000-10000' => [5000, 10000],
+        'ab10000' => [10000, null],
+    ];
+
     public function index(Request $request): View
     {
         $brandId = $request->query('marke');
+        $condition = $request->query('zustand');
+        $material = $request->query('material');
+        $diameter = $request->query('durchmesser');
+        $price = $request->query('preis');
+        $sort = (string) $request->query('sortierung', 'neueste');
 
         // Kaufbare zuerst, dann Reserviert/In Auktion, Verkauft ans Ende —
         // Besucher sehen das Verfügbare, Verkauftes bleibt als Referenz.
-        $watches = Watch::query()
+        $query = Watch::query()
             ->visibleInShop()
             ->with(['brand', 'media'])
             ->when($brandId, fn ($query) => $query->where('brand_id', $brandId))
-            ->orderByRaw("CASE WHEN status IN ('in_stock', 'consignment') THEN 0 WHEN status IN ('reserved', 'in_auction') THEN 1 ELSE 2 END")
-            ->orderByDesc('created_at')
-            ->paginate(12)
-            ->withQueryString();
+            ->when($condition, fn ($query) => $query->where('condition', $condition))
+            ->when($material, fn ($query) => $query->where('case_material', $material))
+            ->when(
+                is_string($diameter) && isset(self::DIAMETER_RANGES[$diameter]),
+                function ($query) use ($diameter) {
+                    [$min, $max] = self::DIAMETER_RANGES[$diameter];
+                    $query->when($min !== null, fn ($q) => $q->where('case_diameter_mm', '>=', $min))
+                        ->when($max !== null, fn ($q) => $q->where('case_diameter_mm', '<', $max));
+                },
+            )
+            ->when(
+                is_string($price) && isset(self::PRICE_RANGES[$price]),
+                function ($query) use ($price) {
+                    [$min, $max] = self::PRICE_RANGES[$price];
+                    $query->whereNotNull('asking_price')
+                        ->when($min !== null, fn ($q) => $q->where('asking_price', '>=', $min))
+                        ->when($max !== null, fn ($q) => $q->where('asking_price', '<', $max));
+                },
+            )
+            ->orderByRaw("CASE WHEN status IN ('in_stock', 'consignment') THEN 0 WHEN status IN ('reserved', 'in_auction') THEN 1 ELSE 2 END");
+
+        // Sortierung: Preis-Sortierungen stellen preislose Uhren ans Ende
+        match ($sort) {
+            'preis_auf' => $query->orderByRaw('asking_price IS NULL')->orderBy('asking_price'),
+            'preis_ab' => $query->orderByRaw('asking_price IS NULL')->orderByDesc('asking_price'),
+            default => $query->orderByDesc('created_at'),
+        };
+
+        $watches = $query->paginate(12)->withQueryString();
 
         // Markenfilter zeigt nur Marken, die aktuell im Shop vertreten sind —
         // ein leerer Filter-Eintrag wäre eine Sackgasse für Besucher.
@@ -84,6 +131,13 @@ class ShopController extends Controller
             'watches' => $watches,
             'brands' => $brands,
             'activeBrandId' => $brandId,
+            'filters' => [
+                'zustand' => $condition,
+                'material' => $material,
+                'durchmesser' => $diameter,
+                'preis' => $price,
+                'sortierung' => $sort,
+            ],
         ]);
     }
 
@@ -182,6 +236,26 @@ class ShopController extends Controller
         return back()->with(
             'inquiry_success',
             'Vielen Dank für Ihre Anfrage — wir melden uns schnellstmöglich bei Ihnen.'
+        );
+    }
+
+    /**
+     * Preisvorschlag zu einer Uhr — geht wie die Anfrage per Mail an die
+     * Inhaber (Reply-To: Kunde). Nur für kaufbare Uhren sinnvoll (404 sonst).
+     */
+    public function propose(PriceProposalRequest $request, string $watchId): RedirectResponse
+    {
+        $watch = Watch::query()
+            ->publishedInShop()
+            ->with('brand')
+            ->findOrFail($watchId);
+
+        Mail::to($this->inquiryRecipients())
+            ->send(new PriceProposalMail($watch, $request->validated()));
+
+        return back()->with(
+            'proposal_success',
+            'Vielen Dank für Ihren Preisvorschlag — wir melden uns schnellstmöglich bei Ihnen.'
         );
     }
 

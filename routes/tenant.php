@@ -49,6 +49,12 @@ Route::middleware([
         ->middleware('throttle:5,1')
         ->name('shop.purchase');
 
+    // Preisvorschlag (Modal auf der Detailseite) — gleiche Throttle-Logik
+    // wie die Anfrage: 5 Vorschläge/Minute je IP reichen jedem Interessenten.
+    Route::post('/uhren/{watch}/preisvorschlag', [ShopController::class, 'propose'])
+        ->middleware('throttle:5,1')
+        ->name('shop.propose');
+
     // Öffentlicher Auktionskatalog (Modul 8b) — Gebots-POST mit Throttle
     // gegen Skript-Missbrauch (10 Gebote/Minute je IP reichen jedem Bieter).
     Route::get('/auktionen', [AuctionCatalogController::class, 'index'])->name('shop.auctions.index');

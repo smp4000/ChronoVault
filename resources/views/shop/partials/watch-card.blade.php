@@ -9,6 +9,8 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
 @php
     $photoUrl = $watch->firstPhotoUrl();
     $statusBadge = $watch->shopStatusBadge();
+    // "Neu"-Badge für frisch eingestellte Uhren (14 Tage)
+    $isNew = $watch->created_at !== null && $watch->created_at->gt(now()->subDays(14));
     $specParts = array_filter([
         $watch->reference_number ? 'Ref. '.$watch->reference_number : null,
         $watch->production_year ? ($watch->is_production_year_approximate ? 'ca. ' : '').$watch->production_year : null,
@@ -16,7 +18,7 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
     ]);
 @endphp
 
-<a href="{{ route('shop.show', $watch) }}" class="group block">
+<a href="{{ route('shop.show', $watch) }}" class="cv-card group block" data-watch="{{ $watch->getKey() }}">
     <div class="relative aspect-square overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-50 transition group-hover:border-blue-200 group-hover:shadow-lg group-hover:shadow-blue-900/5">
         @if ($photoUrl)
             <img src="{{ $photoUrl }}"
@@ -39,6 +41,23 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
                 {{ $statusBadge }}
             </span>
         @endif
+
+        {{-- "Neu"-Badge oben links --}}
+        @if ($isNew)
+            <span class="absolute left-3 top-3 rounded-md bg-blue-800 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white shadow-sm">
+                Neu
+            </span>
+        @endif
+
+        {{-- Favoriten-Herz oben rechts (localStorage, kein Konto nötig) --}}
+        <button type="button"
+                class="cv-fav absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-neutral-400 shadow-sm ring-1 ring-black/5 backdrop-blur transition hover:text-red-500"
+                data-watch="{{ $watch->getKey() }}"
+                aria-label="Zur Merkliste hinzufügen">
+            <svg class="cv-fav-icon h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+            </svg>
+        </button>
     </div>
 
     <div class="mt-4 space-y-1">
@@ -50,6 +69,12 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
         </p>
         @if ($specParts !== [])
             <p class="text-xs text-neutral-500">{{ implode(' · ', $specParts) }}</p>
+        @endif
+        @if ($watch->isBuyableInShop())
+            <p class="flex items-center gap-1.5 text-xs text-green-700">
+                <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                Sofort lieferbar
+            </p>
         @endif
         <p class="pt-1 text-sm">
             @if ($watch->formattedAskingPrice())

@@ -31,6 +31,17 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
 
     $formatMm = fn ($value) => rtrim(rtrim(number_format((float) $value, 1, ',', '.'), '0'), ',').' mm';
 
+    // Steuerhinweis je Besteuerungsart des Betriebs (Betriebsdaten-Seite)
+    $taxNote = match ((string) (tenant('tax_mode') ?? 'differential')) {
+        'regular' => 'inkl. 19 % MwSt., zzgl. Versand',
+        'small_business' => 'Keine MwSt. ausweisbar (§ 19 UStG), zzgl. Versand',
+        default => 'nach § 25a UStG differenzbesteuert — keine MwSt. ausweisbar, zzgl. Versand',
+    };
+
+    // Rechenfrage für den Preisvorschlag (Spam-Schutz)
+    $capA = random_int(1, 9);
+    $capB = random_int(1, 9);
+
     // Spezifikationen gruppiert; null-Werte werden beim Rendern übersprungen
     $specGroups = [
         'Basisdaten' => [
@@ -125,9 +136,20 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                 <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">
                     {{ $watch->brand->name }}
                 </p>
-                <h1 class="mt-2 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
-                    {{ $watch->model_name }}
-                </h1>
+                <div class="mt-2 flex items-start justify-between gap-4">
+                    <h1 class="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+                        {{ $watch->model_name }}
+                    </h1>
+                    {{-- Favoriten-Herz (localStorage-Merkliste) --}}
+                    <button type="button"
+                            class="cv-fav mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-400 transition hover:text-red-500"
+                            data-watch="{{ $watch->getKey() }}"
+                            aria-label="Zur Merkliste hinzufügen">
+                        <svg class="cv-fav-icon h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+                        </svg>
+                    </button>
+                </div>
                 @if ($watch->reference_number)
                     <p class="mt-2 text-sm text-neutral-500">Referenz {{ $watch->reference_number }}</p>
                 @endif
@@ -149,7 +171,11 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                         </p>
                     @elseif ($watch->formattedAskingPrice())
                         <p class="text-3xl font-semibold text-blue-900">{{ $watch->formattedAskingPrice() }}</p>
-                        <p class="mt-1 text-xs text-neutral-400">inkl. MwSt., zzgl. Versand</p>
+                        <p class="mt-1 text-xs text-neutral-400">{{ $taxNote }}</p>
+                        <p class="mt-2 flex items-center gap-1.5 text-sm text-green-700">
+                            <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+                            Sofort lieferbar in 1–2 Werktagen nach Zahlungseingang
+                        </p>
 
                         <a href="{{ route('shop.buy', $watch) }}"
                            class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-8 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
@@ -157,6 +183,32 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                         </a>
                     @else
                         <p class="text-2xl font-medium text-neutral-700">Preis auf Anfrage</p>
+                    @endif
+
+                    {{-- Aktionen: Teilen / Frage stellen / Preis vorschlagen --}}
+                    <div class="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-neutral-600">
+                        <button type="button" onclick="cvOpenModal('cv-share-modal')"
+                                class="inline-flex items-center gap-1.5 transition hover:text-blue-800">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" /></svg>
+                            Teilen
+                        </button>
+                        <a href="#anfrage" class="inline-flex items-center gap-1.5 transition hover:text-blue-800">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
+                            Frage zum Artikel stellen
+                        </a>
+                        @if ($watch->isBuyableInShop())
+                            <button type="button" onclick="cvOpenModal('cv-propose-modal')"
+                                    class="inline-flex items-center gap-1.5 transition hover:text-blue-800">
+                                <span class="text-base leading-none">€</span>
+                                Preis vorschlagen
+                            </button>
+                        @endif
+                    </div>
+
+                    @if (session('proposal_success'))
+                        <div class="mt-4 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-900">
+                            {{ session('proposal_success') }}
+                        </div>
                     @endif
 
                     @error('purchase')
@@ -188,7 +240,7 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                         {{ session('inquiry_success') }}
                     </div>
                 @else
-                    <div class="mt-8 rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
+                    <div id="anfrage" class="mt-8 rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
                         @if ($watch->isBuyableInShop())
                             <p class="font-medium text-neutral-900">Interesse an dieser Uhr?</p>
                             <p class="mt-1 text-sm leading-relaxed text-neutral-600">
@@ -288,6 +340,140 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
             </section>
         @endif
     </div>
+
+    {{-- Teilen-Dialog: Link kopieren oder per E-Mail teilen --}}
+    <div id="cv-share-modal" class="fixed inset-0 z-50 hidden items-start justify-center bg-black/40 p-4 pt-24">
+        <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-neutral-900">Teilen</h2>
+                <button type="button" onclick="cvCloseModal('cv-share-modal')"
+                        class="text-2xl leading-none text-neutral-400 transition hover:text-neutral-700" aria-label="Schließen">&times;</button>
+            </div>
+            <input type="text" readonly id="cv-share-url" value="{{ route('shop.show', $watch) }}"
+                   class="mt-4 w-full truncate rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-700">
+            <button type="button" id="cv-share-copy"
+                    class="mt-3 w-full rounded-xl bg-blue-800 px-4 py-2.5 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-blue-700">
+                In Zwischenablage kopieren
+            </button>
+            <a href="mailto:?subject={{ rawurlencode($watch->fullName()) }}&body={{ rawurlencode('Schau dir diese Uhr an: '.route('shop.show', $watch)) }}"
+               class="mt-2 block w-full rounded-xl border border-blue-800 px-4 py-2.5 text-center text-sm font-medium text-blue-800 transition hover:bg-blue-50">
+                per E-Mail teilen
+            </a>
+        </div>
+    </div>
+
+    @if ($watch->isBuyableInShop())
+        {{-- Preisvorschlag-Dialog --}}
+        {{-- Bei Validierungsfehlern des Vorschlags direkt geöffnet (nur vorschlagsspezifische Felder prüfen) --}}
+        <div id="cv-propose-modal" class="fixed inset-0 z-50 {{ $errors->hasAny(['proposed_price', 'captcha', 'privacy']) ? 'flex' : 'hidden' }} items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+            <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-semibold text-neutral-900">Wunschpreis angeben &amp; absenden</h2>
+                    <button type="button" onclick="cvCloseModal('cv-propose-modal')"
+                            class="text-2xl leading-none text-neutral-400 transition hover:text-neutral-700" aria-label="Schließen">&times;</button>
+                </div>
+
+                <form method="POST" action="{{ route('shop.propose', $watch) }}" class="mt-4 space-y-4">
+                    @csrf
+                    <input type="hidden" name="captcha_a" value="{{ $capA }}">
+                    <input type="hidden" name="captcha_b" value="{{ $capB }}">
+
+                    <div>
+                        <label for="propose_price" class="block text-sm font-medium text-neutral-700">Preisvorschlag *</label>
+                        <input type="number" id="propose_price" name="proposed_price" required min="1" step="1"
+                               value="{{ old('proposed_price') }}" placeholder="Ihr Preisvorschlag in €"
+                               class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                        @error('proposed_price') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="propose_name" class="block text-sm font-medium text-neutral-700">Name *</label>
+                        <input type="text" id="propose_name" name="name" required value="{{ old('name') }}"
+                               class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                        @error('name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="propose_email" class="block text-sm font-medium text-neutral-700">E-Mail-Adresse *</label>
+                        <input type="email" id="propose_email" name="email" required value="{{ old('email') }}"
+                               class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                        @error('email') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="propose_captcha" class="block text-sm font-medium text-neutral-700">Sicherheitsfrage *</label>
+                        <input type="number" id="propose_captcha" name="captcha" required
+                               placeholder="Bitte rechnen Sie {{ $capA }} + {{ $capB }}"
+                               class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
+                        @error('captcha') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label for="propose_message" class="block text-sm font-medium text-neutral-700">Nachricht</label>
+                        <textarea id="propose_message" name="message" rows="3" placeholder="Nachricht schreiben"
+                                  class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">{{ old('message') }}</textarea>
+                        @error('message') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <label class="flex items-start gap-3 text-xs leading-relaxed text-neutral-600">
+                        <input type="checkbox" name="privacy" value="1" required class="mt-0.5 rounded border-neutral-300 text-blue-800 focus:ring-blue-800">
+                        <span>
+                            Ich stimme zu, dass meine Angaben aus dem Formular zur Beantwortung meiner
+                            Anfrage erhoben und verarbeitet werden. Die Daten werden nach abgeschlossener
+                            Bearbeitung Ihrer Anfrage gelöscht.*
+                        </span>
+                    </label>
+                    @error('privacy') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+
+                    <button type="submit"
+                            class="w-full rounded-xl bg-blue-800 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:bg-blue-700">
+                        Versenden
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    <script>
+        // Modals öffnen/schließen über hidden/flex-Klassen; Klick auf den
+        // abgedunkelten Hintergrund schließt (Klicks im Dialog stoppen oben).
+        function cvOpenModal(id) {
+            var modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function cvCloseModal(id) {
+            var modal = document.getElementById(id);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        ['cv-share-modal', 'cv-propose-modal'].forEach(function (id) {
+            var modal = document.getElementById(id);
+
+            if (modal) {
+                modal.addEventListener('click', function () { cvCloseModal(id); });
+            }
+        });
+
+        // Link kopieren (mit Fallback für ältere Browser)
+        var copyBtn = document.getElementById('cv-share-copy');
+
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function () {
+                var input = document.getElementById('cv-share-url');
+
+                (navigator.clipboard
+                    ? navigator.clipboard.writeText(input.value)
+                    : Promise.reject()
+                ).catch(function () {
+                    input.select();
+                    document.execCommand('copy');
+                }).finally(function () {
+                    copyBtn.textContent = 'Kopiert!';
+                    setTimeout(function () { copyBtn.textContent = 'In Zwischenablage kopieren'; }, 1500);
+                });
+            });
+        }
+    </script>
+
+    @include('shop.partials.favorites-script')
 
     {{-- Galerie-Wechsel: reiner src-Tausch, kein Framework nötig --}}
     @if (count($photos) > 1)

@@ -22,9 +22,11 @@
 
 declare(strict_types=1);
 
+use App\Enums\WatchCondition;
 use App\Enums\WatchStatus;
 use App\Mail\OrderConfirmationMail;
 use App\Mail\OrderReceivedMail;
+use App\Mail\PriceProposalMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\Contact;
@@ -354,6 +356,134 @@ it('returns 404 for unpublished watches but shows sold ones with a badge', funct
 
         // Kaufseite existiert für Verkauftes weiterhin nicht
         $this->get('http://'.$domain.'/uhren/'.$soldId.'/kaufen')->assertNotFound();
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('accepts price proposals with captcha and forwards them to the owner', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $watchId = null;
+
+        $tenant->run(function () use (&$watchId) {
+            $watchId = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Vorschlag Submariner',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 9000,
+            ])->id;
+        });
+
+        Mail::fake();
+
+        $url = 'http://'.$tenant->primaryDomain().'/uhren/'.$watchId;
+
+        // Gueltiger Vorschlag -> Mail an den Inhaber, Reply-To Kunde
+        $this->from($url)
+            ->post($url.'/preisvorschlag', [
+                'proposed_price' => 8200,
+                'name' => 'Erika Mustermann',
+                'email' => 'erika@example.test',
+                'message' => 'Waere das fuer Sie machbar?',
+                'captcha_a' => 3,
+                'captcha_b' => 4,
+                'captcha' => 7,
+                'privacy' => '1',
+            ])
+            ->assertRedirect($url)
+            ->assertSessionHas('proposal_success');
+
+        Mail::assertSent(PriceProposalMail::class, function (PriceProposalMail $mail): bool {
+            $mail->assertTo('owner@example.test');
+            $mail->assertHasReplyTo('erika@example.test');
+
+            $html = $mail->render();
+
+            return str_contains($html, '8.200')
+                && str_contains($html, 'Vorschlag Submariner')
+                && str_contains($html, 'Waere das fuer Sie machbar?');
+        });
+
+        // Falsche Rechenantwort -> Fehler, keine weitere Mail
+        $this->from($url)
+            ->post($url.'/preisvorschlag', [
+                'proposed_price' => 8200,
+                'name' => 'Erika Mustermann',
+                'email' => 'erika@example.test',
+                'captcha_a' => 3,
+                'captcha_b' => 4,
+                'captcha' => 9,
+                'privacy' => '1',
+            ])
+            ->assertRedirect($url)
+            ->assertSessionHasErrors(['captcha']);
+
+        // Fehlende DSGVO-Einwilligung -> Fehler
+        $this->from($url)
+            ->post($url.'/preisvorschlag', [
+                'proposed_price' => 8200,
+                'name' => 'Erika Mustermann',
+                'email' => 'erika@example.test',
+                'captcha_a' => 3,
+                'captcha_b' => 4,
+                'captcha' => 7,
+            ])
+            ->assertRedirect($url)
+            ->assertSessionHasErrors(['privacy']);
+
+        Mail::assertSent(PriceProposalMail::class, 1);
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('filters the shop listing by condition and price range', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $conditionA = WatchCondition::cases()[0];
+        $conditionB = WatchCondition::cases()[1];
+
+        $tenant->run(function () use ($conditionA, $conditionB) {
+            $brandId = Brand::where('name', 'Rolex')->firstOrFail()->id;
+
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Guenstige Uhr',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 800,
+                'condition' => $conditionA,
+            ]);
+
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Teure Uhr',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 12000,
+                'condition' => $conditionB,
+            ]);
+        });
+
+        $base = 'http://'.$tenant->primaryDomain();
+
+        // Preisfilter: bis 1.000 EUR zeigt nur die guenstige Uhr
+        $this->get($base.'/?preis=bis1000')
+            ->assertOk()
+            ->assertSee('Guenstige Uhr')
+            ->assertDontSee('Teure Uhr');
+
+        // Zustandsfilter zeigt nur die passende Uhr
+        $this->get($base.'/?zustand='.$conditionA->value)
+            ->assertOk()
+            ->assertSee('Guenstige Uhr')
+            ->assertDontSee('Teure Uhr');
     } finally {
         tenancy()->end();
         destroyTenant($tenant);
