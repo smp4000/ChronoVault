@@ -66,6 +66,7 @@ class BusinessSettings extends Page
             'bank_account_holder' => tenant('bank_account_holder'),
             'bank_iban' => tenant('bank_iban'),
             'bank_bic' => tenant('bank_bic'),
+            'notification_email' => tenant('notification_email'),
         ]);
     }
 
@@ -133,6 +134,17 @@ class BusinessSettings extends Page
                             ->placeholder('z. B. PBNKDEFF')
                             ->maxLength(11),
                     ]),
+
+                Section::make('Benachrichtigungen')
+                    ->description('An diese Adresse gehen Shop-Anfragen, Preisvorschläge und Bestell-Benachrichtigungen. Leer = an die Benutzer mit Rolle „Inhaber" (sonst Administratoren).')
+                    ->icon('heroicon-m-envelope')
+                    ->components([
+                        TextInput::make('notification_email')
+                            ->label('E-Mail für Shop-Benachrichtigungen')
+                            ->email()
+                            ->placeholder('z. B. verkauf@ihr-betrieb.de')
+                            ->maxLength(255),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -155,6 +167,7 @@ class BusinessSettings extends Page
             'bank_account_holder' => $data['bank_account_holder'] ?? null,
             'bank_iban' => $iban !== '' ? $iban : null,
             'bank_bic' => strtoupper((string) ($data['bank_bic'] ?? '')) ?: null,
+            'notification_email' => strtolower(trim((string) ($data['notification_email'] ?? ''))) ?: null,
         ]);
 
         Notification::make()

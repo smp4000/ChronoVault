@@ -152,10 +152,20 @@ class PurchaseWatchAction
     }
 
     /**
+     * Empfänger der Bestell-Benachrichtigung: konfigurierte
+     * Benachrichtigungs-Adresse (Betriebsdaten), sonst Inhaber,
+     * dann Administratoren, zuletzt die Plattform-Absenderadresse.
+     *
      * @return array<int, string>
      */
     private function ownerRecipients(): array
     {
+        $configured = tenant('notification_email');
+
+        if (is_string($configured) && $configured !== '') {
+            return [$configured];
+        }
+
         $owners = User::role(UserRole::Owner->value)->pluck('email')->all();
 
         if ($owners !== []) {

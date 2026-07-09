@@ -553,3 +553,45 @@ it('shows a discount with strike price after a price reduction', function () {
         destroyTenant($tenant);
     }
 });
+
+it('sends shop notifications to the configured notification email', function () {
+    $tenant = provisionTenant();
+
+    // Betriebsdaten: eigene Benachrichtigungs-Adresse hat Vorrang vor Rollen
+    $tenant->update(['notification_email' => 'verkauf@example.test']);
+
+    try {
+        $watchId = null;
+
+        $tenant->run(function () use (&$watchId) {
+            $watchId = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Benachrichtigungs-Uhr',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 5000,
+            ])->id;
+        });
+
+        Mail::fake();
+
+        $url = 'http://'.$tenant->primaryDomain().'/uhren/'.$watchId;
+
+        $this->from($url)
+            ->post($url.'/anfrage', [
+                'name' => 'Erika Mustermann',
+                'email' => 'erika@example.test',
+                'message' => 'Ist die Uhr verfuegbar?',
+            ])
+            ->assertRedirect($url);
+
+        Mail::assertSent(
+            WatchInquiryMail::class,
+            fn (WatchInquiryMail $mail): bool => $mail->hasTo('verkauf@example.test')
+                && ! $mail->hasTo('owner@example.test'),
+        );
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});

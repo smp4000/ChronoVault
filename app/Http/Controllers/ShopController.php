@@ -260,13 +260,20 @@ class ShopController extends Controller
     }
 
     /**
-     * Empfänger der Anfrage: Inhaber des Betriebs, sonst Administratoren,
+     * Empfänger der Anfrage: die in den Betriebsdaten hinterlegte
+     * Benachrichtigungs-Adresse; sonst Inhaber, dann Administratoren,
      * als letzter Fallback die Absenderadresse der Plattform.
      *
      * @return array<int, string>
      */
     private function inquiryRecipients(): array
     {
+        $configured = tenant('notification_email');
+
+        if (is_string($configured) && $configured !== '') {
+            return [$configured];
+        }
+
         $owners = User::role(UserRole::Owner->value)->pluck('email')->all();
 
         if ($owners !== []) {
