@@ -30,12 +30,23 @@ class PriceProposal extends Model
     use HasUuids;
     use SoftDeletes;
 
+    /**
+     * Status-Default auch am Model-Objekt (nicht nur DB-Default) —
+     * frisch per create() angelegte Vorschläge sind sofort „Neu".
+     *
+     * @var array<string, string>
+     */
+    protected $attributes = [
+        'status' => 'new',
+    ];
+
     protected $fillable = [
         'watch_id',
         'name',
         'email',
         'proposed_price',
         'asking_price_at_time',
+        'counter_price',
         'message',
         'status',
     ];
@@ -48,6 +59,7 @@ class PriceProposal extends Model
         return [
             'proposed_price' => 'decimal:2',
             'asking_price_at_time' => 'decimal:2',
+            'counter_price' => 'decimal:2',
             'status' => PriceProposalStatus::class,
         ];
     }

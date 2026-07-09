@@ -7,9 +7,13 @@
  *
  * Zweck:
  *   Alle Vorschläge mit Uhr, Wunschpreis vs. Angebotspreis, Kunde und
- *   Status. Aktionen: Annehmen/Ablehnen (Status), Antworten (mailto mit
- *   vorbereitetem Betreff — der Mail-Dialog des Händlers öffnet sich).
- *   Nur Statuswechsel, kein Editieren der Kundendaten (Beweiswert).
+ *   Status. Aktionen:
+ *   - Annehmen  → AcceptPriceProposalAction (Zuschlag: Verkauf zum
+ *     Wunschpreis, Rechnung + Kaufvertrag per Mail an den Kunden)
+ *   - Gegenangebot → CounterPriceProposalAction (Mail mit Händler-Preis)
+ *   - Ablehnen  → reiner Statuswechsel
+ *   - Antworten → mailto mit vorbereitetem Betreff
+ *   Kein Editieren der Kundendaten (Beweiswert).
  * =========================================================================
  */
 
@@ -17,17 +21,22 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Resources\PriceProposals\Tables;
 
+use App\Actions\Shop\AcceptPriceProposalAction;
+use App\Actions\Shop\CounterPriceProposalAction;
 use App\Enums\PriceProposalStatus;
 use App\Models\PriceProposal;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use RuntimeException;
 
 class PriceProposalsTable
 {
@@ -58,6 +67,13 @@ class PriceProposalsTable
                     ->color('primary')
                     ->sortable()
                     ->alignEnd(),
+
+                TextColumn::make('counter_price')
+                    ->label('Gegenangebot')
+                    ->money('EUR')
+                    ->placeholder('—')
+                    ->alignEnd()
+                    ->toggleable(),
 
                 TextColumn::make('asking_price_at_time')
                     ->label('Angebotspreis')
@@ -106,8 +122,9 @@ class PriceProposalsTable
                     ->url(fn (PriceProposal $record): string => 'mailto:'.$record->email
                         .'?subject='.rawurlencode('Ihr Preisvorschlag zu '.($record->watch?->fullName() ?? 'unserer Uhr'))),
 
-                self::statusAction('accept', 'Annehmen', PriceProposalStatus::Accepted, 'heroicon-m-check-circle', 'success'),
-                self::statusAction('decline', 'Ablehnen', PriceProposalStatus::Declined, 'heroicon-m-x-circle', 'danger'),
+                self::acceptAction(),
+                self::counterAction(),
+                self::declineAction(),
 
                 DeleteAction::make()
                     ->modalHeading('Preisvorschlag löschen')
@@ -122,32 +139,137 @@ class PriceProposalsTable
     }
 
     /**
-     * Statuswechsel-Aktion (Annehmen/Ablehnen) — reine Statusänderung,
-     * die Antwort an den Kunden schreibt der Händler per Mail.
+     * Sichtbarkeit der Bearbeitungs-Aktionen: nur offene Vorschläge
+     * (Neu/Gegenangebot), nicht gelöscht, mit watches.update-Recht.
      */
-    private static function statusAction(
-        string $name,
-        string $label,
-        PriceProposalStatus $target,
-        string $icon,
-        string $color,
-    ): Action {
-        return Action::make($name)
-            ->label($label)
-            ->icon($icon)
-            ->color($color)
-            ->visible(fn (PriceProposal $record): bool => $record->getAttribute('status') === PriceProposalStatus::New
-                && ! $record->trashed()
-                && (auth()->user()?->can('watches.update') ?? false))
-            ->requiresConfirmation()
-            ->modalHeading('Preisvorschlag '.strtolower($label))
-            ->modalDescription('Der Status wird geändert — die Antwort an den Kunden senden Sie über „Antworten" per E-Mail.')
-            ->action(function (PriceProposal $record) use ($target, $label): void {
-                $record->update(['status' => $target]);
+    private static function actionVisible(PriceProposal $record): bool
+    {
+        $status = $record->getAttribute('status');
+
+        return $status instanceof PriceProposalStatus
+            && $status->isOpen()
+            && ! $record->trashed()
+            && (auth()->user()?->can('watches.update') ?? false);
+    }
+
+    /**
+     * Annehmen = Zuschlag: Verkauf zum Wunschpreis, Rechnung + Kaufvertrag
+     * gehen automatisch per Mail an den Kunden (AcceptPriceProposalAction).
+     * Optionale Lieferadresse für die Rechnung, falls bereits bekannt.
+     */
+    private static function acceptAction(): Action
+    {
+        return Action::make('accept')
+            ->label('Annehmen')
+            ->icon('heroicon-m-check-circle')
+            ->color('success')
+            ->visible(fn (PriceProposal $record): bool => self::actionVisible($record))
+            ->modalHeading('Preisvorschlag annehmen — Zuschlag erteilen')
+            ->modalDescription(fn (PriceProposal $record): string => 'Die Uhr wird verbindlich zum Wunschpreis von '
+                .number_format((float) $record->proposed_price, 2, ',', '.')
+                .' € verkauft. Der Kunde erhält die Zusage mit Zahlungsinformationen, Rechnung und Kaufvertrag per E-Mail.')
+            ->modalSubmitActionLabel('Zuschlag erteilen')
+            ->form([
+                TextInput::make('street')
+                    ->label('Straße und Hausnummer (falls bekannt)')
+                    ->maxLength(255),
+
+                TextInput::make('postal_code')
+                    ->label('PLZ')
+                    ->maxLength(20),
+
+                TextInput::make('city')
+                    ->label('Ort')
+                    ->maxLength(255),
+            ])
+            ->action(function (PriceProposal $record, array $data): void {
+                try {
+                    app(AcceptPriceProposalAction::class)->execute($record, $data);
+                } catch (RuntimeException $exception) {
+                    Notification::make()->danger()->title($exception->getMessage())->send();
+
+                    return;
+                }
 
                 Notification::make()
                     ->success()
-                    ->title('Preisvorschlag '.($label === 'Annehmen' ? 'angenommen' : 'abgelehnt'))
+                    ->title('Zuschlag erteilt')
+                    ->body('Verkauf erfasst — der Kunde erhält Zusage, Rechnung und Kaufvertrag per E-Mail.')
+                    ->send();
+            });
+    }
+
+    /**
+     * Gegenangebot: Händler-Preis + optionale Nachricht per Mail an den
+     * Kunden (CounterPriceProposalAction, Status → Gegenangebot).
+     */
+    private static function counterAction(): Action
+    {
+        return Action::make('counter')
+            ->label('Gegenangebot')
+            ->icon('heroicon-m-arrows-right-left')
+            ->color('info')
+            ->visible(fn (PriceProposal $record): bool => self::actionVisible($record))
+            ->modalHeading('Gegenangebot senden')
+            ->modalSubmitActionLabel('Gegenangebot senden')
+            ->form(fn (PriceProposal $record): array => [
+                TextInput::make('counter_price')
+                    ->label('Ihr Angebot')
+                    ->numeric()
+                    ->minValue(1)
+                    ->prefix('€')
+                    ->required()
+                    ->default($record->getAttribute('asking_price_at_time')
+                        ? (int) round(((float) $record->proposed_price + (float) $record->asking_price_at_time) / 2)
+                        : null)
+                    ->helperText('Vorschlag des Kunden: '.number_format((float) $record->proposed_price, 0, ',', '.').' €'),
+
+                Textarea::make('message')
+                    ->label('Nachricht an den Kunden (optional)')
+                    ->rows(3)
+                    ->maxLength(2000),
+            ])
+            ->action(function (PriceProposal $record, array $data): void {
+                try {
+                    app(CounterPriceProposalAction::class)->execute(
+                        $record,
+                        (float) $data['counter_price'],
+                        filled($data['message'] ?? null) ? (string) $data['message'] : null,
+                    );
+                } catch (RuntimeException $exception) {
+                    Notification::make()->danger()->title($exception->getMessage())->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title('Gegenangebot gesendet')
+                    ->body('Der Kunde wurde per E-Mail informiert — seine Antwort landet direkt bei Ihnen.')
+                    ->send();
+            });
+    }
+
+    /**
+     * Ablehnen: reiner Statuswechsel — die Absage formuliert der
+     * Händler bei Bedarf selbst über „Antworten".
+     */
+    private static function declineAction(): Action
+    {
+        return Action::make('decline')
+            ->label('Ablehnen')
+            ->icon('heroicon-m-x-circle')
+            ->color('danger')
+            ->visible(fn (PriceProposal $record): bool => self::actionVisible($record))
+            ->requiresConfirmation()
+            ->modalHeading('Preisvorschlag ablehnen')
+            ->modalDescription('Der Status wird auf „Abgelehnt" gesetzt — eine Absage an den Kunden senden Sie bei Bedarf über „Antworten".')
+            ->action(function (PriceProposal $record): void {
+                $record->update(['status' => PriceProposalStatus::Declined]);
+
+                Notification::make()
+                    ->success()
+                    ->title('Preisvorschlag abgelehnt')
                     ->send();
             });
     }
