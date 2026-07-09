@@ -9,7 +9,9 @@
  *   Bestätigt den VERBINDLICHEN Kauf zum Festpreis und liefert die
  *   Zahlungsinformationen (Betriebsdaten-Bankverbindung, GiroCode-QR
  *   wie bei der Auktions-Zuschlag-Mail). Verwendungszweck: Referenz
- *   der Uhr + Nachname — eindeutig zuordenbar.
+ *   der Uhr + Nachname — eindeutig zuordenbar. Rechnung (ZUGFeRD-PDF
+ *   inkl. GiroCode) und Kaufvertrag (PDF) hängen an, sofern die
+ *   Rechnung beim Kauf erstellt werden konnte.
  * =========================================================================
  */
 
@@ -18,13 +20,17 @@ declare(strict_types=1);
 namespace App\Mail;
 
 use App\Models\Contact;
+use App\Models\Invoice;
 use App\Models\Watch;
+use App\Services\InvoiceService;
 use App\Support\GiroCode;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 class OrderConfirmationMail extends Mailable
 {
@@ -34,6 +40,7 @@ class OrderConfirmationMail extends Mailable
     public function __construct(
         public readonly Watch $watch,
         public readonly Contact $buyer,
+        public readonly ?Invoice $invoice = null,
     ) {}
 
     public function envelope(): Envelope
@@ -75,7 +82,39 @@ class OrderConfirmationMail extends Mailable
                 'bic' => tenant('bank_bic'),
                 'remittance' => $remittance,
                 'qrPng' => $qrPng,
+                'invoiceNumber' => $this->invoice?->invoice_number,
             ],
         );
+    }
+
+    /**
+     * Rechnung (ZUGFeRD/E-Rechnung inkl. GiroCode) + Kaufvertrag als
+     * PDF-Anhänge — ein Render-Fehler darf den Versand nie verhindern.
+     *
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        if ($this->invoice === null) {
+            return [];
+        }
+
+        $service = app(InvoiceService::class);
+
+        try {
+            $invoicePdf = $service->renderZugferdPdf($this->invoice);
+            $contractPdf = $service->renderContractPdf($this->invoice);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+
+        return [
+            Attachment::fromData(fn (): string => $invoicePdf, 'Rechnung-'.$this->invoice->invoice_number.'.pdf')
+                ->withMime('application/pdf'),
+            Attachment::fromData(fn (): string => $contractPdf, 'Kaufvertrag-'.$this->invoice->invoice_number.'.pdf')
+                ->withMime('application/pdf'),
+        ];
     }
 }

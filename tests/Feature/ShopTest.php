@@ -225,13 +225,18 @@ it('sends watch inquiries to the shop owner with reply-to the customer', functio
     }
 });
 
-it('handles a binding purchase: reserve, contact, both mails with payment info', function () {
+it('handles a binding purchase: sale, invoice, contact, both mails with payment info', function () {
     $tenant = provisionTenant();
 
+    // Vollständige Betriebsdaten, damit Rechnung + Kaufvertrag entstehen
     $tenant->update([
         'bank_account_holder' => 'Test Uhrenhandel GmbH',
         'bank_iban' => 'DE02120300000000202051',
         'bank_bic' => 'BYLADEM1001',
+        'company_street' => 'Uhrmacherweg 1',
+        'company_postal_code' => '10115',
+        'company_city' => 'Berlin',
+        'tax_number' => '12/345/67890',
     ]);
 
     try {
@@ -260,7 +265,7 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
             ->assertSee('8.500,00');
 
         // Kauf ausführen — Redirect zum Shop-Katalog (die Kaufseite
-        // existiert für die nun reservierte Uhr nicht mehr)
+        // existiert für die nun verkaufte Uhr nicht mehr)
         $this->from($buyUrl)
             ->post($buyUrl, [
                 'first_name' => 'Erika',
@@ -279,13 +284,14 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
             $watch = Watch::findOrFail($watchId);
             $buyer = Contact::where('email', 'erika@example.test')->firstOrFail();
 
-            // Reserviert = raus aus dem Shop, noch kein Verkaufsbeleg
-            expect($watch->getAttribute('status'))->toBe(WatchStatus::Reserved)
+            // Verbindlicher Kauf = Verkaufsbeleg sofort, Uhr Verkauft
+            expect($watch->getAttribute('status'))->toBe(WatchStatus::Sold)
                 ->and($buyer->street)->toBe('Musterweg 12')
-                ->and($watch->transactions()->where('type', 'sale')->count())->toBe(0);
+                ->and($watch->transactions()->where('type', 'sale')->count())->toBe(1);
         });
 
         // Käufer-Mail: verbindlich + Zahlungsdaten + Verwendungszweck
+        // + Rechnung und Kaufvertrag als PDF-Anhänge
         Mail::assertSent(
             OrderConfirmationMail::class,
             function (OrderConfirmationMail $mail): bool {
@@ -296,7 +302,11 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
                 return str_contains($html, 'verbindlichen Kauf')
                     && str_contains($html, '8.500,00')
                     && str_contains($html, 'DE02 1203')
-                    && str_contains($html, 'Kauf 126610LN Mustermann');
+                    && str_contains($html, 'Kauf 126610LN Mustermann')
+                    && $mail->invoice !== null
+                    && str_starts_with($mail->invoice->invoice_number, 'RE-')
+                    && str_contains($html, $mail->invoice->invoice_number)
+                    && count($mail->attachments()) === 2;
             },
         );
 
@@ -306,10 +316,10 @@ it('handles a binding purchase: reserve, contact, both mails with payment info',
             fn (OrderReceivedMail $mail): bool => $mail->hasTo('owner@example.test'),
         );
 
-        // Uhr ist reserviert → bleibt mit Badge im Shop, Kauf erneut unmöglich
+        // Uhr ist verkauft → bleibt mit Badge im Shop, Kauf erneut unmöglich
         $this->get('http://'.$domain.'/')
             ->assertSee('Kauf Submariner')
-            ->assertSee('Reserviert');
+            ->assertSee('Verkauft');
         $this->get($buyUrl)->assertNotFound();
     } finally {
         tenancy()->end();
@@ -484,6 +494,60 @@ it('filters the shop listing by condition and price range', function () {
             ->assertOk()
             ->assertSee('Guenstige Uhr')
             ->assertDontSee('Teure Uhr');
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('shows a discount with strike price after a price reduction', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $watchId = null;
+
+        $tenant->run(function () use (&$watchId) {
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Reduzierte Datejust',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 6950,
+            ]);
+
+            // Preissenkung -> Observer merkt den Streichpreis
+            $watch->update(['asking_price' => 6500]);
+
+            expect((float) $watch->refresh()->previous_asking_price)->toBe(6950.0)
+                ->and($watch->discountPercent())->toBe(6);
+
+            $watchId = $watch->id;
+        });
+
+        $domain = $tenant->primaryDomain();
+
+        // Detailseite: roter Preis, Streichpreis, Ersparnis, 30-Tage-Hinweis
+        $this->get('http://'.$domain.'/uhren/'.$watchId)
+            ->assertOk()
+            ->assertSee('6.500')
+            ->assertSee('6.950')
+            ->assertSee('Sie sparen 450,00')
+            ->assertSee('Preis der letzten 30 Tage vor Preissenkung');
+
+        // Listing: Rabatt-Badge auf der Kachel
+        $this->get('http://'.$domain.'/')
+            ->assertOk()
+            ->assertSee('Reduzierte Datejust')
+            ->assertSee('6 %');
+
+        // Preiserhoehung setzt den Streichpreis zurueck
+        $tenant->run(function () use ($watchId) {
+            $watch = Watch::findOrFail($watchId);
+            $watch->update(['asking_price' => 7200]);
+
+            expect($watch->refresh()->previous_asking_price)->toBeNull()
+                ->and($watch->discountPercent())->toBeNull();
+        });
     } finally {
         tenancy()->end();
         destroyTenant($tenant);

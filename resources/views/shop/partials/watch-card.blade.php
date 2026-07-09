@@ -9,8 +9,10 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
 @php
     $photoUrl = $watch->firstPhotoUrl();
     $statusBadge = $watch->shopStatusBadge();
-    // "Neu"-Badge für frisch eingestellte Uhren (14 Tage)
-    $isNew = $watch->created_at !== null && $watch->created_at->gt(now()->subDays(14));
+    // Rabatt-Badge nur für kaufbare Uhren mit aktiver Preissenkung
+    $discount = $watch->isBuyableInShop() ? $watch->discountPercent() : null;
+    // "Neu"-Badge für frisch eingestellte Uhren (14 Tage) — Rabatt hat Vorrang
+    $isNew = $discount === null && $watch->created_at !== null && $watch->created_at->gt(now()->subDays(14));
     $specParts = array_filter([
         $watch->reference_number ? 'Ref. '.$watch->reference_number : null,
         $watch->production_year ? ($watch->is_production_year_approximate ? 'ca. ' : '').$watch->production_year : null,
@@ -42,8 +44,13 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
             </span>
         @endif
 
-        {{-- "Neu"-Badge oben links --}}
-        @if ($isNew)
+        {{-- Rabatt-Badge (Preissenkung) bzw. "Neu"-Badge oben links --}}
+        @if ($discount !== null)
+            <span class="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-bold tracking-wider text-white shadow-sm">
+                &minus;{{ $discount }} %
+                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" /></svg>
+            </span>
+        @elseif ($isNew)
             <span class="absolute left-3 top-3 rounded-md bg-blue-800 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white shadow-sm">
                 Neu
             </span>
@@ -78,7 +85,10 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
         @endif
         <p class="pt-1 text-sm">
             @if ($watch->formattedAskingPrice())
-                <span class="font-semibold text-neutral-900">{{ $watch->formattedAskingPrice() }}</span>
+                <span class="font-semibold {{ $discount !== null ? 'text-red-600' : 'text-neutral-900' }}">{{ $watch->formattedAskingPrice() }}</span>
+                @if ($discount !== null)
+                    <span class="ml-1 text-xs text-neutral-400 line-through">{{ $watch->formattedPreviousPrice() }}</span>
+                @endif
             @else
                 <span class="text-neutral-500">Preis auf Anfrage</span>
             @endif

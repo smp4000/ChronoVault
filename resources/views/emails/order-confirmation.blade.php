@@ -170,6 +170,13 @@ $bic, $remittance, $qrPng (binär|null).
                                                 Bitte überweisen Sie den Betrag innerhalb von 7 Tagen.
                                                 Der Versand erfolgt umgehend nach Zahlungseingang.
                                             </p>
+                                            @if ($invoiceNumber)
+                                                <p style="margin:10px 0 0 0; font-size:13px; line-height:1.6; color:#3f3f46;">
+                                                    Ihre Rechnung <strong>{{ $invoiceNumber }}</strong> und den
+                                                    Kaufvertrag finden Sie als PDF im Anhang — die Rechnung
+                                                    inklusive E-Rechnungs-Daten (ZUGFeRD) und GiroCode.
+                                                </p>
+                                            @endif
                                         @else
                                             <p style="margin:10px 0 0 0; font-size:14px; line-height:1.6; color:#3f3f46;">
                                                 Die Zahlungsinformationen erhalten Sie in einer

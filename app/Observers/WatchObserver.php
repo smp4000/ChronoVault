@@ -45,6 +45,38 @@ class WatchObserver
         }
     }
 
+    /**
+     * Preissenkung erkennen: Sinkt der Angebotspreis, wird der alte
+     * Preis als Streichpreis gemerkt (Shop zeigt Rabatt-Badge und
+     * „Preis vor Preissenkung"). Bei Preiserhöhung oder Preis-Entfernung
+     * wird der Streichpreis zurückgesetzt. Bei mehrfachen Senkungen
+     * bleibt der URSPRÜNGLICHE (höchste) Preis stehen.
+     */
+    public function updating(Watch $watch): void
+    {
+        if (! $watch->isDirty('asking_price')) {
+            return;
+        }
+
+        $old = $watch->getOriginal('asking_price');
+        $new = $watch->getAttribute('asking_price');
+
+        if ($old !== null && $new !== null && (float) $new < (float) $old) {
+            // Erste Senkung merkt den Ausgangspreis; weitere behalten ihn
+            if ($watch->getAttribute('previous_asking_price') === null) {
+                $watch->setAttribute('previous_asking_price', $old);
+            }
+
+            $watch->setAttribute('price_reduced_at', now());
+
+            return;
+        }
+
+        // Preis erhöht oder entfernt → kein Streichpreis mehr
+        $watch->setAttribute('previous_asking_price', null);
+        $watch->setAttribute('price_reduced_at', null);
+    }
+
     public function saved(Watch $watch): void
     {
         $imageSources = (array) data_get($watch->research_data, 'image_urls', []);

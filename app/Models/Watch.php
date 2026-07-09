@@ -101,6 +101,8 @@ class Watch extends Model implements HasMedia
         'status',
         'is_published',
         'asking_price',
+        'previous_asking_price',
+        'price_reduced_at',
         'has_box',
         'has_papers',
         'case_material',
@@ -160,6 +162,8 @@ class Watch extends Model implements HasMedia
             'status' => WatchStatus::class,
             'is_published' => 'boolean',
             'asking_price' => 'decimal:2',
+            'previous_asking_price' => 'decimal:2',
+            'price_reduced_at' => 'datetime',
             'movement_type' => MovementType::class,
             'gender' => WatchGender::class,
             'has_box' => 'boolean',
@@ -401,6 +405,39 @@ class Watch extends Model implements HasMedia
      * Preis hinterlegt ist (der Shop zeigt dann „Preis auf Anfrage").
      * Ganze Beträge ohne Nachkommastellen, krumme mit zwei.
      */
+    /**
+     * Rabatt in Prozent bei gesenktem Preis — null ohne Preissenkung.
+     * Nur für kaufbare Uhren sinnvoll (Streichpreis-Anzeige im Shop).
+     */
+    public function discountPercent(): ?int
+    {
+        $current = $this->getAttribute('asking_price');
+        $previous = $this->getAttribute('previous_asking_price');
+
+        if ($current === null || $previous === null || (float) $previous <= (float) $current) {
+            return null;
+        }
+
+        $percent = (int) round((1 - (float) $current / (float) $previous) * 100);
+
+        return $percent > 0 ? $percent : null;
+    }
+
+    /**
+     * Streichpreis formatiert — null ohne aktive Preissenkung.
+     */
+    public function formattedPreviousPrice(): ?string
+    {
+        if ($this->discountPercent() === null) {
+            return null;
+        }
+
+        $value = (float) $this->getAttribute('previous_asking_price');
+        $decimals = fmod($value, 1.0) > 0.0 ? 2 : 0;
+
+        return number_format($value, $decimals, ',', '.').' €';
+    }
+
     public function formattedAskingPrice(): ?string
     {
         $price = $this->getAttribute('asking_price');

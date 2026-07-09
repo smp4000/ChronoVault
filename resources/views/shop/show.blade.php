@@ -170,8 +170,24 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                                 : 'Diese Uhr ist nicht mehr verfügbar — gerne informieren wir Sie über vergleichbare Stücke.' }}
                         </p>
                     @elseif ($watch->formattedAskingPrice())
-                        <p class="text-3xl font-semibold text-blue-900">{{ $watch->formattedAskingPrice() }}</p>
-                        <p class="mt-1 text-xs text-neutral-400">{{ $taxNote }}</p>
+                        @if ($watch->discountPercent() !== null)
+                            {{-- Preissenkung: roter Preis, Streichpreis, Ersparnis + 30-Tage-Hinweis (PAngV) --}}
+                            <p class="flex flex-wrap items-baseline gap-3">
+                                <span class="text-3xl font-semibold text-red-600">{{ $watch->formattedAskingPrice() }}</span>
+                                <span class="text-xl text-neutral-400 line-through decoration-1">{{ $watch->formattedPreviousPrice() }}</span>
+                                <span class="rounded-md bg-red-600 px-2 py-0.5 text-xs font-bold text-white">&minus;{{ $watch->discountPercent() }} %</span>
+                            </p>
+                            <p class="mt-1 text-sm font-medium text-neutral-700">
+                                Sie sparen {{ number_format((float) $watch->previous_asking_price - (float) $watch->asking_price, 2, ',', '.') }} €
+                            </p>
+                            <p class="mt-0.5 text-xs text-neutral-500">
+                                Preis der letzten 30 Tage vor Preissenkung: {{ $watch->formattedPreviousPrice() }}
+                            </p>
+                            <p class="mt-1 text-xs text-neutral-400">{{ $taxNote }}</p>
+                        @else
+                            <p class="text-3xl font-semibold text-blue-900">{{ $watch->formattedAskingPrice() }}</p>
+                            <p class="mt-1 text-xs text-neutral-400">{{ $taxNote }}</p>
+                        @endif
                         <p class="mt-2 flex items-center gap-1.5 text-sm text-green-700">
                             <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                             Sofort lieferbar in 1–2 Werktagen nach Zahlungseingang
@@ -219,7 +235,12 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                 {{-- Schnell-Merkmale als Chips --}}
                 <div class="mt-6 flex flex-wrap gap-2">
                     @if ($watch->condition)
-                        <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-900">{{ $watch->condition->getLabel() }}</span>
+                        <button type="button" onclick="cvOpenModal('cv-condition-modal')"
+                                class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-900 transition hover:bg-blue-100"
+                                title="Was bedeutet der Zustand?">
+                            {{ $watch->condition->getLabel() }}
+                            <svg class="h-3.5 w-3.5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>
+                        </button>
                     @endif
                     @if ($watch->has_box)
                         <span class="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">Mit Box</span>
@@ -326,6 +347,20 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                     @endif
                 @endforeach
             </div>
+
+            {{-- Hinweis Wasserdichtigkeit (gebrauchte Uhren) --}}
+            <div class="mt-10">
+                <h3 class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Wasserdichtigkeit</h3>
+                <div class="mt-3 rounded-2xl border border-blue-100 bg-blue-50/60 px-5 py-4 text-xs leading-relaxed text-neutral-700">
+                    <strong class="text-blue-900">Keine Garantie auf Wasserdichtigkeit bei gebrauchten Uhren!</strong>
+                    Bitte beachten Sie, dass die Wasserdichtigkeit lediglich zum Zeitpunkt einer geprüften
+                    Kontrolle gewährleistet werden kann. Sie kann durch äußere Einflüsse wie Stöße,
+                    Temperaturschwankungen, Fette, Säuren oder unsachgemäßen Gebrauch (z.&nbsp;B. das Öffnen
+                    der Krone oder das Betätigen von Drückern unter Wasser) beeinträchtigt werden. Aus diesem
+                    Grund übernehmen wir eine Garantie auf Wasserdichtigkeit ausschließlich bei Vorlage eines
+                    entsprechenden Prüfprotokolls, das nicht älter als 14 Tage ist.
+                </div>
+            </div>
         </section>
 
         {{-- Weitere Uhren --}}
@@ -339,6 +374,32 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                 </div>
             </section>
         @endif
+    </div>
+
+    {{-- Zustand-Erklärung: unsere Zustandsgruppen --}}
+    <div id="cv-condition-modal" class="fixed inset-0 z-50 hidden items-start justify-center overflow-y-auto bg-black/40 p-4 pt-24">
+        <div class="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-semibold text-neutral-900">Zustand</h2>
+                <button type="button" onclick="cvCloseModal('cv-condition-modal')"
+                        class="text-2xl leading-none text-neutral-400 transition hover:text-neutral-700" aria-label="Schließen">&times;</button>
+            </div>
+            <p class="mt-4 text-sm leading-relaxed text-neutral-600">
+                Um den allgemeinen Zustand einer Uhr für Sie so transparent wie möglich
+                darzustellen, stufen wir jede Uhr in eine Zustandsgruppe ein:
+            </p>
+            <ul class="mt-4 space-y-1.5 text-sm text-neutral-800">
+                @foreach (\App\Enums\WatchCondition::cases() as $conditionCase)
+                    <li class="flex items-center gap-2 {{ $watch->condition === $conditionCase ? 'font-semibold text-blue-900' : '' }}">
+                        <span class="h-1.5 w-1.5 shrink-0 rounded-full {{ $watch->condition === $conditionCase ? 'bg-blue-700' : 'bg-neutral-300' }}"></span>
+                        {{ $conditionCase->getLabel() }}
+                        @if ($watch->condition === $conditionCase)
+                            <span class="text-xs font-normal text-blue-700">(diese Uhr)</span>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
     </div>
 
     {{-- Teilen-Dialog: Link kopieren oder per E-Mail teilen --}}
@@ -444,7 +505,7 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
             modal.classList.remove('flex');
         }
 
-        ['cv-share-modal', 'cv-propose-modal'].forEach(function (id) {
+        ['cv-share-modal', 'cv-propose-modal', 'cv-condition-modal'].forEach(function (id) {
             var modal = document.getElementById(id);
 
             if (modal) {
