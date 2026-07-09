@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Produktion läuft hinter Cloudflare + lokalem nginx-Proxy —
+        // ohne Proxy-Vertrauen würde Laravel http-URLs erzeugen und
+        // signierte Links (Gewinner-Datenseite) wären ungültig.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
