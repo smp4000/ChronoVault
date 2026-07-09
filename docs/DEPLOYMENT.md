@@ -26,7 +26,13 @@ Zertifikats-Handling deutlich fummeliger.
    („ChronoVault") → **Server hinzufügen**.
 2. Einstellungen:
    - **Standort:** Falkenstein oder Nürnberg (Deutschland)
-   - **Image:** Ubuntu 24.04
+   - **Image:** **Ubuntu 24.04** — WICHTIG: nicht das neueste Ubuntu
+     nehmen! CloudPanel unterstützt nur 24.04/22.04; auf neueren
+     Images bricht der Installer mit „Database Engine … not supported"
+     ab. Falls schon falsch erstellt: Server → „Neuaufbau"/„Rebuild"
+     mit Ubuntu 24.04 (löscht den Server-Inhalt), danach lokal
+     `ssh-keygen -R <SERVER-IP>` ausführen (der Host-Key hat sich
+     geändert — die SSH-Warnung ist dann erwartbar).
    - **Typ:** Shared vCPU x86 → **CX22** (2 vCPU, 4 GB RAM, 40 GB — reicht lange)
    - **Networking:** IPv4 aktiviert lassen (kostet ~0,60 €/Mon., ist nötig)
    - **SSH-Key:** Wenn Sie keinen haben, Feld leer lassen — Hetzner
