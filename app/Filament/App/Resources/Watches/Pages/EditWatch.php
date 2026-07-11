@@ -20,6 +20,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use RuntimeException;
@@ -45,12 +46,17 @@ class EditWatch extends EditRecord
                         ->default(fn (): string => (string) tenant('name'))
                         ->required()
                         ->maxLength(60),
+
+                    Toggle::make('force')
+                        ->label('Auch bereits gestempelte Fotos erneut stempeln')
+                        ->helperText('Achtung: Ein vorhandener Stempel bleibt erhalten — der neue kommt zusätzlich dazu.'),
                 ])
                 ->action(function (Watch $record, array $data): void {
                     try {
                         $count = app(WatermarkWatchPhotosAction::class)->execute(
                             $record,
                             (string) $data['text'],
+                            (bool) ($data['force'] ?? false),
                         );
                     } catch (RuntimeException $exception) {
                         Notification::make()->danger()->title($exception->getMessage())->send();

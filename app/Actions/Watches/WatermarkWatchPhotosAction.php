@@ -37,9 +37,11 @@ use Throwable;
 class WatermarkWatchPhotosAction
 {
     /**
+     * @param  bool  $force  Auch bereits gestempelte Fotos erneut stempeln
+     *                       (der vorhandene Stempel bleibt dabei erhalten)
      * @return int Anzahl der neu gestempelten Fotos
      */
-    public function execute(Watch $watch, ?string $text = null): int
+    public function execute(Watch $watch, ?string $text = null, bool $force = false): int
     {
         $text = trim($text ?? (string) tenant('name'));
 
@@ -56,7 +58,7 @@ class WatermarkWatchPhotosAction
         $stamped = 0;
 
         foreach ($watch->getMedia('photos') as $media) {
-            if ($media->getCustomProperty('watermarked') === true) {
+            if (! $force && $media->getCustomProperty('watermarked') === true) {
                 continue;
             }
 
@@ -100,8 +102,8 @@ class WatermarkWatchPhotosAction
         $width = imagesx($image);
         $height = imagesy($image);
 
-        // Klein: Schriftgröße relativ zur Bildbreite (min. 11 pt, ~2,2 %)
-        $fontSize = max(11.0, $width * 0.022);
+        // Klein: Schriftgröße relativ zur Bildbreite (min. 12 pt, ~2,6 %)
+        $fontSize = max(12.0, $width * 0.026);
 
         // Text halbieren: vordere Hälfte schwarz, hintere weiß
         $length = mb_strlen($text);
@@ -125,9 +127,10 @@ class WatermarkWatchPhotosAction
         $x = (int) round(($width - $textWidth) / 2);
         $y = (int) round(($height + $textHeight) / 2);
 
-        // Ganz dezent: stark transparent (GD-Alpha 0 = deckend, 127 = unsichtbar)
-        $black = imagecolorallocatealpha($image, 0, 0, 0, 96);
-        $white = imagecolorallocatealpha($image, 255, 255, 255, 96);
+        // Dezent, aber erkennbar (GD-Alpha 0 = deckend, 127 = unsichtbar;
+        // visuell geprüft: 84 ≈ ein Drittel Deckkraft)
+        $black = imagecolorallocatealpha($image, 0, 0, 0, 84);
+        $white = imagecolorallocatealpha($image, 255, 255, 255, 84);
 
         if ($black === false || $white === false) {
             imagedestroy($image);
