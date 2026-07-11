@@ -73,7 +73,8 @@ class WatchPhotoGallery extends Component
     {
         $photos = $this->watch->getMedia('photos')->map(fn ($media): array => [
             'id' => (int) $media->getKey(),
-            'url' => $media->getUrl(),
+            // Cache-Buster wie in Watch::photoUrls()
+            'url' => $media->getUrl().'?v='.($media->updated_at?->getTimestamp() ?? 0),
             'slotLabel' => PhotoSlot::tryFrom((string) $media->getCustomProperty('slot'))?->getLabel(),
         ])->values();
 

@@ -323,8 +323,11 @@ class Watch extends Model implements HasMedia
         // Die Sortier-Reihenfolge (media.order_column) bestimmt Galerie
         // und Shop-Kachel — im Panel per Drag & Drop änderbar
         // (WatchPhotoGallery); das erste Bild ist das Hauptbild.
+        // ?v=<updated_at>: Cache-Buster — nach Bearbeitungen (z. B.
+        // Wasserzeichen) ändert sich die URL, sonst liefern Cloudflare/
+        // Browser das alte gecachte Bild aus.
         $mediaUrls = $this->getMedia('photos')
-            ->map(fn ($media): string => $media->getUrl())
+            ->map(fn ($media): string => $media->getUrl().'?v='.($media->updated_at?->getTimestamp() ?? 0))
             ->all();
 
         if ($mediaUrls !== []) {

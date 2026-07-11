@@ -51,7 +51,10 @@ class WatchPhotoUploadController extends Controller
             return [
                 'value' => $slot->value,
                 'label' => $slot->getLabel(),
-                'photoUrl' => $existing?->getUrl(),
+                // Cache-Buster wie in Watch::photoUrls()
+                'photoUrl' => $existing !== null
+                    ? $existing->getUrl().'?v='.($existing->updated_at?->getTimestamp() ?? 0)
+                    : null,
             ];
         }, PhotoSlot::cases());
 
