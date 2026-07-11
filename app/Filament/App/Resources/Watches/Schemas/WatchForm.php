@@ -467,12 +467,14 @@ class WatchForm
                                             ->filterMediaUsing(fn (Collection $media): Collection => $media
                                                 ->filter(fn (Media $item): bool => blank($item->getCustomProperty('slot'))))
                                             ->image()
+                                            ->imageEditor()
+                                            ->imageEditorAspectRatios([null, '1:1', '4:3', '16:9'])
                                             ->multiple()
                                             ->reorderable()
                                             ->maxFiles(20)
                                             ->maxSize(10240)
                                             ->panelLayout('grid')
-                                            ->helperText('Zusätzliche Bilder — die KI-Bildquellen werden beim Speichern automatisch ergänzt, solange noch keine Fotos vorhanden sind.'),
+                                            ->helperText('Zusätzliche Bilder — per Ziehen sortierbar (die Reihenfolge gilt auch im Shop). Stift-Symbol beim Upload: Zuschneiden, Drehen, Spiegeln.'),
                                     ]),
 
                                 Section::make('Zertifikate & Dokumente')
@@ -580,12 +582,14 @@ class WatchForm
     {
         return array_map(
             fn (PhotoSlot $slot): SpatieMediaLibraryFileUpload => SpatieMediaLibraryFileUpload::make('photo_slot_'.$slot->value)
-                ->label($slot->getLabel())
+                ->label($slot->getLabel().($slot === PhotoSlot::Front ? ' — Hauptbild' : ''))
                 ->collection('photos')
                 ->customProperties(['slot' => $slot->value])
                 ->filterMediaUsing(fn (Collection $media): Collection => $media
                     ->filter(fn (Media $item): bool => $item->getCustomProperty('slot') === $slot->value))
                 ->image()
+                ->imageEditor()
+                ->imageEditorAspectRatios([null, '1:1', '4:3'])
                 ->maxSize(10240),
             PhotoSlot::cases(),
         );

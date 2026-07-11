@@ -61,7 +61,9 @@ it('serves the mobile upload page via signed link and stores slot photos', funct
             $page->assertSee($slot->getLabel());
         }
 
-        $page->assertSee('Tipps für gelungene Bilder');
+        $page->assertSee('Tipps für gelungene Bilder')
+            ->assertSee('Weitere Fotos')
+            ->assertSee('Übertragen');
 
         // Upload in den Front-Slot
         $this->post($storeUrl, [
@@ -75,13 +77,31 @@ it('serves the mobile upload page via signed link and stores slot photos', funct
             'photo' => UploadedFile::fake()->image('front-neu.jpg', 800, 800),
         ])->assertOk();
 
+        // Weitere Fotos (slot "extra") werden ERGÄNZT, nicht ersetzt
+        $this->post($storeUrl, [
+            'slot' => 'extra',
+            'photo' => UploadedFile::fake()->image('detail-1.jpg', 800, 800),
+        ])->assertOk();
+
+        $this->post($storeUrl, [
+            'slot' => 'extra',
+            'photo' => UploadedFile::fake()->image('detail-2.jpg', 800, 800),
+        ])->assertOk();
+
         $tenant->run(function () use ($watchId) {
             $watch = Watch::findOrFail($watchId);
-            $frontPhotos = $watch->getMedia('photos')
-                ->filter(fn ($item): bool => $item->getCustomProperty('slot') === PhotoSlot::Front->value);
+            $media = $watch->getMedia('photos');
+
+            $frontPhotos = $media->filter(
+                fn ($item): bool => $item->getCustomProperty('slot') === PhotoSlot::Front->value,
+            );
+            $freePhotos = $media->filter(
+                fn ($item): bool => blank($item->getCustomProperty('slot')),
+            );
 
             expect($frontPhotos)->toHaveCount(1)
-                ->and($frontPhotos->first()->getCustomProperty('origin'))->toBe('mobile_upload');
+                ->and($frontPhotos->first()->getCustomProperty('origin'))->toBe('mobile_upload')
+                ->and($freePhotos)->toHaveCount(2);
         });
     } finally {
         tenancy()->end();

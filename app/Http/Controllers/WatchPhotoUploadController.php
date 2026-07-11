@@ -8,9 +8,10 @@
  * Zweck:
  *   Der Händler scannt im Uhren-Formular einen QR-Code und landet auf
  *   einer schlanken Handy-Seite mit den Platzhalter-Slots des geführten
- *   Foto-Uploads (Vorderseite, Rückseite, …). Jedes Foto wird direkt
- *   der Uhr zugeordnet (Media-Collection photos, custom_property slot)
- *   — ein bestehendes Slot-Foto wird ersetzt.
+ *   Foto-Uploads (Vorderseite, Rückseite, …) plus „Weitere Fotos"
+ *   (beliebig viele, ohne Slot). Die Fotos werden auf dem Handy erst
+ *   GESAMMELT und mit „Übertragen" gemeinsam hochgeladen — erst dann
+ *   wird ein bestehendes Slot-Foto ersetzt; freie Fotos werden ergänzt.
  *
  * Sicherheit:
  *   Nur über den SIGNIERTEN Link erreichbar (24 h gültig) — kein Login
@@ -67,14 +68,17 @@ class WatchPhotoUploadController extends Controller
     }
 
     /**
-     * Foto für einen Slot speichern — ersetzt das vorhandene Slot-Foto.
+     * Foto speichern: Slot-Fotos ersetzen das vorhandene Slot-Foto,
+     * freie Fotos (slot = "extra") werden ergänzt.
      */
     public function store(Request $request, string $watchId): JsonResponse
     {
         $watch = Watch::query()->findOrFail($watchId);
 
+        $slotValues = [...array_column(PhotoSlot::cases(), 'value'), 'extra'];
+
         $validated = $request->validate([
-            'slot' => ['required', Rule::in(array_column(PhotoSlot::cases(), 'value'))],
+            'slot' => ['required', Rule::in($slotValues)],
             'photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:15360'],
         ], [
             'photo.required' => 'Bitte wählen Sie ein Foto aus.',
@@ -83,13 +87,20 @@ class WatchPhotoUploadController extends Controller
             'photo.max' => 'Das Foto ist zu groß (max. 15 MB).',
         ]);
 
-        // Ein Foto je Slot: das alte Slot-Foto wird ersetzt
-        $watch->getMedia('photos')
-            ->filter(fn ($item): bool => $item->getCustomProperty('slot') === $validated['slot'])
-            ->each(fn ($item) => $item->delete());
+        $isExtra = $validated['slot'] === 'extra';
+
+        if (! $isExtra) {
+            // Ein Foto je Slot: das alte Slot-Foto wird ersetzt
+            $watch->getMedia('photos')
+                ->filter(fn ($item): bool => $item->getCustomProperty('slot') === $validated['slot'])
+                ->each(fn ($item) => $item->delete());
+        }
 
         $media = $watch->addMediaFromRequest('photo')
-            ->withCustomProperties(['slot' => $validated['slot'], 'origin' => 'mobile_upload'])
+            ->withCustomProperties(array_filter([
+                'slot' => $isExtra ? null : $validated['slot'],
+                'origin' => 'mobile_upload',
+            ]))
             ->toMediaCollection('photos');
 
         return response()->json(['url' => $media->getUrl()]);
