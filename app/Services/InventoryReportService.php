@@ -15,6 +15,11 @@
  *   asking_price → sonst purchase_price. Die Quelle wird je Zeile
  *   ausgewiesen, damit die Liste belastbar bleibt.
  *
+ *   UNTERGRENZE: Liegt der Marktwert UNTER dem Einkaufspreis, gilt
+ *   stattdessen der Einkaufspreis plus Alterszuschlag (Wiederbe-
+ *   schaffung deckt den Ersatz, nicht den Wiederverkauf):
+ *   1. Jahr seit Kauf +10 %, 2. Jahr +15 %, ab dem 3. Jahr +20 %.
+ *
  * Bestand = alles außer „Verkauft"; Kommissionsuhren (Fremdeigentum)
  * optional zuschaltbar und als solche gekennzeichnet.
  * =========================================================================
@@ -117,25 +122,55 @@ class InventoryReportService
     }
 
     /**
-     * Wiederbeschaffungswert + Quelle (Marktwert → Angebotspreis → EK).
+     * Wiederbeschaffungswert + Quelle (Marktwert → Angebotspreis → EK),
+     * mit EK-Untergrenze: Marktwert unter Einkaufspreis → EK plus
+     * Alterszuschlag (1. Jahr +10 %, 2. Jahr +15 %, ab 3. Jahr +20 %).
      *
      * @return array{0: float|null, 1: string|null}
      */
     private function replacementValue(Watch $watch): array
     {
-        if ($watch->current_market_value !== null) {
-            return [(float) $watch->current_market_value, 'Marktwert'];
+        $purchase = $watch->purchase_price !== null ? (float) $watch->purchase_price : null;
+        $market = $watch->current_market_value !== null ? (float) $watch->current_market_value : null;
+
+        // Marktwert unter EK → EK + Alterszuschlag als Untergrenze
+        if ($purchase !== null && $market !== null && $market < $purchase) {
+            return $this->purchaseBasedValue($watch, $purchase);
+        }
+
+        if ($market !== null) {
+            return [$market, 'Marktwert'];
         }
 
         if ($watch->asking_price !== null) {
             return [(float) $watch->asking_price, 'Angebotspreis'];
         }
 
-        if ($watch->purchase_price !== null) {
-            return [(float) $watch->purchase_price, 'Einkaufspreis'];
+        if ($purchase !== null) {
+            return [$purchase, 'Einkaufspreis'];
         }
 
         return [null, null];
+    }
+
+    /**
+     * Einkaufspreis + Alterszuschlag seit Kaufdatum (ersatzweise
+     * Anlagedatum): 1. Jahr +10 %, 2. Jahr +15 %, ab dem 3. Jahr +20 %.
+     *
+     * @return array{0: float, 1: string}
+     */
+    private function purchaseBasedValue(Watch $watch, float $purchase): array
+    {
+        $reference = $watch->purchase_date ?? $watch->created_at;
+        $years = $reference !== null ? (int) floor($reference->diffInYears(now())) : 0;
+
+        [$surcharge, $label] = match (true) {
+            $years <= 0 => [0.10, 'EK +10 % (1. Jahr)'],
+            $years === 1 => [0.15, 'EK +15 % (2. Jahr)'],
+            default => [0.20, 'EK +20 % (ab 3. Jahr)'],
+        };
+
+        return [round($purchase * (1 + $surcharge), 2), $label];
     }
 
     /**

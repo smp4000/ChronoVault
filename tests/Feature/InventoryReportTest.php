@@ -100,3 +100,68 @@ it('builds the inventory report with value fallbacks and totals', function () {
         destroyTenant($tenant);
     }
 });
+
+it('applies the purchase price floor with age surcharge when market is below purchase', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $brandId = Brand::where('name', 'Rolex')->firstOrFail()->id;
+
+            // Marktwert (3.300) UNTER EK (4.150), Kauf vor 6 Monaten -> EK +10 %
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Junge Uhr',
+                'status' => WatchStatus::InStock,
+                'purchase_price' => 4150,
+                'purchase_date' => now()->subMonths(6),
+                'current_market_value' => 3300,
+            ]);
+
+            // Kauf vor 1,5 Jahren -> EK +15 %
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Mittlere Uhr',
+                'status' => WatchStatus::InStock,
+                'purchase_price' => 1000,
+                'purchase_date' => now()->subMonths(18),
+                'current_market_value' => 900,
+            ]);
+
+            // Kauf vor 4 Jahren -> EK +20 %
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Alte Uhr',
+                'status' => WatchStatus::InStock,
+                'purchase_price' => 2000,
+                'purchase_date' => now()->subYears(4),
+                'current_market_value' => 1500,
+            ]);
+
+            // Marktwert UEBER EK -> Marktwert gilt unveraendert
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Gestiegene Uhr',
+                'status' => WatchStatus::InStock,
+                'purchase_price' => 5000,
+                'purchase_date' => now()->subYears(2),
+                'current_market_value' => 7000,
+            ]);
+
+            $rows = collect(app(InventoryReportService::class)->data()['rows']);
+
+            $valueOf = fn (string $name) => $rows->firstWhere(fn ($row) => str_contains($row['name'], $name));
+
+            expect($valueOf('Junge Uhr')['value'])->toBe(4565.0)     // 4150 * 1,10
+                ->and($valueOf('Junge Uhr')['valueSource'])->toBe('EK +10 % (1. Jahr)')
+                ->and($valueOf('Mittlere Uhr')['value'])->toBe(1150.0) // 1000 * 1,15
+                ->and($valueOf('Mittlere Uhr')['valueSource'])->toBe('EK +15 % (2. Jahr)')
+                ->and($valueOf('Alte Uhr')['value'])->toBe(2400.0)     // 2000 * 1,20
+                ->and($valueOf('Alte Uhr')['valueSource'])->toBe('EK +20 % (ab 3. Jahr)')
+                ->and($valueOf('Gestiegene Uhr')['value'])->toBe(7000.0)
+                ->and($valueOf('Gestiegene Uhr')['valueSource'])->toBe('Marktwert');
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});

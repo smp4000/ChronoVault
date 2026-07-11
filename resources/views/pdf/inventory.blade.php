@@ -111,8 +111,10 @@ includeConsignment), $seller (name/street/postal_code/city).
     <div class="note">
         Die ausgewiesenen Wiederbeschaffungswerte basieren auf aktuellen Marktwert-Schätzungen
         (KI-gestützte Wertermittlung), ersatzweise auf Angebots- bzw. Einkaufspreisen — die
-        Quelle ist je Position vermerkt. Angaben ohne Gewähr; für verbindliche Bewertungen
-        empfiehlt sich ein Sachverständigengutachten.
+        Quelle ist je Position vermerkt. Liegt der Marktwert unter dem Einkaufspreis, gilt als
+        Untergrenze der Einkaufspreis zzgl. Alterszuschlag (1.&nbsp;Jahr +10&nbsp;%,
+        2.&nbsp;Jahr +15&nbsp;%, ab dem 3.&nbsp;Jahr +20&nbsp;%). Angaben ohne Gewähr; für
+        verbindliche Bewertungen empfiehlt sich ein Sachverständigengutachten.
     </div>
 
     <div class="footer">
