@@ -19,6 +19,9 @@
  *   - Wishlist    : Wunschliste (NICHT im Besitz — beobachtetes
  *                   Wunschmodell mit Zielpreis; nächtliche Bewertung
  *                   läuft mit, Alarm-Mail bei Ziel-Erreichen)
+ *   - PrivateCollection : Eigentum (private Sammlung — nicht zum
+ *                   Verkauf, aber versichert: zählt in Versicherungs-
+ *                   liste und Bestandswert, nie im Shop)
  *
  * Mögliche Erweiterungen:
  *   - OnApproval (Ansichtssendung)
@@ -44,6 +47,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
     case InAuction = 'in_auction';
     case Sold = 'sold';
     case Wishlist = 'wishlist';
+    case PrivateCollection = 'private_collection';
 
     public function getLabel(): string
     {
@@ -55,6 +59,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::InAuction => 'In Auktion',
             self::Sold => 'Verkauft',
             self::Wishlist => 'Wunschliste',
+            self::PrivateCollection => 'Eigentum (Sammlung)',
         };
     }
 
@@ -68,6 +73,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::InAuction => 'warning',
             self::Sold => 'gray',
             self::Wishlist => 'danger',
+            self::PrivateCollection => 'info',
         };
     }
 
@@ -81,6 +87,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::InAuction => 'heroicon-m-megaphone',
             self::Sold => 'heroicon-m-banknotes',
             self::Wishlist => 'heroicon-m-heart',
+            self::PrivateCollection => 'heroicon-m-lock-closed',
         };
     }
 

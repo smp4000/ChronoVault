@@ -112,6 +112,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Support\TenantNotifications::recipients()` — zentrale Empfänger-Auflösung (notification_email → Inhaber → Admins → mail.from), genutzt von Shop-Anfragen/Bestellungen/Wunschlisten-Alarm
 - Dashboard: `WishlistWidget` (TableWidget, volle Breite, nur sichtbar wenn Wunschmodelle existieren) — Zielpreis, Marktwert (grün + Haken bei Ziel), letzte Bewertung, Zeilenklick öffnet die Uhr
 - Wunschuhren sind ausgeschlossen aus: Shop (Scopes), Versicherungsliste (Status-Whitelist), Bestandswert-Widget
+- `WatchStatus::PrivateCollection` („Eigentum (Sammlung)", Schloss-Icon): private, versicherte Uhren — NICHT im Shop (Whitelists), aber IMMER in Versicherungsliste und Bestandswert
 
 ## DSGVO & Rechtliches
 

@@ -45,6 +45,8 @@ class InventoryReportService
             WatchStatus::Reserved->value,
             WatchStatus::InService->value,
             WatchStatus::InAuction->value,
+            // Private Sammlung: Eigentum, versichert — gehört in die Liste
+            WatchStatus::PrivateCollection->value,
         ];
 
         if ($includeConsignment) {

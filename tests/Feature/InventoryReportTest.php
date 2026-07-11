@@ -64,13 +64,21 @@ it('builds the inventory report with value fallbacks and totals', function () {
                 'current_market_value' => 7000,
             ]);
 
+            // Eigentum (private Sammlung) → zählt IMMER mit (versichert)
+            Watch::factory()->create([
+                'brand_id' => $brandId,
+                'model_name' => 'Sammlungs-Uhr',
+                'status' => WatchStatus::PrivateCollection,
+                'current_market_value' => 3000,
+            ]);
+
             $service = app(InventoryReportService::class);
 
-            // Ohne Kommission: 2 Uhren, Summe 17.000
+            // Ohne Kommission: 3 Uhren (inkl. Sammlung), Summe 20.000
             $report = $service->data();
 
-            expect($report['count'])->toBe(2)
-                ->and($report['total'])->toBe(17000.0)
+            expect($report['count'])->toBe(3)
+                ->and($report['total'])->toBe(20000.0)
                 ->and(collect($report['rows'])->pluck('name')->join(' '))->not->toContain('Verkaufte Uhr')
                 ->and(collect($report['rows'])->firstWhere('serial', 'S-111')['valueSource'])->toBe('Marktwert')
                 ->and(collect($report['rows'])->firstWhere('valueSource', 'Angebotspreis'))->not->toBeNull()
@@ -80,8 +88,8 @@ it('builds the inventory report with value fallbacks and totals', function () {
             // Mit Kommission + Einkaufspreisen
             $full = $service->data(includeConsignment: true, includePurchase: true);
 
-            expect($full['count'])->toBe(3)
-                ->and($full['total'])->toBe(24000.0)
+            expect($full['count'])->toBe(4)
+                ->and($full['total'])->toBe(27000.0)
                 ->and(collect($full['rows'])->firstWhere('isConsignment', true)['name'])->toContain('Kommissions-Uhr')
                 ->and((float) collect($full['rows'])->firstWhere('serial', 'S-111')['purchasePrice'])->toBe(8000.0);
 
