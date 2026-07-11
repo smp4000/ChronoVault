@@ -35,9 +35,3 @@ Schedule::command('tenants:run', ['auctions:finalize-due'])
 Schedule::command('tenants:run', ['watches:update-market-values'])
     ->dailyAt('00:00')
     ->withoutOverlapping();
-
-// Wunschlisten-Beobachtung: aktive Wunschmodelle bewerten +
-// Zielpreis-Alarme — bewusst nach der Bestands-Wertermittlung.
-Schedule::command('tenants:run', ['wishlist:update-values'])
-    ->dailyAt('00:30')
-    ->withoutOverlapping();

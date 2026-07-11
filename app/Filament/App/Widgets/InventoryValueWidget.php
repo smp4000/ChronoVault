@@ -36,7 +36,11 @@ class InventoryValueWidget extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $base = Watch::query()->where('status', '!=', WatchStatus::Sold->value);
+        // Verkauft raus (kein Bestand mehr), Wunschliste raus (nicht besessen)
+        $base = Watch::query()->whereNotIn('status', [
+            WatchStatus::Sold->value,
+            WatchStatus::Wishlist->value,
+        ]);
 
         $purchaseTotal = (float) (clone $base)->sum('purchase_price');
         $marketTotal = (float) (clone $base)->sum('current_market_value');

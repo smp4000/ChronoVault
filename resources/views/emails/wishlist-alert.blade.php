@@ -2,7 +2,8 @@
 =============================================================================
 E-Mail: Zielpreis-Alarm der Wunschliste (an den Händler/Sammler)
 =============================================================================
-Erwartet: $item (WishlistItem mit brand), $summary (string|null), $tenantName.
+Erwartet: $watch (Status wishlist, mit brand), $summary (string|null),
+$valueLow, $valueHigh, $tenantName.
 =============================================================================
 --}}
 @php
@@ -20,7 +21,7 @@ Erwartet: $item (WishlistItem mit brand), $summary (string|null), $tenantName.
 <body style="margin:0; padding:0; background-color:#f5f5f4; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
 
     <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">
-        {{ $item->displayName() }} ist auf {{ $eur($item->current_market_value) }} gefallen — Ihr Ziel: {{ $eur($item->target_price) }}.
+        {{ $watch->fullName() }} ist auf {{ $eur($watch->current_market_value) }} gefallen — Ihr Ziel: {{ $eur($watch->wishlist_target_price) }}.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f4; padding:32px 16px;">
@@ -48,10 +49,10 @@ Erwartet: $item (WishlistItem mit brand), $summary (string|null), $tenantName.
                                             Zielpreis erreicht
                                         </p>
                                         <p style="margin:12px 0 0 0; font-size:40px; font-weight:700; color:#ffffff; letter-spacing:-1px;">
-                                            {{ $eur($item->current_market_value) }}
+                                            {{ $eur($watch->current_market_value) }}
                                         </p>
                                         <p style="margin:8px 0 0 0; font-size:14px; color:#a7f3d0;">
-                                            {{ $item->displayName() }} · Ihr Ziel: {{ $eur($item->target_price) }}
+                                            {{ $watch->fullName() }} · Ihr Ziel: {{ $eur($watch->wishlist_target_price) }}
                                         </p>
                                     </td>
                                 </tr>
@@ -62,16 +63,16 @@ Erwartet: $item (WishlistItem mit brand), $summary (string|null), $tenantName.
                                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                                             <tr>
                                                 <td style="padding:9px 0; border-bottom:1px solid #f4f4f5; font-size:14px; color:#71717a;">Aktueller Marktwert</td>
-                                                <td style="padding:9px 0; border-bottom:1px solid #f4f4f5; font-size:14px; font-weight:700; color:#047857;" align="right">{{ $eur($item->current_market_value) }}</td>
+                                                <td style="padding:9px 0; border-bottom:1px solid #f4f4f5; font-size:14px; font-weight:700; color:#047857;" align="right">{{ $eur($watch->current_market_value) }}</td>
                                             </tr>
                                             <tr>
                                                 <td style="padding:9px 0; border-bottom:1px solid #f4f4f5; font-size:14px; color:#71717a;">Ihr Zielpreis</td>
-                                                <td style="padding:9px 0; border-bottom:1px solid #f4f4f5; font-size:14px; font-weight:600; color:#18181b;" align="right">{{ $eur($item->target_price) }}</td>
+                                                <td style="padding:9px 0; border-bottom:1px solid #f4f4f5; font-size:14px; font-weight:600; color:#18181b;" align="right">{{ $eur($watch->wishlist_target_price) }}</td>
                                             </tr>
-                                            @if ($item->value_low !== null || $item->value_high !== null)
+                                            @if ($valueLow !== null || $valueHigh !== null)
                                                 <tr>
                                                     <td style="padding:9px 0; font-size:14px; color:#71717a;">Marktspanne</td>
-                                                    <td style="padding:9px 0; font-size:14px; font-weight:600; color:#18181b;" align="right">{{ $eur($item->value_low) }} – {{ $eur($item->value_high) }}</td>
+                                                    <td style="padding:9px 0; font-size:14px; font-weight:600; color:#18181b;" align="right">{{ $eur($valueLow) }} – {{ $eur($valueHigh) }}</td>
                                                 </tr>
                                             @endif
                                         </table>

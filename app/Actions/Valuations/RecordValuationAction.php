@@ -11,6 +11,13 @@
  *   last_valuation_at) — aber nur, wenn die Bewertung nicht ÄLTER ist
  *   als die aktuellste vorhandene (nachgetragene Historie überschreibt
  *   den aktuellen Wert nicht).
+ *
+ * Wunschlisten-Alarm:
+ *   Bei Uhren mit Status "Wunschliste" prüft JEDE neue Bewertung den
+ *   Zielpreis: Marktwert auf/unter Ziel → einmalige Alarm-Mail
+ *   (wishlist_notified_at = Spam-Schutz); Preis über Ziel → Alarm
+ *   wieder scharfstellen. Gilt damit für die nächtliche Wertermittlung
+ *   UND die manuelle Bewertung im Panel.
  * =========================================================================
  */
 
@@ -19,9 +26,14 @@ declare(strict_types=1);
 namespace App\Actions\Valuations;
 
 use App\Enums\ValuationSource;
+use App\Enums\WatchStatus;
+use App\Mail\WishlistPriceAlertMail;
 use App\Models\Valuation;
 use App\Models\Watch;
+use App\Support\TenantNotifications;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class RecordValuationAction
 {
@@ -51,8 +63,44 @@ class RecordValuationAction
                 'current_market_value' => $data['market_value'],
                 'last_valuation_at' => $valuedAt,
             ])->saveQuietly();
+
+            $this->handleWishlistAlert($watch->refresh(), $data['summary'] ?? null);
         }
 
         return $valuation;
+    }
+
+    /**
+     * Zielpreis-Alarm für Wunschlisten-Uhren (einmalig je Unterschreitung).
+     */
+    private function handleWishlistAlert(Watch $watch, ?string $summary): void
+    {
+        if ($watch->getAttribute('status') !== WatchStatus::Wishlist
+            || $watch->wishlist_target_price === null) {
+            return;
+        }
+
+        // Preis über Ziel → Alarm wieder scharfstellen
+        if (! $watch->wishlistTargetReached()) {
+            if ($watch->getAttribute('wishlist_notified_at') !== null) {
+                $watch->forceFill(['wishlist_notified_at' => null])->saveQuietly();
+            }
+
+            return;
+        }
+
+        // Bereits alarmiert → kein Mail-Spam
+        if ($watch->getAttribute('wishlist_notified_at') !== null) {
+            return;
+        }
+
+        try {
+            Mail::to(TenantNotifications::recipients())
+                ->send(new WishlistPriceAlertMail($watch, $summary));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
+        $watch->forceFill(['wishlist_notified_at' => now()])->saveQuietly();
     }
 }

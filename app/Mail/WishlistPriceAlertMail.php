@@ -7,11 +7,11 @@
  *
  * Zweck:
  *   Informiert den Händler/Sammler, dass der recherchierte Marktwert
- *   eines Wunschmodells auf/unter dem Zielpreis liegt — Zeit zum
- *   Zuschlagen. Mit Markteinschätzung der KI (summary) und Spanne.
+ *   einer Wunschlisten-Uhr (Status wishlist) auf/unter dem Zielpreis
+ *   liegt — Zeit zum Zuschlagen. Mit KI-Markteinschätzung (summary).
  *
- * Versand: ValuateWishlistItemAction (einmalig je Unterschreitung —
- * notified_at verhindert Spam, Re-Arm bei Preisen über Ziel).
+ * Versand: RecordValuationAction::handleWishlistAlert (einmalig je
+ * Unterschreitung — wishlist_notified_at, Re-Arm bei Preis über Ziel).
  * =========================================================================
  */
 
@@ -19,7 +19,7 @@ declare(strict_types=1);
 
 namespace App\Mail;
 
-use App\Models\WishlistItem;
+use App\Models\Watch;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -32,24 +32,29 @@ class WishlistPriceAlertMail extends Mailable
     use SerializesModels;
 
     public function __construct(
-        public readonly WishlistItem $item,
+        public readonly Watch $watch,
         public readonly ?string $summary = null,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Zielpreis erreicht: '.$this->item->displayName(),
+            subject: 'Zielpreis erreicht: '.$this->watch->fullName(),
         );
     }
 
     public function content(): Content
     {
+        // Spanne aus der jüngsten Bewertung (falls vorhanden)
+        $latest = $this->watch->valuations()->latest('valued_at')->first();
+
         return new Content(
             view: 'emails.wishlist-alert',
             with: [
-                'item' => $this->item,
+                'watch' => $this->watch,
                 'summary' => $this->summary,
+                'valueLow' => $latest?->value_low,
+                'valueHigh' => $latest?->value_high,
                 'tenantName' => (string) tenant('name'),
             ],
         );

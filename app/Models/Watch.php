@@ -148,6 +148,8 @@ class Watch extends Model implements HasMedia
         'watchcharts_uuid',
         'current_market_value',
         'last_valuation_at',
+        'wishlist_target_price',
+        'wishlist_notified_at',
     ];
 
     /**
@@ -198,6 +200,9 @@ class Watch extends Model implements HasMedia
             // Modul 7 (Bewertungen) pflegt diese Felder
             'current_market_value' => 'decimal:2',
             'last_valuation_at' => 'datetime',
+            // Wunschliste (Status wishlist): Zielpreis + Alarm-Sperre
+            'wishlist_target_price' => 'decimal:2',
+            'wishlist_notified_at' => 'datetime',
             // Modul 4 (geführter Foto-Upload) nutzt diese Slots
             'photo_slots' => 'array',
             // Gespeicherte Fotos (Pfade auf der tenant-isolierten public-Disk)
@@ -537,6 +542,18 @@ class Watch extends Model implements HasMedia
                 WatchStatus::InAuction->value,
                 WatchStatus::Sold->value,
             ]);
+    }
+
+    /**
+     * Zielpreis der Wunschliste erreicht? (Marktwert auf/unter Ziel —
+     * nur für Uhren mit Status "Wunschliste" relevant)
+     */
+    public function wishlistTargetReached(): bool
+    {
+        return $this->getAttribute('status') === WatchStatus::Wishlist
+            && $this->wishlist_target_price !== null
+            && $this->current_market_value !== null
+            && (float) $this->current_market_value <= (float) $this->wishlist_target_price;
     }
 
     /**

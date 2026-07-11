@@ -37,7 +37,6 @@ use App\Actions\Shop\AcceptPriceProposalAction;
 use App\Actions\Shop\DeclinePriceProposalAction;
 use App\Actions\Shop\PurchaseWatchAction;
 use App\Enums\PriceProposalStatus;
-use App\Enums\UserRole;
 use App\Http\Requests\PriceProposalRequest;
 use App\Http\Requests\PurchaseWatchRequest;
 use App\Http\Requests\WatchInquiryRequest;
@@ -45,8 +44,8 @@ use App\Mail\PriceProposalMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\PriceProposal;
-use App\Models\User;
 use App\Models\Watch;
+use App\Support\TenantNotifications;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -369,24 +368,6 @@ class ShopController extends Controller
      */
     private function inquiryRecipients(): array
     {
-        $configured = tenant('notification_email');
-
-        if (is_string($configured) && $configured !== '') {
-            return [$configured];
-        }
-
-        $owners = User::role(UserRole::Owner->value)->pluck('email')->all();
-
-        if ($owners !== []) {
-            return $owners;
-        }
-
-        $admins = User::role(UserRole::Admin->value)->pluck('email')->all();
-
-        if ($admins !== []) {
-            return $admins;
-        }
-
-        return [(string) config('mail.from.address')];
+        return TenantNotifications::recipients();
     }
 }

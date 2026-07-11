@@ -104,12 +104,14 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Widgets\InventoryByStatusWidget` (Doughnut: Bestand nach Status, Modul 9)
 - `App\Widgets\TopBrandsWidget` (Balken: Top 5 Marken nach Einkaufswert unverkauft, Modul 9)
 
-## Wunschliste (Sammler-Beobachtung)
+## Wunschliste (Sammler-Beobachtung — direkt an der Uhr)
 
-- `wishlist_items` (Marke/Modell/Referenz, Zielpreis, Marktwert + Spanne, last_valuation_at, notified_at) + `App\Models\WishlistItem` (+ `WishlistStatus` active/paused/purchased, `WishlistItemPolicy` über watches.*)
-- `ValuateWishlistItemAction`: KI-Marktrecherche über den bestehenden `MarketValueLookupService` (transiente Watch als Recherche-Basis); Zielpreis erreicht → `WishlistPriceAlertMail` an Benachrichtigungs-Adresse (GENAU EINMAL — notified_at, Re-Arm bei Preis über Ziel)
-- `wishlist:update-values` (--limit/--force, 20-h-Sperre) — Scheduler täglich 00:30 via tenants:run (nach der Bestands-Wertermittlung)
-- Filament „Wunschliste" (Gruppe Bestand, Herz-Icon, Nav-Badge = aktive Einträge mit erreichtem Ziel): Formular Marke/Modell/Referenz/Zielpreis/Status/Notizen; Tabelle mit grünem Marktwert bei Ziel-Erreichen + „Jetzt bewerten"-Sofort-Action
+- Wunschmodelle sind normale Uhren mit `WatchStatus::Wishlist` (Label „Wunschliste", Herz-Icon) — dadurch stehen ALLE Uhren-Werkzeuge bereit (KI-Referenz-Lookup, Fotos, Bewertungshistorie); Felder `watches.wishlist_target_price` + `wishlist_notified_at`; das kurzlebige Zwischenmodell wishlist_items wurde entfernt (Migration droppt die Tabelle)
+- WatchForm: Status-Select ist live — bei „Wunschliste" erscheint das Zielpreis-Feld
+- Alarm zentral in `RecordValuationAction::handleWishlistAlert`: JEDE Bewertung (nächtliche `watches:update-market-values` — Wunschuhren laufen dort automatisch mit — UND manuelle Panel-Bewertung) prüft den Zielpreis; erreicht → `WishlistPriceAlertMail` (mit KI-Summary + Spanne aus der jüngsten Bewertung) GENAU EINMAL an `TenantNotifications::recipients()`; Preis über Ziel → Re-Arm
+- `App\Support\TenantNotifications::recipients()` — zentrale Empfänger-Auflösung (notification_email → Inhaber → Admins → mail.from), genutzt von Shop-Anfragen/Bestellungen/Wunschlisten-Alarm
+- Dashboard: `WishlistWidget` (TableWidget, volle Breite, nur sichtbar wenn Wunschmodelle existieren) — Zielpreis, Marktwert (grün + Haken bei Ziel), letzte Bewertung, Zeilenklick öffnet die Uhr
+- Wunschuhren sind ausgeschlossen aus: Shop (Scopes), Versicherungsliste (Status-Whitelist), Bestandswert-Widget
 
 ## DSGVO & Rechtliches
 

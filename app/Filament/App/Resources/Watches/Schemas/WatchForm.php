@@ -253,7 +253,20 @@ class WatchForm
                                     ->label('Bestandsstatus')
                                     ->options(WatchStatus::class)
                                     ->default(WatchStatus::InStock)
-                                    ->required(),
+                                    ->required()
+                                    ->live(),
+
+                                TextInput::make('wishlist_target_price')
+                                    ->label('Zielpreis (Wunschliste)')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->prefix('€')
+                                    ->visible(fn (Get $get): bool => in_array(
+                                        $get('status'),
+                                        [WatchStatus::Wishlist, WatchStatus::Wishlist->value],
+                                        true,
+                                    ))
+                                    ->helperText('Fällt der Marktwert der nächtlichen Bewertung auf oder unter diesen Wert, kommt eine Alarm-Mail.'),
 
                                 Toggle::make('has_box')
                                     ->label('Box vorhanden'),

@@ -16,6 +16,9 @@
  *   - Consignment : Kommission (Fremdeigentum im Verkauf)
  *   - InAuction   : In Auktion (als Los eingeliefert — Modul 8)
  *   - Sold        : Verkauft (bleibt für Historie/Statistik erhalten)
+ *   - Wishlist    : Wunschliste (NICHT im Besitz — beobachtetes
+ *                   Wunschmodell mit Zielpreis; nächtliche Bewertung
+ *                   läuft mit, Alarm-Mail bei Ziel-Erreichen)
  *
  * Mögliche Erweiterungen:
  *   - OnApproval (Ansichtssendung)
@@ -40,6 +43,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
     case Consignment = 'consignment';
     case InAuction = 'in_auction';
     case Sold = 'sold';
+    case Wishlist = 'wishlist';
 
     public function getLabel(): string
     {
@@ -50,6 +54,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::Consignment => 'Kommission',
             self::InAuction => 'In Auktion',
             self::Sold => 'Verkauft',
+            self::Wishlist => 'Wunschliste',
         };
     }
 
@@ -62,6 +67,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::Consignment => 'primary',
             self::InAuction => 'warning',
             self::Sold => 'gray',
+            self::Wishlist => 'danger',
         };
     }
 
@@ -74,6 +80,7 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
             self::Consignment => 'heroicon-m-arrows-right-left',
             self::InAuction => 'heroicon-m-megaphone',
             self::Sold => 'heroicon-m-banknotes',
+            self::Wishlist => 'heroicon-m-heart',
         };
     }
 

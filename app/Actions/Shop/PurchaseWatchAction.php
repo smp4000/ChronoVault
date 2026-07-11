@@ -28,14 +28,13 @@ namespace App\Actions\Shop;
 use App\Actions\Transactions\RecordSaleAction;
 use App\Enums\ContactType;
 use App\Enums\PaymentMethod;
-use App\Enums\UserRole;
 use App\Enums\WatchStatus;
 use App\Mail\OrderConfirmationMail;
 use App\Mail\OrderReceivedMail;
 use App\Models\Contact;
-use App\Models\User;
 use App\Models\Watch;
 use App\Services\InvoiceService;
+use App\Support\TenantNotifications;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use RuntimeException;
@@ -160,20 +159,6 @@ class PurchaseWatchAction
      */
     private function ownerRecipients(): array
     {
-        $configured = tenant('notification_email');
-
-        if (is_string($configured) && $configured !== '') {
-            return [$configured];
-        }
-
-        $owners = User::role(UserRole::Owner->value)->pluck('email')->all();
-
-        if ($owners !== []) {
-            return $owners;
-        }
-
-        $admins = User::role(UserRole::Admin->value)->pluck('email')->all();
-
-        return $admins !== [] ? $admins : [(string) config('mail.from.address')];
+        return TenantNotifications::recipients();
     }
 }
