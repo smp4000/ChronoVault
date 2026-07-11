@@ -104,6 +104,13 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Widgets\InventoryByStatusWidget` (Doughnut: Bestand nach Status, Modul 9)
 - `App\Widgets\TopBrandsWidget` (Balken: Top 5 Marken nach Einkaufswert unverkauft, Modul 9)
 
+## Wunschliste (Sammler-Beobachtung)
+
+- `wishlist_items` (Marke/Modell/Referenz, Zielpreis, Marktwert + Spanne, last_valuation_at, notified_at) + `App\Models\WishlistItem` (+ `WishlistStatus` active/paused/purchased, `WishlistItemPolicy` über watches.*)
+- `ValuateWishlistItemAction`: KI-Marktrecherche über den bestehenden `MarketValueLookupService` (transiente Watch als Recherche-Basis); Zielpreis erreicht → `WishlistPriceAlertMail` an Benachrichtigungs-Adresse (GENAU EINMAL — notified_at, Re-Arm bei Preis über Ziel)
+- `wishlist:update-values` (--limit/--force, 20-h-Sperre) — Scheduler täglich 00:30 via tenants:run (nach der Bestands-Wertermittlung)
+- Filament „Wunschliste" (Gruppe Bestand, Herz-Icon, Nav-Badge = aktive Einträge mit erreichtem Ziel): Formular Marke/Modell/Referenz/Zielpreis/Status/Notizen; Tabelle mit grünem Marktwert bei Ziel-Erreichen + „Jetzt bewerten"-Sofort-Action
+
 ## DSGVO & Rechtliches
 
 - Rechtsseiten `/impressum`, `/datenschutz`, `/widerruf` (`ShopController::legal`, Inhalte aus Tenant-data-JSON `imprint`/`privacy_policy`/`revocation_policy`; leerer Inhalt zeigt Betreiber-Hinweis) + View `shop/legal`
