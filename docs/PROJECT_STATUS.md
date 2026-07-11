@@ -104,6 +104,11 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Widgets\InventoryByStatusWidget` (Doughnut: Bestand nach Status, Modul 9)
 - `App\Widgets\TopBrandsWidget` (Balken: Top 5 Marken nach Einkaufswert unverkauft, Modul 9)
 
+## Mobile & Reports
+
+- Mobile Foto-Aufnahme per QR-Code: `App\Support\QrPng` (allgemeiner QR-Generator) + QR-Placeholder im Uhren-Formular (Fotos-Tab, nur beim Bearbeiten); `WatchPhotoUploadController` mit signierten Routen `watch.photos.mobile` (GET) / `.store` (POST, throttle:30,1), 24 h gültig, kein Login; Handy-Seite `mobile/photo-upload` mit PhotoSlot-Platzhaltern, Tipps-Dialog, Sofort-Upload per fetch (ersetzt vorhandenes Slot-Foto, origin mobile_upload)
+- Versicherungs-PDF: `App\Services\InventoryReportService` (Bestand ohne Verkauft; Kommission optional + gekennzeichnet; Wert-Fallback Marktwert → Angebotspreis → Einkaufspreis mit Quellen-Ausweis; GD-Thumbnails; Gesamtsumme + Stichtag) + `pdf/inventory`-View; Header-Action „Versicherungsliste (PDF)" auf der Bestandsliste (Toggles: Kommission, Einkaufspreise)
+
 ## Öffentlicher Shop (außerhalb Filament)
 
 - `App\Http\Controllers\ShopController` — Listing (Markenfilter, Pagination) + Detailseite (404 für Unveröffentlichtes); Verkauft/Reserviert/In Auktion bleiben mit Badge sichtbar (Scope `visibleInShop`, kaufbar zuerst sortiert), kaufbar nur `publishedInShop` (`isBuyableInShop()`/`shopStatusBadge()` am Watch-Model)

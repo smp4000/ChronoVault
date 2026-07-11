@@ -30,6 +30,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AuctionCatalogController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\WatchPhotoUploadController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -54,6 +55,15 @@ Route::middleware([
     Route::post('/uhren/{watch}/preisvorschlag', [ShopController::class, 'propose'])
         ->middleware('throttle:5,1')
         ->name('shop.propose');
+
+    // Mobile Foto-Aufnahme per QR-Code (Uhren-Formular → Handy) — nur
+    // über den signierten Link erreichbar (24 h gültig), kein Login nötig.
+    Route::get('/uhren/{watch}/fotos', [WatchPhotoUploadController::class, 'show'])
+        ->middleware('signed')
+        ->name('watch.photos.mobile');
+    Route::post('/uhren/{watch}/fotos', [WatchPhotoUploadController::class, 'store'])
+        ->middleware(['signed', 'throttle:30,1'])
+        ->name('watch.photos.mobile.store');
 
     // Kunden-Entscheidung zum Gegenangebot (Buttons in der Mail) — nur
     // über den signierten Link erreichbar (14 Tage gültig).

@@ -50,9 +50,11 @@ use App\Models\Brand;
 use App\Models\Caliber;
 use App\Models\Watch;
 use App\Services\WatchReferenceLookupService;
+use App\Support\QrPng;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
@@ -67,6 +69,8 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\HtmlString;
 use RuntimeException;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Throwable;
@@ -447,7 +451,10 @@ class WatchForm
                                     ->icon('heroicon-m-camera')
                                     ->columns(3)
                                     ->collapsible()
-                                    ->components(self::photoSlotUploads()),
+                                    ->components([
+                                        self::mobileUploadQr(),
+                                        ...self::photoSlotUploads(),
+                                    ]),
 
                                 Section::make('Weitere Fotos')
                                     ->icon('heroicon-m-photo')
@@ -518,6 +525,46 @@ class WatchForm
                             ]),
                     ]),
             ]);
+    }
+
+    /**
+     * QR-Code für die mobile Foto-Aufnahme: Scannen öffnet auf dem
+     * Handy die Platzhalter-Seite (signierter Link, 24 h gültig) —
+     * jedes Foto landet direkt an der Uhr. Nur beim Bearbeiten sichtbar
+     * (eine neue Uhr hat noch keine ID für den Link).
+     */
+    private static function mobileUploadQr(): Placeholder
+    {
+        return Placeholder::make('mobile_upload_qr')
+            ->hiddenLabel()
+            ->columnSpanFull()
+            ->visible(fn (?Watch $record): bool => $record !== null)
+            ->content(function (?Watch $record): HtmlString {
+                if ($record === null) {
+                    return new HtmlString('');
+                }
+
+                $url = URL::temporarySignedRoute(
+                    'watch.photos.mobile',
+                    now()->addDay(),
+                    ['watch' => $record->getKey()],
+                );
+
+                $qr = base64_encode(QrPng::make($url, 240));
+
+                return new HtmlString(
+                    '<div style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">'
+                    .'<img src="data:image/png;base64,'.$qr.'" alt="QR-Code für die mobile Foto-Aufnahme" '
+                    .'style="width:9.5rem;height:9.5rem;border-radius:0.75rem;border:1px solid rgb(229 231 235);background:#fff;padding:0.25rem;">'
+                    .'<div style="max-width:28rem;">'
+                    .'<p style="font-weight:600;margin:0;">Mit dem Smartphone fotografieren</p>'
+                    .'<p style="font-size:0.875rem;opacity:0.7;margin:0.375rem 0 0 0;line-height:1.55;">'
+                    .'Scannen Sie den QR-Code — auf dem Handy öffnet sich die Foto-Seite mit allen '
+                    .'Platzhaltern (Vorderseite, Rückseite, Armband …). Jedes Foto wird sofort an dieser '
+                    .'Uhr gespeichert; danach hier die Seite neu laden. Der Link ist 24 Stunden gültig.</p>'
+                    .'</div></div>'
+                );
+            });
     }
 
     /**
