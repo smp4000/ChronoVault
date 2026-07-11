@@ -163,3 +163,20 @@ Die zugehörigen Styles liefert pdf/partials/certificate-styles.
         @endforeach
     </div>
 @endif
+
+{{-- Anlagen: Bild-Belege (z. B. fotografierte Original-Kaufrechnungen) --}}
+@foreach ($cert['attachments'] ?? [] as $attachment)
+    <div class="cert-photo-page">
+        <div class="cert-head">
+            <div class="cert-brand" style="font-size: 12pt;"><span class="cert-brand-dot">&#9679;</span> {{ $seller['name'] }}</div>
+        </div>
+        <div class="cert-title" style="margin-top: 18px;">
+            <div class="cert-rule" style="font-size: 8.5pt;">&mdash; ANLAGE: ORIGINAL-BELEG &mdash;</div>
+            <h1 style="font-size: 11pt;">{{ $certWatch['name'] }}</h1>
+            <div style="font-size: 7.5pt; color: #71717a; margin-top: 3px;">Zertifikat {{ $cert['certNumber'] }} · {{ $attachment['name'] }}</div>
+        </div>
+        <div style="text-align: center; margin-top: 14px;">
+            <img src="data:image/jpeg;base64,{{ $attachment['data'] }}" style="width: 92%; border-radius: 6px; border: 0.5pt solid #e4e4e7;">
+        </div>
+    </div>
+@endforeach

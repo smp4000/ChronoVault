@@ -20,6 +20,7 @@ use App\Enums\WatchStatus;
 use App\Models\Brand;
 use App\Models\Watch;
 use App\Services\InventoryReportService;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 it('builds the inventory report with value fallbacks and totals', function () {
     $tenant = provisionTenant();
@@ -194,6 +195,51 @@ it('renders a value certificate pdf for a single watch', function () {
             $masked = $service->renderCertificatePdf($watch, null, includePurchase: false, maskSerial: true);
 
             expect(str_starts_with($masked, '%PDF'))->toBeTrue();
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('attaches original documents (image and pdf) to the certificate', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Beleg-Uhr',
+                'status' => WatchStatus::PrivateCollection,
+                'purchase_price' => 5000,
+                'current_market_value' => 6000,
+            ]);
+
+            // Bild-Beleg (fotografierte Kaufrechnung)
+            $image = imagecreatetruecolor(800, 1100);
+            imagefill($image, 0, 0, imagecolorallocate($image, 245, 245, 245));
+            $imagePath = sys_get_temp_dir().'/receipt.jpg';
+            imagejpeg($image, $imagePath);
+            imagedestroy($image);
+            $watch->addMedia($imagePath)->usingFileName('kaufrechnung-foto.jpg')->toMediaCollection('documents');
+
+            // PDF-Beleg (Original-Kaufrechnung als PDF)
+            $pdfPath = sys_get_temp_dir().'/receipt.pdf';
+            file_put_contents($pdfPath, Pdf::loadHTML('<p>Original-Kaufrechnung 12345</p>')->output());
+            $watch->addMedia($pdfPath)->usingFileName('kaufrechnung.pdf')->toMediaCollection('documents');
+
+            $service = app(InventoryReportService::class);
+
+            $without = $service->renderCertificatePdf($watch, withDocuments: false);
+            $with = $service->renderCertificatePdf($watch->fresh());
+
+            // Mit Belegen: gültiges (FPDI-gemergtes) PDF, deutlich größer
+            expect(str_starts_with($with, '%PDF'))->toBeTrue()
+                ->and(strlen($with))->toBeGreaterThan(strlen($without));
+
+            // Mappe heftet die Belege ebenfalls an
+            $folder = $service->renderPdf(includePurchase: true);
+
+            expect(str_starts_with($folder, '%PDF'))->toBeTrue();
         });
     } finally {
         destroyTenant($tenant);

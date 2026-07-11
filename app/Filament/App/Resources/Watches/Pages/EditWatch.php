@@ -56,6 +56,11 @@ class EditWatch extends EditRecord
                         ->label('Kaufdatum und Kaufpreis ausweisen')
                         ->default(true),
 
+                    Toggle::make('with_documents')
+                        ->label('Original-Belege anhängen')
+                        ->helperText('Hinterlegte Dokumente der Uhr (Kaufrechnungen, Zertifikate — PDF und Bild) werden mit eingeheftet.')
+                        ->default(true),
+
                     Toggle::make('mask_serial')
                         ->label('Seriennummer teilweise schwärzen'),
                 ])
@@ -66,6 +71,7 @@ class EditWatch extends EditRecord
                             filled($data['issued_for'] ?? null) ? (string) $data['issued_for'] : null,
                             (bool) ($data['include_purchase'] ?? true),
                             (bool) ($data['mask_serial'] ?? false),
+                            (bool) ($data['with_documents'] ?? true),
                         );
                     },
                     'Zertifikat-'.($record->reference_number ?? $record->getKey()).'.pdf',

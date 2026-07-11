@@ -41,6 +41,8 @@ use App\Models\Watch;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use setasign\Fpdi\Fpdi;
+use setasign\Fpdi\PdfParser\StreamReader;
 use Throwable;
 
 class InventoryReportService
@@ -138,12 +140,20 @@ class InventoryReportService
         ?string $issuedFor = null,
         bool $includePurchase = true,
         bool $maskSerial = false,
+        bool $withDocuments = true,
     ): string {
-        return Pdf::loadView('pdf.certificate', [
-            'cert' => $this->certificateData($watch, $issuedFor, $includePurchase, $maskSerial),
+        $cert = $this->certificateData($watch, $issuedFor, $includePurchase, $maskSerial, $withDocuments);
+
+        $pdf = Pdf::loadView('pdf.certificate', [
+            'cert' => $cert,
             'generatedAt' => now(),
             'seller' => $this->seller(),
         ])->output();
+
+        // PDF-Belege (Original-Kaufrechnungen etc.) hinten anheften
+        return $withDocuments
+            ? $this->appendPdfDocuments($pdf, $this->documentPdfs($watch, $cert['certNumber']))
+            : $pdf;
     }
 
     /**
@@ -157,6 +167,7 @@ class InventoryReportService
         ?string $issuedFor,
         bool $includePurchase,
         bool $maskSerial,
+        bool $withDocuments = false,
     ): array {
         $watch->loadMissing(['brand', 'caliber', 'media', 'serviceRecords']);
 
@@ -211,6 +222,8 @@ class InventoryReportService
             // Zertifikat-Nr.: Lagernummer, sonst kompakte ID
             'certNumber' => $watch->stock_number ?? 'CV-'.strtoupper(mb_substr((string) $watch->getKey(), 0, 8)),
             'issuedFor' => $issuedFor,
+            // Bild-Belege (fotografierte Kaufrechnungen etc.) als eigene Seiten
+            'attachments' => $withDocuments ? $this->documentImages($watch) : [],
         ];
     }
 
@@ -219,18 +232,25 @@ class InventoryReportService
      * Eigentum, dahinter je Uhr das komplette Wert-Zertifikat
      * (Kommissionsware = Fremdeigentum bekommt KEIN Zertifikat).
      */
-    public function renderPdf(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false, bool $withCertificates = true): string
-    {
+    public function renderPdf(
+        bool $includeConsignment = false,
+        bool $includePurchase = false,
+        bool $maskSerial = false,
+        bool $withCertificates = true,
+        ?string $issuedFor = null,
+        bool $withDocuments = true,
+    ): string {
         // Übersicht: nur je ein Titelbild pro Zeile (die Foto-Doku steckt im Zertifikat)
         $report = $this->data($includeConsignment, $includePurchase, $maskSerial, photosPerRow: 1);
 
         $certificates = [];
+        $pdfDocuments = [];
 
         if ($withCertificates) {
             $seller = $this->seller();
 
-            // Eigentümer der Mappe = der Betrieb selbst
-            $issuedFor = implode("\n", array_filter([
+            // Ohne Eingabe: Eigentümer der Mappe = der Betrieb selbst
+            $issuedFor = filled($issuedFor) ? $issuedFor : implode("\n", array_filter([
                 $seller['name'],
                 $seller['street'],
                 trim((string) $seller['postal_code'].' '.(string) $seller['city']),
@@ -241,16 +261,132 @@ class InventoryReportService
                     continue;
                 }
 
-                $certificates[] = $this->certificateData($watch, $issuedFor, $includePurchase, $maskSerial);
+                $cert = $this->certificateData($watch, $issuedFor, $includePurchase, $maskSerial, $withDocuments);
+                $certificates[] = $cert;
+
+                // PDF-Belege aller Uhren sammeln — sie werden hinten angeheftet
+                if ($withDocuments) {
+                    $pdfDocuments = array_merge($pdfDocuments, $this->documentPdfs($watch, $cert['certNumber']));
+                }
             }
         }
 
-        return Pdf::loadView('pdf.inventory', [
+        $pdf = Pdf::loadView('pdf.inventory', [
             'report' => $report,
             'certificates' => $certificates,
             'generatedAt' => $report['generatedAt'],
             'seller' => $this->seller(),
         ])->output();
+
+        return $this->appendPdfDocuments($pdf, $pdfDocuments);
+    }
+
+    /**
+     * Bild-Belege (JPEG/PNG/WebP aus der Dokumente-Sammlung, z. B.
+     * fotografierte Original-Kaufrechnungen) als Base64-JPEG für
+     * eigene Anlage-Seiten hinter dem Zertifikat.
+     *
+     * @return array<int, array{data: string, name: string}>
+     */
+    private function documentImages(Watch $watch): array
+    {
+        $images = [];
+
+        foreach ($watch->getMedia('documents') as $item) {
+            if (! str_starts_with((string) $item->mime_type, 'image/')) {
+                continue;
+            }
+
+            $data = $this->thumbBase64($item->getPath(), 1000);
+
+            if ($data !== null) {
+                $images[] = ['data' => $data, 'name' => (string) $item->file_name];
+            }
+        }
+
+        return $images;
+    }
+
+    /**
+     * PDF-Belege der Dokumente-Sammlung (Original-Kaufrechnungen,
+     * Zertifikate) mit Zuordnungs-Label fürs Anheften per FPDI.
+     *
+     * @return array<int, array{path: string, label: string}>
+     */
+    private function documentPdfs(Watch $watch, string $certNumber): array
+    {
+        $pdfs = [];
+
+        foreach ($watch->getMedia('documents') as $item) {
+            if ($item->mime_type !== 'application/pdf' || ! is_file($item->getPath())) {
+                continue;
+            }
+
+            $pdfs[] = [
+                'path' => $item->getPath(),
+                'label' => 'Anlage zu Zertifikat '.$certNumber.' — '.$watch->fullName().' — '.$item->file_name,
+            ];
+        }
+
+        return $pdfs;
+    }
+
+    /**
+     * PDF-Belege hinten an das dompdf-Dokument anheften (FPDI).
+     * Jede erste Beleg-Seite bekommt oben ein kleines Zuordnungs-Label.
+     * Nicht lesbare PDFs (Verschlüsselung, exotische Kompression)
+     * werden geloggt und übersprungen — die Mappe kommt trotzdem raus.
+     *
+     * @param  array<int, array{path: string, label: string}>  $documents
+     */
+    private function appendPdfDocuments(string $pdf, array $documents): string
+    {
+        if ($documents === []) {
+            return $pdf;
+        }
+
+        try {
+            $merged = new Fpdi;
+
+            $pages = $merged->setSourceFile(StreamReader::createByString($pdf));
+
+            for ($page = 1; $page <= $pages; $page++) {
+                $template = $merged->importPage($page);
+                $size = $merged->getTemplateSize($template);
+                $merged->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $merged->useTemplate($template);
+            }
+        } catch (Throwable $exception) {
+            // Hauptdokument nicht parsebar → lieber ohne Anhänge ausliefern
+            report($exception);
+
+            return $pdf;
+        }
+
+        foreach ($documents as $document) {
+            try {
+                $pages = $merged->setSourceFile($document['path']);
+
+                for ($page = 1; $page <= $pages; $page++) {
+                    $template = $merged->importPage($page);
+                    $size = $merged->getTemplateSize($template);
+                    $merged->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                    $merged->useTemplate($template);
+
+                    if ($page === 1) {
+                        // Zuordnungs-Label oben links (FPDF kann nur cp1252)
+                        $merged->SetFont('Helvetica', '', 7);
+                        $merged->SetTextColor(120, 120, 120);
+                        $merged->SetXY(8, 4);
+                        $merged->Cell(0, 4, (string) iconv('UTF-8', 'windows-1252//TRANSLIT', $document['label']));
+                    }
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return $merged->Output('S');
     }
 
     /**
