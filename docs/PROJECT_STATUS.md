@@ -104,6 +104,10 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Widgets\InventoryByStatusWidget` (Doughnut: Bestand nach Status, Modul 9)
 - `App\Widgets\TopBrandsWidget` (Balken: Top 5 Marken nach Einkaufswert unverkauft, Modul 9)
 
+## System-Mails
+
+- Passwort-Reset im ChronoVault-Design: `App\Notifications\ResetPasswordNotification` (Container-Bind auf `Filament\Auth\Notifications\ResetPassword` in AppServiceProvider::register — Filament-URL bleibt erhalten, gilt für /admin UND /app) + deutsche View `emails/password-reset` (Anrede, Button, Gültigkeit aus auth.passwords.users.expire, Ignorieren-Hinweis, Fallback-Link)
+
 ## Mobile & Reports
 
 - Mobile Foto-Aufnahme per QR-Code: `App\Support\QrPng` (allgemeiner QR-Generator) + QR-Placeholder im Uhren-Formular (Fotos-Tab, nur beim Bearbeiten); `WatchPhotoUploadController` mit signierten Routen `watch.photos.mobile` (GET) / `.store` (POST, throttle:30,1), 24 h gültig, kein Login; Handy-Seite `mobile/photo-upload` mit PhotoSlot-Platzhaltern, Tipps-Dialog, Sofort-Upload per fetch (ersetzt vorhandenes Slot-Foto, origin mobile_upload)

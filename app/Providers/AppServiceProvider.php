@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Notifications\ResetPasswordNotification;
+use Filament\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,6 +20,14 @@ class AppServiceProvider extends ServiceProvider
             $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
             $this->app->register(TelescopeServiceProvider::class);
         }
+
+        // Passwort-Reset-Mail im ChronoVault-Design: Filament löst seine
+        // Notification über den Container auf (RequestPasswordReset-Page)
+        // — hier wird die eigene deutsche, gestaltete Variante geliefert.
+        $this->app->bind(
+            ResetPassword::class,
+            ResetPasswordNotification::class,
+        );
     }
 
     /**
