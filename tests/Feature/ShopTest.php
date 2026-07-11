@@ -465,6 +465,68 @@ it('accepts price proposals with captcha and forwards them to the owner', functi
     }
 });
 
+it('searches the shop by brand, model and reference (free text)', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $rolex = Brand::where('name', 'Rolex')->firstOrFail();
+            $omega = Brand::where('name', 'Omega')->firstOrFail();
+
+            Watch::factory()->create([
+                'brand_id' => $rolex->id,
+                'model_name' => 'Submariner Date',
+                'reference_number' => '126610LN',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+            ]);
+
+            Watch::factory()->create([
+                'brand_id' => $omega->id,
+                'model_name' => 'Speedmaster Professional',
+                'reference_number' => '310.30.42',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+            ]);
+        });
+
+        $base = 'http://'.$tenant->primaryDomain();
+
+        // Suche nach Modell
+        $this->get($base.'/?suche=Speedmaster')
+            ->assertOk()
+            ->assertSee('Speedmaster Professional')
+            ->assertDontSee('Submariner Date');
+
+        // Suche nach Referenz
+        $this->get($base.'/?suche=126610LN')
+            ->assertOk()
+            ->assertSee('Submariner Date')
+            ->assertDontSee('Speedmaster Professional');
+
+        // Suche nach Markenname
+        $this->get($base.'/?suche=Omega')
+            ->assertOk()
+            ->assertSee('Speedmaster Professional')
+            ->assertDontSee('Submariner Date');
+
+        // Mehrwort-Suche (alle Begriffe müssen passen) + Ergebnis-Kontext
+        $this->get($base.'/?suche=Rolex+Submariner')
+            ->assertOk()
+            ->assertSee('Submariner Date')
+            ->assertDontSee('Speedmaster Professional')
+            ->assertSee('Suchergebnis');
+
+        // Keine Treffer → freundlicher Hinweis
+        $this->get($base.'/?suche=Patek')
+            ->assertOk()
+            ->assertSee('Keine Treffer');
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
 it('filters the shop listing by condition and price range', function () {
     $tenant = provisionTenant();
 

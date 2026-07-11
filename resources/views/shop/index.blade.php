@@ -21,20 +21,34 @@ außerhalb des Tailwind-@source-Scans, ihre Klassen fehlen im Build.
         </div>
     @endif
 
-    {{-- Hero: ruhig, viel Weißraum, blaue Akzentlinie --}}
-    <section class="mx-auto max-w-7xl px-4 pt-16 pb-10 sm:px-6 lg:px-8 lg:pt-24 lg:pb-14">
-        <div class="max-w-2xl">
-            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">Unsere Kollektion</p>
-            <h1 class="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl lg:text-5xl">
-                Ausgewählte Zeitmesser
+    @if ($search !== '')
+        {{-- Suchkontext: kompakte Ergebnis-Zeile statt großem Hero --}}
+        <section class="mx-auto max-w-7xl px-4 pt-10 pb-2 sm:px-6 lg:px-8">
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">Suchergebnis</p>
+            <h1 class="mt-2 text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
+                „{{ $search }}"
             </h1>
-            <p class="mt-4 text-base leading-relaxed text-neutral-500">
-                Jede Uhr in unserer Kollektion ist geprüft und dokumentiert.
-                Gerne beraten wir Sie persönlich zu jedem Stück.
+            <p class="mt-2 text-sm text-neutral-500">
+                {{ $watches->total() }} {{ $watches->total() === 1 ? 'Treffer' : 'Treffer' }} in unserer Kollektion
+                · <a href="{{ route('shop.index') }}" class="font-medium text-blue-800 hover:text-blue-600">Suche zurücksetzen</a>
             </p>
-            <div class="mt-6 h-px w-16 bg-blue-800"></div>
-        </div>
-    </section>
+        </section>
+    @else
+        {{-- Hero: ruhig, viel Weißraum, blaue Akzentlinie --}}
+        <section class="mx-auto max-w-7xl px-4 pt-16 pb-10 sm:px-6 lg:px-8 lg:pt-24 lg:pb-14">
+            <div class="max-w-2xl">
+                <p class="text-xs font-semibold uppercase tracking-[0.25em] text-blue-800">Unsere Kollektion</p>
+                <h1 class="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl lg:text-5xl">
+                    Ausgewählte Zeitmesser
+                </h1>
+                <p class="mt-4 text-base leading-relaxed text-neutral-500">
+                    Jede Uhr in unserer Kollektion ist geprüft und dokumentiert.
+                    Gerne beraten wir Sie persönlich zu jedem Stück.
+                </p>
+                <div class="mt-6 h-px w-16 bg-blue-800"></div>
+            </div>
+        </section>
+    @endif
 
     {{-- Markenfilter als Pill-Leiste (nur Marken, die im Shop vertreten sind) --}}
     @if ($brands->count() > 1)
@@ -62,6 +76,9 @@ außerhalb des Tailwind-@source-Scans, ihre Klassen fehlen im Build.
         <form method="GET" action="{{ route('shop.index') }}" class="flex flex-wrap items-center gap-3">
             @if ($activeBrandId)
                 <input type="hidden" name="marke" value="{{ $activeBrandId }}">
+            @endif
+            @if ($search !== '')
+                <input type="hidden" name="suche" value="{{ $search }}">
             @endif
 
             <select name="zustand" onchange="this.form.submit()" class="{{ $select }}">
@@ -120,14 +137,22 @@ außerhalb des Tailwind-@source-Scans, ihre Klassen fehlen im Build.
                 <svg class="h-14 w-14 text-blue-200" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-                <h2 class="mt-6 text-lg font-medium text-neutral-900">Derzeit keine Uhren verfügbar</h2>
-                <p class="mt-2 max-w-sm text-sm text-neutral-500">
-                    Unsere Kollektion wird laufend erweitert — schauen Sie bald wieder
-                    vorbei oder kontaktieren Sie uns mit Ihrem Suchauftrag.
-                </p>
+                @if ($search !== '')
+                    <h2 class="mt-6 text-lg font-medium text-neutral-900">Keine Treffer für „{{ $search }}"</h2>
+                    <p class="mt-2 max-w-sm text-sm text-neutral-500">
+                        Versuchen Sie einen anderen Suchbegriff oder
+                        <a href="{{ route('shop.index') }}" class="font-medium text-blue-800 hover:text-blue-600">sehen Sie sich die ganze Kollektion an</a>.
+                    </p>
+                @else
+                    <h2 class="mt-6 text-lg font-medium text-neutral-900">Derzeit keine Uhren verfügbar</h2>
+                    <p class="mt-2 max-w-sm text-sm text-neutral-500">
+                        Unsere Kollektion wird laufend erweitert — schauen Sie bald wieder
+                        vorbei oder kontaktieren Sie uns mit Ihrem Suchauftrag.
+                    </p>
+                @endif
             </div>
         @else
-            <div class="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach ($watches as $watch)
                     @include('shop.partials.watch-card', ['watch' => $watch])
                 @endforeach

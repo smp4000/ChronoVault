@@ -67,31 +67,51 @@ Erwartet: $watch (mit geladenen brand/media-Relationen).
         </button>
     </div>
 
-    <div class="mt-4 space-y-1">
-        <p class="text-xs font-semibold uppercase tracking-[0.15em] text-blue-800">
+    <div class="mt-3 space-y-1">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.15em] text-blue-800">
             {{ $watch->brand->name }}
         </p>
-        <p class="font-medium text-neutral-900 transition group-hover:text-blue-900">
+        <p class="line-clamp-1 font-medium text-neutral-900 transition group-hover:text-blue-900">
             {{ $watch->model_name }}
         </p>
         @if ($specParts !== [])
-            <p class="text-xs text-neutral-500">{{ implode(' · ', $specParts) }}</p>
+            <p class="line-clamp-1 text-xs text-neutral-500">{{ implode(' · ', $specParts) }}</p>
         @endif
+
+        {{-- Ausstattungs-Chips (Chrono24-Stil): Zustand, Box, Papiere --}}
+        @php
+            $condition = $watch->condition;
+        @endphp
+        @if ($condition || $watch->has_box || $watch->has_papers)
+            <div class="flex flex-wrap items-center gap-1 pt-0.5">
+                @if ($condition)
+                    <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">{{ $condition->getLabel() }}</span>
+                @endif
+                @if ($watch->has_box)
+                    <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">Box</span>
+                @endif
+                @if ($watch->has_papers)
+                    <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">Papiere</span>
+                @endif
+            </div>
+        @endif
+
+        <p class="pt-1.5">
+            @if ($watch->formattedAskingPrice())
+                <span class="text-base font-bold {{ $discount !== null ? 'text-red-600' : 'text-neutral-900' }}">{{ $watch->formattedAskingPrice() }}</span>
+                @if ($discount !== null)
+                    <span class="ml-1 text-xs text-neutral-400 line-through">{{ $watch->formattedPreviousPrice() }}</span>
+                @endif
+            @else
+                <span class="text-sm font-medium text-neutral-500">Preis auf Anfrage</span>
+            @endif
+        </p>
+
         @if ($watch->isBuyableInShop())
             <p class="flex items-center gap-1.5 text-xs text-green-700">
                 <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
                 Sofort lieferbar
             </p>
         @endif
-        <p class="pt-1 text-sm">
-            @if ($watch->formattedAskingPrice())
-                <span class="font-semibold {{ $discount !== null ? 'text-red-600' : 'text-neutral-900' }}">{{ $watch->formattedAskingPrice() }}</span>
-                @if ($discount !== null)
-                    <span class="ml-1 text-xs text-neutral-400 line-through">{{ $watch->formattedPreviousPrice() }}</span>
-                @endif
-            @else
-                <span class="text-neutral-500">Preis auf Anfrage</span>
-            @endif
-        </p>
     </div>
 </a>

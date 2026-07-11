@@ -80,6 +80,7 @@ class ShopController extends Controller
         $material = $request->query('material');
         $diameter = $request->query('durchmesser');
         $price = $request->query('preis');
+        $search = trim((string) $request->query('suche', ''));
         $sort = (string) $request->query('sortierung', 'neueste');
 
         // Kaufbare zuerst, dann Reserviert/In Auktion, Verkauft ans Ende —
@@ -88,6 +89,19 @@ class ShopController extends Controller
             ->visibleInShop()
             ->with(['brand', 'media'])
             ->when($brandId, fn ($query) => $query->where('brand_id', $brandId))
+            // Freitextsuche über Modell, Referenz und Markenname (Chrono24-Stil)
+            ->when($search !== '', function ($query) use ($search) {
+                $terms = preg_split('/\s+/', $search) ?: [];
+
+                foreach ($terms as $term) {
+                    $like = '%'.$term.'%';
+                    $query->where(function ($q) use ($like) {
+                        $q->where('model_name', 'like', $like)
+                            ->orWhere('reference_number', 'like', $like)
+                            ->orWhereHas('brand', fn ($b) => $b->where('name', 'like', $like));
+                    });
+                }
+            })
             ->when($condition, fn ($query) => $query->where('condition', $condition))
             ->when($material, fn ($query) => $query->where('case_material', $material))
             ->when(
@@ -134,11 +148,13 @@ class ShopController extends Controller
             'watches' => $watches,
             'brands' => $brands,
             'activeBrandId' => $brandId,
+            'search' => $search,
             'filters' => [
                 'zustand' => $condition,
                 'material' => $material,
                 'durchmesser' => $diameter,
                 'preis' => $price,
+                'suche' => $search !== '' ? $search : null,
                 'sortierung' => $sort,
             ],
         ]);
