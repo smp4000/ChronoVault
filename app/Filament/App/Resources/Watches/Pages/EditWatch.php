@@ -15,10 +15,12 @@ namespace App\Filament\App\Resources\Watches\Pages;
 use App\Actions\Watches\WatermarkWatchPhotosAction;
 use App\Filament\App\Resources\Watches\WatchResource;
 use App\Models\Watch;
+use App\Services\InventoryReportService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -32,6 +34,44 @@ class EditWatch extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('certificate')
+                ->label('Zertifikat (PDF)')
+                ->icon('heroicon-m-check-badge')
+                ->color('gray')
+                ->modalHeading('Wert- und Bestandszertifikat erstellen')
+                ->modalDescription('Zertifikat im Versicherungs-Stil: Kenndaten, Seriennummer, Versicherungswert und Foto-Dokumentation — zum Ausdrucken und Unterschreiben.')
+                ->modalSubmitActionLabel('Zertifikat erstellen')
+                ->form([
+                    Textarea::make('issued_for')
+                        ->label('Eigentümer(in) / Ausgestellt für')
+                        ->rows(3)
+                        ->default(fn (): string => implode("\n", array_filter([
+                            (string) tenant('name'),
+                            tenant('company_street'),
+                            trim((string) tenant('company_postal_code').' '.(string) tenant('company_city')),
+                        ])))
+                        ->helperText('Frei anpassbar — z. B. Name und Anschrift des Kunden.'),
+
+                    Toggle::make('include_purchase')
+                        ->label('Kaufdatum und Kaufpreis ausweisen')
+                        ->default(true),
+
+                    Toggle::make('mask_serial')
+                        ->label('Seriennummer teilweise schwärzen'),
+                ])
+                ->action(fn (Watch $record, array $data) => response()->streamDownload(
+                    function () use ($record, $data): void {
+                        echo app(InventoryReportService::class)->renderCertificatePdf(
+                            $record,
+                            filled($data['issued_for'] ?? null) ? (string) $data['issued_for'] : null,
+                            (bool) ($data['include_purchase'] ?? true),
+                            (bool) ($data['mask_serial'] ?? false),
+                        );
+                    },
+                    'Zertifikat-'.($record->reference_number ?? $record->getKey()).'.pdf',
+                    ['Content-Type' => 'application/pdf'],
+                )),
+
             Action::make('watermark')
                 ->label('Wasserzeichen')
                 ->icon('heroicon-m-shield-check')

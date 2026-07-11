@@ -10,6 +10,7 @@
  *   - Verkaufte Uhren fliegen raus; Kommission nur auf Wunsch
  *   - Einkaufspreise nur bei include_purchase
  *   - PDF-Rendern liefert ein gültiges PDF
+ *   - Wert-Zertifikat je Uhr (renderCertificatePdf) rendert als PDF
  * =========================================================================
  */
 
@@ -160,6 +161,38 @@ it('applies the purchase price floor with age surcharge when market is below pur
                 ->and($valueOf('Alte Uhr')['valueSource'])->toBe('EK +20 % (ab 3. Jahr)')
                 ->and($valueOf('Gestiegene Uhr')['value'])->toBe(7000.0)
                 ->and($valueOf('Gestiegene Uhr')['valueSource'])->toBe('Marktwert');
+        });
+    } finally {
+        destroyTenant($tenant);
+    }
+});
+
+it('renders a value certificate pdf for a single watch', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $tenant->run(function () {
+            $watch = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Zertifikats-Uhr',
+                'status' => WatchStatus::PrivateCollection,
+                'serial_number' => 'Z998877',
+                'purchase_price' => 6000,
+                'purchase_date' => now()->subMonths(3),
+                'current_market_value' => 9000,
+            ]);
+
+            $service = app(InventoryReportService::class);
+
+            // Zertifikat rendert als gültiges PDF (Inhalt ist komprimiert)
+            $pdf = $service->renderCertificatePdf($watch, "Max Mustermann\nMusterweg 1\n12345 Musterstadt");
+
+            expect(str_starts_with($pdf, '%PDF'))->toBeTrue();
+
+            // Auch ohne Kaufdaten und mit geschwärzter Seriennummer
+            $masked = $service->renderCertificatePdf($watch, null, includePurchase: false, maskSerial: true);
+
+            expect(str_starts_with($masked, '%PDF'))->toBeTrue();
         });
     } finally {
         destroyTenant($tenant);

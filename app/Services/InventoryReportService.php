@@ -32,6 +32,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\CaseMaterial;
 use App\Enums\PhotoSlot;
 use App\Enums\TransactionType;
 use App\Enums\WatchCondition;
@@ -135,6 +136,83 @@ class InventoryReportService
             'includePurchase' => $includePurchase,
             'includeConsignment' => $includeConsignment,
         ];
+    }
+
+    /**
+     * Wert-Zertifikat für EINE Uhr (PDF) — Versicherungs-Zertifikat-Stil:
+     * Aussteller (Betrieb), Eigentümer, Uhr mit allen Kenndaten,
+     * Versicherungswert (gleiche Wert-Logik wie die Bestandsliste)
+     * und Foto-Dokumentation.
+     */
+    public function renderCertificatePdf(
+        Watch $watch,
+        ?string $issuedFor = null,
+        bool $includePurchase = true,
+        bool $maskSerial = false,
+    ): string {
+        $watch->loadMissing(['brand', 'caliber', 'media', 'serviceRecords']);
+
+        [$value, $valueSource] = $this->replacementValue($watch);
+
+        $condition = $watch->getAttribute('condition');
+        $material = $watch->getAttribute('case_material');
+        $purchaseDate = $watch->getAttribute('purchase_date');
+
+        $completedServices = $watch->serviceRecords
+            ->filter(fn ($record): bool => $record->getAttribute('completed_at') !== null);
+
+        $specials = array_filter([
+            $watch->is_limited_edition
+                ? trim('Limitierte Auflage '.($watch->limited_edition_number ? 'Nr. '.$watch->limited_edition_number : '').($watch->limited_edition_total ? ' von '.$watch->limited_edition_total : ''))
+                : null,
+            $completedServices->isNotEmpty()
+                ? $completedServices->count().' Revision(en), zuletzt '.Carbon::parse($completedServices->max(fn ($record) => $record->getAttribute('completed_at')))->format('m/Y')
+                : null,
+        ]);
+
+        return Pdf::loadView('pdf.certificate', [
+            'watch' => [
+                'name' => $watch->fullName(),
+                'brand' => $watch->brand->name,
+                'model' => $watch->model_name,
+                'reference' => $watch->reference_number,
+                'serial' => $this->serial($watch->serial_number, $maskSerial),
+                'stockNumber' => $watch->stock_number,
+                'year' => $watch->production_year
+                    ? ($watch->is_production_year_approximate ? 'ca. ' : '').$watch->production_year
+                    : null,
+                'condition' => $condition instanceof WatchCondition ? $condition->getLabel() : null,
+                'caliber' => $watch->caliber?->name,
+                'material' => $material instanceof CaseMaterial ? $material->getLabel() : null,
+                'diameter' => $watch->case_diameter_mm
+                    ? rtrim(rtrim(number_format((float) $watch->case_diameter_mm, 1, ',', '.'), '0'), ',').' mm'
+                    : null,
+                'scope' => implode(', ', array_filter([
+                    $watch->has_box ? 'Originalbox' : null,
+                    $watch->has_papers ? 'Papiere/Garantiekarte' : null,
+                    $watch->delivery_scope,
+                ])) ?: null,
+                'specials' => $specials !== [] ? implode(' · ', $specials) : null,
+                'purchaseDate' => $includePurchase && $purchaseDate !== null ? Carbon::parse($purchaseDate)->format('d.m.Y') : null,
+                'purchasePrice' => $includePurchase ? $watch->purchase_price : null,
+                'value' => $value,
+                'valueSource' => $valueSource,
+                'valuedAt' => $watch->getAttribute('last_valuation_at'),
+                'photos' => $this->photoThumbs($watch),
+            ],
+            // Zertifikat-Nr.: Lagernummer, sonst kompakte ID
+            'certNumber' => $watch->stock_number ?? 'CV-'.strtoupper(mb_substr((string) $watch->getKey(), 0, 8)),
+            'issuedFor' => $issuedFor,
+            'generatedAt' => now(),
+            'seller' => [
+                'name' => (string) tenant('name'),
+                'street' => tenant('company_street'),
+                'postal_code' => tenant('company_postal_code'),
+                'city' => tenant('company_city'),
+                'tax_number' => tenant('tax_number'),
+                'vat_id' => tenant('vat_id'),
+            ],
+        ])->output();
     }
 
     /**
