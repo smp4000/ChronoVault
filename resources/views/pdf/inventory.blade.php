@@ -2,6 +2,9 @@
 =============================================================================
 PDF: Bestands- und Wertübersicht für Versicherungen (dompdf)
 =============================================================================
+Je Uhr ein Dokumentations-Block nach Versicherungs-Checkliste: mehrere
+Fotos (Perspektiven), Stammdaten, Kaufdaten, Wert mit Quelle, Zertifikat,
+Zubehör, Besonderheiten, Beleg-Nachweis.
 Erwartet: $report (rows/total/count/generatedAt/includePurchase/
 includeConsignment), $seller (name/street/postal_code/city).
 =============================================================================
@@ -21,20 +24,26 @@ includeConsignment), $seller (name/street/postal_code/city).
         .brand { font-size: 13pt; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; }
         .brand-dot { color: #1e40af; }
         h1 { font-size: 14pt; margin: 24px 0 2px 0; }
-        .subtitle { color: #71717a; font-size: 9pt; margin-bottom: 16px; }
-        table.items { width: 100%; border-collapse: collapse; margin-top: 6px; }
-        table.items th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1px; color: #71717a; border-bottom: 1pt solid #18181b; padding: 5px 6px 5px 0; }
-        table.items td { padding: 8px 6px 8px 0; border-bottom: 0.5pt solid #e4e4e7; vertical-align: top; }
-        .details { color: #52525b; font-size: 8pt; margin-top: 2px; line-height: 1.5; }
-        .num { text-align: right; white-space: nowrap; }
-        .source { color: #a1a1aa; font-size: 7pt; }
-        .consignment { color: #b45309; font-size: 7.5pt; font-weight: bold; }
-        table.totals { width: 50%; margin-left: 50%; margin-top: 10px; border-collapse: collapse; }
-        table.totals td { padding: 4px 0; font-size: 9.5pt; }
-        table.totals .grand td { border-top: 1pt solid #18181b; font-weight: bold; font-size: 11pt; padding-top: 6px; }
+        .subtitle { color: #71717a; font-size: 9pt; margin-bottom: 14px; }
+        .watch { border: 0.75pt solid #d4d4d8; border-radius: 8px; padding: 14px 16px; margin-top: 14px; page-break-inside: avoid; }
+        .watch-head { width: 100%; border-collapse: collapse; }
+        .watch-name { font-size: 11pt; font-weight: bold; }
+        .tag { font-size: 7pt; font-weight: bold; color: #b45309; }
+        .value-box { text-align: right; white-space: nowrap; }
+        .value-box .amount { font-size: 12pt; font-weight: bold; color: #1e40af; }
+        .value-box .source { font-size: 7pt; color: #a1a1aa; }
+        .photos { margin-top: 10px; }
+        .photos td { padding: 0 6px 0 0; text-align: center; vertical-align: top; }
+        .photos img { width: 100%; max-width: 78px; height: auto; border-radius: 4px; border: 0.5pt solid #e4e4e7; }
+        .photos .plabel { font-size: 6pt; color: #a1a1aa; margin-top: 1px; }
+        table.facts { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table.facts td { font-size: 8.5pt; padding: 3px 10px 3px 0; vertical-align: top; }
+        table.facts .k { color: #71717a; width: 17%; white-space: nowrap; }
+        table.facts .v { width: 33%; }
+        table.totals { width: 55%; margin-left: 45%; margin-top: 14px; border-collapse: collapse; }
+        table.totals .grand td { border-top: 1pt solid #18181b; font-weight: bold; font-size: 11pt; padding-top: 7px; }
         .note { margin-top: 16px; font-size: 7.5pt; color: #71717a; background: #f4f4f5; padding: 9px 11px; border-radius: 4px; line-height: 1.6; }
         .footer { position: fixed; bottom: 20px; left: 44px; right: 44px; font-size: 7pt; color: #a1a1aa; border-top: 0.5pt solid #e4e4e7; padding-top: 6px; }
-        img.thumb { width: 46px; height: auto; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -54,57 +63,98 @@ includeConsignment), $seller (name/street/postal_code/city).
         @if ($report['includeConsignment']) · inkl. Kommissionsware (Fremdeigentum, gekennzeichnet) @endif
     </div>
 
-    <table class="items">
-        <thead>
-            <tr>
-                <th style="width: 9%;">Foto</th>
-                <th>Uhr</th>
-                <th style="width: 14%;">Seriennummer</th>
-                @if ($report['includePurchase'])
-                    <th class="num" style="width: 13%;">Einkaufspreis</th>
-                @endif
-                <th class="num" style="width: 16%;">Wiederbeschaffung</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach ($report['rows'] as $row)
+    @foreach ($report['rows'] as $row)
+        <div class="watch">
+            <table class="watch-head">
                 <tr>
                     <td>
-                        @if ($row['thumb'])
-                            <img class="thumb" src="data:image/jpeg;base64,{{ $row['thumb'] }}">
-                        @endif
-                    </td>
-                    <td>
-                        <strong>{{ $row['name'] }}</strong>
+                        <span class="watch-name">{{ $row['name'] }}</span>
                         @if ($row['isConsignment'])
-                            <span class="consignment">· Kommission</span>
+                            <span class="tag">· Kommission (Fremdeigentum)</span>
                         @endif
-                        <div class="details">
-                            @if ($row['reference']) Referenz {{ $row['reference'] }} · @endif
-                            @if ($row['year']) Baujahr {{ $row['year'] }} · @endif
-                            @if ($row['condition']) Zustand: {{ $row['condition'] }} @endif
-                            @if ($row['scope']) · Lieferumfang: {{ $row['scope'] }} @endif
-                        </div>
+                        @if ($row['isPrivate'])
+                            <span class="tag" style="color: #1e40af;">· Eigentum (Sammlung)</span>
+                        @endif
                     </td>
-                    <td>{{ $row['serial'] ?? '—' }}</td>
-                    @if ($report['includePurchase'])
-                        <td class="num">{{ $eur($row['purchasePrice']) }}</td>
-                    @endif
-                    <td class="num">
-                        <strong>{{ $eur($row['value']) }}</strong>
+                    <td class="value-box">
+                        <div class="amount">{{ $eur($row['value']) }}</div>
                         @if ($row['valueSource'])
-                            <div class="source">{{ $row['valueSource'] }}</div>
+                            <div class="source">Wiederbeschaffung · {{ $row['valueSource'] }}</div>
                         @endif
                     </td>
                 </tr>
-            @endforeach
-        </tbody>
-    </table>
+            </table>
+
+            {{-- Foto-Dokumentation: alle Perspektiven --}}
+            @if ($row['photos'] !== [])
+                <table class="photos" width="100%">
+                    <tr>
+                        @foreach ($row['photos'] as $photo)
+                            <td width="{{ (int) (100 / max(count($row['photos']), 4)) }}%">
+                                <img src="data:image/jpeg;base64,{{ $photo['data'] }}">
+                                @if ($photo['label'])
+                                    <div class="plabel">{{ $photo['label'] }}</div>
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                </table>
+            @endif
+
+            {{-- Checklisten-Daten --}}
+            <table class="facts">
+                <tr>
+                    <td class="k">Hersteller</td><td class="v">{{ $row['brand'] }}</td>
+                    <td class="k">Kaufdatum</td><td class="v">{{ $row['purchaseDate'] ?? '—' }}</td>
+                </tr>
+                <tr>
+                    <td class="k">Modell</td><td class="v">{{ $row['model'] }}</td>
+                    @if ($report['includePurchase'])
+                        <td class="k">Kaufpreis</td><td class="v">{{ $eur($row['purchasePrice']) }}</td>
+                    @else
+                        <td class="k">Beleg</td><td class="v">{{ $row['hasReceipt'] ? 'Ankaufsbeleg im System hinterlegt' : '—' }}</td>
+                    @endif
+                </tr>
+                <tr>
+                    <td class="k">Referenz</td><td class="v">{{ $row['reference'] ?? '—' }}</td>
+                    @if ($report['includePurchase'])
+                        <td class="k">Beleg</td><td class="v">{{ $row['hasReceipt'] ? 'Ankaufsbeleg im System hinterlegt' : '—' }}</td>
+                    @else
+                        <td class="k">Zertifikat</td><td class="v">{{ $row['certificate'] }}</td>
+                    @endif
+                </tr>
+                <tr>
+                    <td class="k">Seriennummer</td><td class="v"><strong>{{ $row['serial'] ?? '—' }}</strong></td>
+                    @if ($report['includePurchase'])
+                        <td class="k">Zertifikat</td><td class="v">{{ $row['certificate'] }}</td>
+                    @else
+                        <td class="k">Zubehör</td><td class="v">{{ $row['scope'] ?? '—' }}</td>
+                    @endif
+                </tr>
+                <tr>
+                    <td class="k">Baujahr</td><td class="v">{{ $row['year'] ?? '—' }}</td>
+                    @if ($report['includePurchase'])
+                        <td class="k">Zubehör</td><td class="v">{{ $row['scope'] ?? '—' }}</td>
+                    @else
+                        <td class="k">Besonderheiten</td><td class="v">{{ $row['specials'] ?? '—' }}</td>
+                    @endif
+                </tr>
+                <tr>
+                    <td class="k">Zustand</td><td class="v">{{ $row['condition'] ?? '—' }}</td>
+                    @if ($report['includePurchase'])
+                        <td class="k">Besonderheiten</td><td class="v">{{ $row['specials'] ?? '—' }}</td>
+                    @else
+                        <td class="k"></td><td class="v"></td>
+                    @endif
+                </tr>
+            </table>
+        </div>
+    @endforeach
 
     <table class="totals">
         <tr class="grand">
             <td>Gesamter Wiederbeschaffungswert</td>
-            <td class="num" style="text-align: right;">{{ $eur($report['total']) }}</td>
+            <td style="text-align: right;">{{ $eur($report['total']) }}</td>
         </tr>
     </table>
 

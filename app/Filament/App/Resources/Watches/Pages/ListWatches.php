@@ -40,13 +40,19 @@ class ListWatches extends ListRecords
 
                     Toggle::make('include_purchase')
                         ->label('Einkaufspreise ausweisen')
-                        ->helperText('Nur für interne Zwecke sinnvoll — Versicherungen brauchen die Einkaufspreise nicht.'),
+                        ->helperText('Für die Versicherungs-Dokumentation üblich (Checkliste); abschaltbar für externe Zwecke.')
+                        ->default(true),
+
+                    Toggle::make('mask_serial')
+                        ->label('Seriennummern teilweise schwärzen')
+                        ->helperText('Zeigt nur die ersten und letzten beiden Zeichen (z. B. 52••••Y0).'),
                 ])
                 ->action(fn (array $data) => response()->streamDownload(
                     function () use ($data): void {
                         echo app(InventoryReportService::class)->renderPdf(
                             (bool) ($data['include_consignment'] ?? false),
                             (bool) ($data['include_purchase'] ?? false),
+                            (bool) ($data['mask_serial'] ?? false),
                         );
                     },
                     'Bestandsliste-'.now()->format('Y-m-d').'.pdf',

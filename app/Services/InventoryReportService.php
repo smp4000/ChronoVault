@@ -6,9 +6,12 @@
  * =========================================================================
  *
  * Zweck:
- *   Erstellt die Bestandsliste als PDF für Versicherungen & Co.: alle
- *   Uhren im Bestand mit Foto, Referenz, SERIENNUMMER, Baujahr, Zustand,
- *   Lieferumfang und Wiederbeschaffungswert + Gesamtsumme und Stichtag.
+ *   Erstellt die Versicherungs-Dokumentation als PDF: je Uhr ein
+ *   vollständiger Block nach Versicherungs-Checkliste — Hersteller,
+ *   Modell, Referenz, SERIENNUMMER (optional teilgeschwärzt),
+ *   Kaufdatum/-preis, aktueller Wert mit Quelle, Zertifikat/Papiere,
+ *   Zubehör, Besonderheiten (Limitierung, Revisionen), Beleg-Nachweis
+ *   und MEHRERE Fotos (alle Slot-Perspektiven + weitere).
  *
  * Wert-Logik (Wiederbeschaffung):
  *   current_market_value (nächtliche Wertermittlung) → sonst
@@ -20,8 +23,8 @@
  *   schaffung deckt den Ersatz, nicht den Wiederverkauf):
  *   1. Jahr seit Kauf +10 %, 2. Jahr +15 %, ab dem 3. Jahr +20 %.
  *
- * Bestand = alles außer „Verkauft"; Kommissionsuhren (Fremdeigentum)
- * optional zuschaltbar und als solche gekennzeichnet.
+ * Bestand = alles außer „Verkauft"/„Wunschliste"; Eigentum (Sammlung)
+ * zählt immer mit; Kommission (Fremdeigentum) optional + gekennzeichnet.
  * =========================================================================
  */
 
@@ -29,6 +32,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\PhotoSlot;
+use App\Enums\TransactionType;
 use App\Enums\WatchCondition;
 use App\Enums\WatchStatus;
 use App\Models\Watch;
@@ -38,12 +43,15 @@ use Throwable;
 
 class InventoryReportService
 {
+    /** Maximale Fotos je Uhr im PDF (Dateigröße/Lesbarkeit). */
+    private const MAX_PHOTOS = 6;
+
     /**
      * Datenbasis des Reports.
      *
      * @return array{rows: array<int, array<string, mixed>>, total: float, count: int, generatedAt: Carbon, includePurchase: bool, includeConsignment: bool}
      */
-    public function data(bool $includeConsignment = false, bool $includePurchase = false): array
+    public function data(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false): array
     {
         $statuses = [
             WatchStatus::InStock->value,
@@ -60,7 +68,7 @@ class InventoryReportService
 
         $watches = Watch::query()
             ->whereIn('status', $statuses)
-            ->with(['brand', 'media'])
+            ->with(['brand', 'media', 'serviceRecords', 'transactions'])
             ->get()
             ->sortBy(fn (Watch $watch): string => $watch->brand->name.' '.$watch->model_name, SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
@@ -74,24 +82,48 @@ class InventoryReportService
 
             $condition = $watch->getAttribute('condition');
             $status = $watch->getAttribute('status');
+            $purchaseDate = $watch->getAttribute('purchase_date');
+
+            // Besonderheiten: Limitierung + Servicehistorie (Revisionen)
+            $completedServices = $watch->serviceRecords
+                ->filter(fn ($record): bool => $record->getAttribute('completed_at') !== null);
+            $lastService = $completedServices->max(fn ($record) => $record->getAttribute('completed_at'));
+
+            $specials = array_filter([
+                $watch->is_limited_edition
+                    ? trim('Limitierte Auflage '.($watch->limited_edition_number ? 'Nr. '.$watch->limited_edition_number : '').($watch->limited_edition_total ? ' von '.$watch->limited_edition_total : ''))
+                    : null,
+                $completedServices->isNotEmpty()
+                    ? $completedServices->count().' Revision(en), zuletzt '.Carbon::parse($lastService)->format('m/Y')
+                    : null,
+            ]);
 
             $rows[] = [
+                'brand' => $watch->brand->name,
+                'model' => $watch->model_name,
                 'name' => $watch->fullName(),
                 'reference' => $watch->reference_number,
-                'serial' => $watch->serial_number,
+                'serial' => $this->serial($watch->serial_number, $maskSerial),
                 'year' => $watch->production_year
                     ? ($watch->is_production_year_approximate ? 'ca. ' : '').$watch->production_year
                     : null,
                 'condition' => $condition instanceof WatchCondition ? $condition->getLabel() : null,
                 'scope' => implode(', ', array_filter([
-                    $watch->has_box ? 'Box' : null,
+                    $watch->has_box ? 'Originalbox' : null,
                     $watch->has_papers ? 'Papiere' : null,
+                    $watch->delivery_scope,
                 ])) ?: null,
+                'certificate' => $watch->has_papers ? 'Garantiekarte/Papiere vorhanden' : 'nicht vorhanden',
+                'purchaseDate' => $purchaseDate !== null ? Carbon::parse($purchaseDate)->format('d.m.Y') : null,
+                'hasReceipt' => $watch->transactions
+                    ->contains(fn ($transaction): bool => $transaction->getAttribute('type') === TransactionType::Purchase),
+                'specials' => $specials !== [] ? implode(' · ', $specials) : null,
                 'isConsignment' => $status === WatchStatus::Consignment,
+                'isPrivate' => $status === WatchStatus::PrivateCollection,
                 'purchasePrice' => $includePurchase ? $watch->purchase_price : null,
                 'value' => $value,
                 'valueSource' => $valueSource,
-                'thumb' => $this->thumbBase64($watch),
+                'photos' => $this->photoThumbs($watch),
             ];
         }
 
@@ -108,10 +140,10 @@ class InventoryReportService
     /**
      * PDF rendern (dompdf).
      */
-    public function renderPdf(bool $includeConsignment = false, bool $includePurchase = false): string
+    public function renderPdf(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false): string
     {
         return Pdf::loadView('pdf.inventory', [
-            'report' => $this->data($includeConsignment, $includePurchase),
+            'report' => $this->data($includeConsignment, $includePurchase, $maskSerial),
             'seller' => [
                 'name' => (string) tenant('name'),
                 'street' => tenant('company_street'),
@@ -119,6 +151,24 @@ class InventoryReportService
                 'city' => tenant('company_city'),
             ],
         ])->output();
+    }
+
+    /**
+     * Seriennummer — optional teilgeschwärzt (erste 2 + letzte 2 Zeichen).
+     */
+    private function serial(?string $serial, bool $mask): ?string
+    {
+        if ($serial === null || ! $mask) {
+            return $serial;
+        }
+
+        $length = mb_strlen($serial);
+
+        if ($length <= 4) {
+            return str_repeat('•', $length);
+        }
+
+        return mb_substr($serial, 0, 2).str_repeat('•', $length - 4).mb_substr($serial, -2);
     }
 
     /**
@@ -174,25 +224,62 @@ class InventoryReportService
     }
 
     /**
-     * Kleines JPEG-Thumbnail (Base64) fürs PDF — dompdf wird mit den
-     * Original-Fotos zu langsam/groß. Fehler liefern null (kein Bild).
+     * Bis zu MAX_PHOTOS Fotos je Uhr als kleine JPEG-Thumbnails
+     * (Base64) — Slot-Fotos zuerst (mit Perspektiven-Label), dann
+     * weitere. dompdf wird mit Original-Fotos zu langsam/groß.
+     *
+     * @return array<int, array{data: string, label: string|null}>
      */
-    private function thumbBase64(Watch $watch): ?string
+    private function photoThumbs(Watch $watch): array
+    {
+        $media = $watch->getMedia('photos');
+
+        // Slot-Fotos in Slot-Reihenfolge nach vorne
+        $slotOrder = array_flip(array_column(PhotoSlot::cases(), 'value'));
+
+        $sorted = $media->sortBy(function ($item) use ($slotOrder): int {
+            $slot = $item->getCustomProperty('slot');
+
+            return is_string($slot) && isset($slotOrder[$slot]) ? $slotOrder[$slot] : 100;
+        })->take(self::MAX_PHOTOS);
+
+        $thumbs = [];
+
+        foreach ($sorted as $item) {
+            $thumb = $this->thumbBase64($item->getPath());
+
+            if ($thumb === null) {
+                continue;
+            }
+
+            $slot = $item->getCustomProperty('slot');
+
+            $thumbs[] = [
+                'data' => $thumb,
+                'label' => is_string($slot) ? PhotoSlot::tryFrom($slot)?->getLabel() : null,
+            ];
+        }
+
+        return $thumbs;
+    }
+
+    /**
+     * Kleines JPEG-Thumbnail (Base64) fürs PDF — Fehler liefern null.
+     */
+    private function thumbBase64(string $path): ?string
     {
         try {
-            $media = $watch->getFirstMedia('photos');
-
-            if ($media === null || ! is_file($media->getPath())) {
+            if (! is_file($path)) {
                 return null;
             }
 
-            $image = @imagecreatefromstring((string) file_get_contents($media->getPath()));
+            $image = @imagecreatefromstring((string) file_get_contents($path));
 
             if ($image === false) {
                 return null;
             }
 
-            $thumb = imagescale($image, 140);
+            $thumb = imagescale($image, 220);
             imagedestroy($image);
 
             if ($thumb === false) {
@@ -200,7 +287,7 @@ class InventoryReportService
             }
 
             ob_start();
-            imagejpeg($thumb, null, 70);
+            imagejpeg($thumb, null, 72);
             $jpeg = (string) ob_get_clean();
             imagedestroy($thumb);
 
