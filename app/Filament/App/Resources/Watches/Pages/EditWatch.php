@@ -37,7 +37,7 @@ class EditWatch extends EditRecord
                 ->color('gray')
                 ->visible(fn (Watch $record): bool => $record->getMedia('photos')->isNotEmpty())
                 ->modalHeading('Wasserzeichen auf alle Fotos anwenden')
-                ->modalDescription('Der Text wird halbtransparent unten rechts in jedes Foto eingebrannt (Schutz vor Bilderklau). Bereits gestempelte Fotos werden übersprungen. Achtung: Das Original wird ersetzt.')
+                ->modalDescription('Der Text wird klein und dezent in die Bildmitte eingebrannt — vordere Hälfte schwarz, hintere weiß (Schutz vor Bilderklau). Bereits gestempelte Fotos werden übersprungen. Achtung: Das Original wird ersetzt.')
                 ->modalSubmitActionLabel('Wasserzeichen anwenden')
                 ->form([
                     TextInput::make('text')
