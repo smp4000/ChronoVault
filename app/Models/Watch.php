@@ -39,7 +39,6 @@ use App\Enums\DialNumerals;
 use App\Enums\GlassType;
 use App\Enums\MovementType;
 use App\Enums\OwnershipStatus;
-use App\Enums\PhotoSlot;
 use App\Enums\WatchColor;
 use App\Enums\WatchCondition;
 use App\Enums\WatchGender;
@@ -321,13 +320,11 @@ class Watch extends Model implements HasMedia
      */
     public function photoUrls(): array
     {
-        // Hauptbild-Konvention: das Foto im Slot "Vorderseite" führt die
-        // Galerie an (Shop-Kachel + Detailseite); danach die übrigen
-        // Fotos in ihrer Sortier-Reihenfolge (im Panel per Ziehen änderbar).
+        // Die Sortier-Reihenfolge (media.order_column) bestimmt Galerie
+        // und Shop-Kachel — im Panel per Drag & Drop änderbar
+        // (WatchPhotoGallery); das erste Bild ist das Hauptbild.
         $mediaUrls = $this->getMedia('photos')
-            ->sortBy(fn ($media): int => $media->getCustomProperty('slot') === PhotoSlot::Front->value ? 0 : 1)
             ->map(fn ($media): string => $media->getUrl())
-            ->values()
             ->all();
 
         if ($mediaUrls !== []) {

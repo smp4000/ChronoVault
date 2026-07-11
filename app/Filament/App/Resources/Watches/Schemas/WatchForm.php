@@ -46,6 +46,7 @@ use App\Enums\WatchCondition;
 use App\Enums\WatchFunction;
 use App\Enums\WatchGender;
 use App\Enums\WatchStatus;
+use App\Livewire\WatchPhotoGallery;
 use App\Models\Brand;
 use App\Models\Caliber;
 use App\Models\Watch;
@@ -61,6 +62,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Livewire as LivewireComponent;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -477,6 +479,16 @@ class WatchForm
                                             ->helperText('Zusätzliche Bilder — per Ziehen sortierbar (die Reihenfolge gilt auch im Shop). Stift-Symbol beim Upload: Zuschneiden, Drehen, Spiegeln.'),
                                     ]),
 
+                                Section::make('Galerie-Reihenfolge')
+                                    ->description('Alle Fotos der Uhr — per Ziehen sortieren, das erste Bild ist das Hauptbild im Shop.')
+                                    ->icon('heroicon-m-arrows-up-down')
+                                    ->collapsible()
+                                    ->visible(fn (?Watch $record): bool => $record !== null)
+                                    ->components([
+                                        LivewireComponent::make(WatchPhotoGallery::class, fn (?Watch $record): array => ['watch' => $record])
+                                            ->key('watch-photo-gallery'),
+                                    ]),
+
                                 Section::make('Zertifikate & Dokumente')
                                     ->icon('heroicon-m-document-text')
                                     ->collapsible()
@@ -582,7 +594,7 @@ class WatchForm
     {
         return array_map(
             fn (PhotoSlot $slot): SpatieMediaLibraryFileUpload => SpatieMediaLibraryFileUpload::make('photo_slot_'.$slot->value)
-                ->label($slot->getLabel().($slot === PhotoSlot::Front ? ' — Hauptbild' : ''))
+                ->label($slot->getLabel())
                 ->collection('photos')
                 ->customProperties(['slot' => $slot->value])
                 ->filterMediaUsing(fn (Collection $media): Collection => $media
