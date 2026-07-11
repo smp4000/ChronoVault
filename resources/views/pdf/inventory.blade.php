@@ -1,12 +1,14 @@
 {{--
 =============================================================================
-PDF: Bestands- und Wertübersicht für Versicherungen (dompdf)
+PDF: Versicherungsmappe (dompdf)
 =============================================================================
-Je Uhr ein Dokumentations-Block nach Versicherungs-Checkliste: mehrere
-Fotos (Perspektiven), Stammdaten, Kaufdaten, Wert mit Quelle, Zertifikat,
-Zubehör, Besonderheiten, Beleg-Nachweis.
+Vorne die ÜBERSICHT aller Uhren im Eigentum (kompakte Tabelle mit
+Titelbild, Kenndaten und Wiederbeschaffungswert + Gesamtsumme), dahinter
+je Uhr das komplette Wert-Zertifikat (pdf/partials/certificate: Seite 1
+Titelbild + Kenndaten, Seite 2 Foto-Dokumentation).
 Erwartet: $report (rows/total/count/generatedAt/includePurchase/
-includeConsignment), $seller (name/street/postal_code/city).
+includeConsignment), $certificates (Array von certificateData-Sets,
+leer ohne Zertifikate), $generatedAt, $seller.
 =============================================================================
 --}}
 @php
@@ -25,29 +27,25 @@ includeConsignment), $seller (name/street/postal_code/city).
         .brand-dot { color: #1e40af; }
         h1 { font-size: 14pt; margin: 24px 0 2px 0; }
         .subtitle { color: #71717a; font-size: 9pt; margin-bottom: 14px; }
-        .watch { border: 0.75pt solid #d4d4d8; border-radius: 8px; padding: 14px 16px; margin-top: 14px; page-break-inside: avoid; }
-        .watch-head { width: 100%; border-collapse: collapse; }
-        .watch-name { font-size: 11pt; font-weight: bold; }
-        .tag { font-size: 7pt; font-weight: bold; color: #b45309; }
-        .value-box { text-align: right; white-space: nowrap; }
-        .value-box .amount { font-size: 12pt; font-weight: bold; color: #1e40af; }
-        .value-box .source { font-size: 7pt; color: #a1a1aa; }
-        .photos { margin-top: 10px; }
-        .photos td { padding: 0 6px 0 0; text-align: center; vertical-align: top; }
-        .photos img { width: 100%; max-width: 78px; height: auto; border-radius: 4px; border: 0.5pt solid #e4e4e7; }
-        .photos .plabel { font-size: 6pt; color: #a1a1aa; margin-top: 1px; }
-        table.facts { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        table.facts td { font-size: 8.5pt; padding: 3px 10px 3px 0; vertical-align: top; }
-        table.facts .k { color: #71717a; width: 17%; white-space: nowrap; }
-        table.facts .v { width: 33%; }
+        table.overview { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table.overview th { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.5px; color: #71717a; text-align: left; padding: 5px 8px 5px 0; border-bottom: 0.75pt solid #18181b; }
+        table.overview td { font-size: 8pt; padding: 6px 8px 6px 0; border-bottom: 0.5pt solid #e4e4e7; vertical-align: middle; }
+        table.overview .num { text-align: right; white-space: nowrap; }
+        table.overview img { width: 44px; height: auto; border-radius: 3px; border: 0.5pt solid #e4e4e7; }
+        .tag { font-size: 6.5pt; font-weight: bold; color: #b45309; }
+        .tag-own { color: #1e40af; }
+        .source { font-size: 6.5pt; color: #a1a1aa; }
         table.totals { width: 55%; margin-left: 45%; margin-top: 14px; border-collapse: collapse; }
         table.totals .grand td { border-top: 1pt solid #18181b; font-weight: bold; font-size: 11pt; padding-top: 7px; }
         .note { margin-top: 16px; font-size: 7.5pt; color: #71717a; background: #f4f4f5; padding: 9px 11px; border-radius: 4px; line-height: 1.6; }
-        .footer { position: fixed; bottom: 20px; left: 44px; right: 44px; font-size: 7pt; color: #a1a1aa; border-top: 0.5pt solid #e4e4e7; padding-top: 6px; }
+        .cert-start { page-break-before: always; }
+        @include('pdf.partials.certificate-styles')
+        .footer { position: fixed; bottom: 20px; left: 44px; right: 44px; font-size: 7pt; color: #a1a1aa; border-top: 0.5pt solid #e4e4e7; padding-top: 6px; text-align: center; }
     </style>
 </head>
 <body>
 
+    {{-- ============================== ÜBERSICHT ============================== --}}
     <div class="brand"><span class="brand-dot">&#9679;</span> {{ $seller['name'] }}</div>
     @if (! empty($seller['street']))
         <div style="font-size: 8pt; color: #71717a; margin-top: 3px;">
@@ -61,100 +59,59 @@ includeConsignment), $seller (name/street/postal_code/city).
         {{ $report['count'] }} {{ $report['count'] === 1 ? 'Uhr' : 'Uhren' }} ·
         Wiederbeschaffungswerte für Versicherungszwecke
         @if ($report['includeConsignment']) · inkl. Kommissionsware (Fremdeigentum, gekennzeichnet) @endif
+        @if ($certificates !== []) · Einzel-Zertifikate im Anschluss @endif
     </div>
 
-    @foreach ($report['rows'] as $row)
-        <div class="watch">
-            <table class="watch-head">
-                <tr>
-                    <td>
-                        <span class="watch-name">{{ $row['name'] }}</span>
-                        @if ($row['isConsignment'])
-                            <span class="tag">· Kommission (Fremdeigentum)</span>
-                        @endif
-                        @if ($row['isPrivate'])
-                            <span class="tag" style="color: #1e40af;">· Eigentum (Sammlung)</span>
-                        @endif
-                    </td>
-                    <td class="value-box">
-                        <div class="amount">{{ $eur($row['value']) }}</div>
-                        @if ($row['valueSource'])
-                            <div class="source">Wiederbeschaffung · {{ $row['valueSource'] }}</div>
-                        @endif
-                    </td>
-                </tr>
-            </table>
-
-            {{-- Foto-Dokumentation: alle Perspektiven --}}
-            @if ($row['photos'] !== [])
-                <table class="photos" width="100%">
-                    <tr>
-                        @foreach ($row['photos'] as $photo)
-                            <td width="{{ (int) (100 / max(count($row['photos']), 4)) }}%">
-                                <img src="data:image/jpeg;base64,{{ $photo['data'] }}">
-                                @if ($photo['label'])
-                                    <div class="plabel">{{ $photo['label'] }}</div>
-                                @endif
-                            </td>
-                        @endforeach
-                    </tr>
-                </table>
+    <table class="overview">
+        <tr>
+            <th style="width: 4%;">Nr.</th>
+            <th style="width: 9%;">Foto</th>
+            <th>Uhr</th>
+            <th style="width: 14%;">Referenz</th>
+            <th style="width: 14%;">Seriennummer</th>
+            <th style="width: 8%;">Baujahr</th>
+            @if ($report['includePurchase'])
+                <th class="num" style="width: 12%;">Kaufpreis</th>
             @endif
-
-            {{-- Checklisten-Daten --}}
-            <table class="facts">
-                <tr>
-                    <td class="k">Hersteller</td><td class="v">{{ $row['brand'] }}</td>
-                    <td class="k">Kaufdatum</td><td class="v">{{ $row['purchaseDate'] ?? '—' }}</td>
-                </tr>
-                <tr>
-                    <td class="k">Modell</td><td class="v">{{ $row['model'] }}</td>
-                    @if ($report['includePurchase'])
-                        <td class="k">Kaufpreis</td><td class="v">{{ $eur($row['purchasePrice']) }}</td>
-                    @else
-                        <td class="k">Beleg</td><td class="v">{{ $row['hasReceipt'] ? 'Ankaufsbeleg im System hinterlegt' : '—' }}</td>
+            <th class="num" style="width: 14%;">Wert</th>
+        </tr>
+        @foreach ($report['rows'] as $row)
+            <tr>
+                <td>{{ $loop->iteration }}</td>
+                <td>
+                    @if ($row['photos'] !== [])
+                        <img src="data:image/jpeg;base64,{{ $row['photos'][0]['data'] }}">
                     @endif
-                </tr>
-                <tr>
-                    <td class="k">Referenz</td><td class="v">{{ $row['reference'] ?? '—' }}</td>
-                    @if ($report['includePurchase'])
-                        <td class="k">Beleg</td><td class="v">{{ $row['hasReceipt'] ? 'Ankaufsbeleg im System hinterlegt' : '—' }}</td>
-                    @else
-                        <td class="k">Zertifikat</td><td class="v">{{ $row['certificate'] }}</td>
+                </td>
+                <td>
+                    <strong>{{ $row['name'] }}</strong>
+                    @if ($row['isConsignment'])
+                        <br><span class="tag">Kommission (Fremdeigentum)</span>
                     @endif
-                </tr>
-                <tr>
-                    <td class="k">Seriennummer</td><td class="v"><strong>{{ $row['serial'] ?? '—' }}</strong></td>
-                    @if ($report['includePurchase'])
-                        <td class="k">Zertifikat</td><td class="v">{{ $row['certificate'] }}</td>
-                    @else
-                        <td class="k">Zubehör</td><td class="v">{{ $row['scope'] ?? '—' }}</td>
+                    @if ($row['isPrivate'])
+                        <br><span class="tag tag-own">Eigentum (Sammlung)</span>
                     @endif
-                </tr>
-                <tr>
-                    <td class="k">Baujahr</td><td class="v">{{ $row['year'] ?? '—' }}</td>
-                    @if ($report['includePurchase'])
-                        <td class="k">Zubehör</td><td class="v">{{ $row['scope'] ?? '—' }}</td>
-                    @else
-                        <td class="k">Besonderheiten</td><td class="v">{{ $row['specials'] ?? '—' }}</td>
+                </td>
+                <td>{{ $row['reference'] ?? '—' }}</td>
+                <td><strong>{{ $row['serial'] ?? '—' }}</strong></td>
+                <td>{{ $row['year'] ?? '—' }}</td>
+                @if ($report['includePurchase'])
+                    <td class="num">{{ $eur($row['purchasePrice']) }}</td>
+                @endif
+                <td class="num">
+                    <strong>{{ $eur($row['value']) }}</strong>
+                    @if ($row['valueSource'])
+                        <br><span class="source">{{ $row['valueSource'] }}</span>
                     @endif
-                </tr>
-                <tr>
-                    <td class="k">Zustand</td><td class="v">{{ $row['condition'] ?? '—' }}</td>
-                    @if ($report['includePurchase'])
-                        <td class="k">Besonderheiten</td><td class="v">{{ $row['specials'] ?? '—' }}</td>
-                    @else
-                        <td class="k"></td><td class="v"></td>
-                    @endif
-                </tr>
-            </table>
-        </div>
-    @endforeach
+                </td>
+            </tr>
+        @endforeach
+    </table>
 
     <table class="totals">
         <tr class="grand">
             <td>Gesamter Wiederbeschaffungswert</td>
-            <td style="text-align: right;">{{ $eur($report['total']) }}</td>
+            <td style="text-align: right; white-space: nowrap;">{{ $eur($report['total']) }}</td>
         </tr>
     </table>
 
@@ -165,10 +122,20 @@ includeConsignment), $seller (name/street/postal_code/city).
         Untergrenze der Einkaufspreis zzgl. Alterszuschlag (1.&nbsp;Jahr +10&nbsp;%,
         2.&nbsp;Jahr +15&nbsp;%, ab dem 3.&nbsp;Jahr +20&nbsp;%). Angaben ohne Gewähr; für
         verbindliche Bewertungen empfiehlt sich ein Sachverständigengutachten.
+        @if ($certificates !== [])
+            Für jede Uhr im Eigentum folgt auf den nächsten Seiten das ausführliche
+            Wert-Zertifikat mit Foto-Dokumentation.
+        @endif
     </div>
 
+    {{-- ===================== ZERTIFIKATE (je Eigentums-Uhr) ===================== --}}
+    @foreach ($certificates as $cert)
+        <div class="cert-start"></div>
+        @include('pdf.partials.certificate', ['cert' => $cert])
+    @endforeach
+
     <div class="footer">
-        {{ $seller['name'] }} · Bestands- und Wertübersicht vom {{ $report['generatedAt']->format('d.m.Y') }} ·
+        {{ $seller['name'] }} · Versicherungs-Dokumentation vom {{ $report['generatedAt']->format('d.m.Y') }} ·
         maschinell erstellt mit ChronoVault
     </div>
 

@@ -30,13 +30,18 @@ class ListWatches extends ListRecords
                 ->label('Versicherungsliste (PDF)')
                 ->icon('heroicon-m-document-arrow-down')
                 ->color('gray')
-                ->modalHeading('Bestands- und Wertübersicht erstellen')
-                ->modalDescription('PDF mit allen Uhren im Bestand: Foto, Referenz, Seriennummer, Zustand und Wiederbeschaffungswert — für Versicherung, Bank oder eigene Unterlagen.')
+                ->modalHeading('Versicherungsmappe erstellen')
+                ->modalDescription('PDF für die Versicherung: vorne die Übersicht aller Uhren im Eigentum mit Wiederbeschaffungswerten, dahinter je Uhr das komplette Wert-Zertifikat mit Foto-Dokumentation.')
                 ->modalSubmitActionLabel('PDF erstellen')
                 ->form([
+                    Toggle::make('with_certificates')
+                        ->label('Wert-Zertifikate anhängen')
+                        ->helperText('Je Eigentums-Uhr ein Zertifikat mit Titelbild und Foto-Seite (Kommissionsware bekommt keins).')
+                        ->default(true),
+
                     Toggle::make('include_consignment')
                         ->label('Kommissionsuhren einbeziehen')
-                        ->helperText('Fremdeigentum wird in der Liste gekennzeichnet.'),
+                        ->helperText('Fremdeigentum wird in der Übersicht gekennzeichnet.'),
 
                     Toggle::make('include_purchase')
                         ->label('Einkaufspreise ausweisen')
@@ -53,6 +58,7 @@ class ListWatches extends ListRecords
                             (bool) ($data['include_consignment'] ?? false),
                             (bool) ($data['include_purchase'] ?? false),
                             (bool) ($data['mask_serial'] ?? false),
+                            (bool) ($data['with_certificates'] ?? true),
                         );
                     },
                     'Bestandsliste-'.now()->format('Y-m-d').'.pdf',

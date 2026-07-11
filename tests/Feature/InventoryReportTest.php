@@ -94,8 +94,9 @@ it('builds the inventory report with value fallbacks and totals', function () {
                 ->and(collect($full['rows'])->firstWhere('isConsignment', true)['name'])->toContain('Kommissions-Uhr')
                 ->and((float) collect($full['rows'])->firstWhere('serial', 'S-111')['purchasePrice'])->toBe(8000.0);
 
-            // PDF rendert (dompdf komprimiert den Inhalt — nur Header prüfbar)
-            expect(str_starts_with($service->renderPdf(), '%PDF'))->toBeTrue();
+            // Mappe rendert (Übersicht + Zertifikate) — auch ohne Zertifikate
+            expect(str_starts_with($service->renderPdf(), '%PDF'))->toBeTrue()
+                ->and(str_starts_with($service->renderPdf(withCertificates: false), '%PDF'))->toBeTrue();
         });
     } finally {
         destroyTenant($tenant);

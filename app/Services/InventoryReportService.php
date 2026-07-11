@@ -40,6 +40,7 @@ use App\Enums\WatchStatus;
 use App\Models\Watch;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Throwable;
 
 class InventoryReportService
@@ -47,32 +48,20 @@ class InventoryReportService
     /** Maximale Fotos je Uhr im PDF (Dateigröße/Lesbarkeit). */
     private const MAX_PHOTOS = 6;
 
+    /** Fotos je Zertifikat: Titelbild + Foto-Dokumentation auf Seite 2. */
+    private const CERT_MAX_PHOTOS = 7;
+
+    /** Thumbnail-Breite (px) für Zertifikats-Fotos (Seite 2 zeigt sie groß). */
+    private const CERT_PHOTO_WIDTH = 480;
+
     /**
      * Datenbasis des Reports.
      *
      * @return array{rows: array<int, array<string, mixed>>, total: float, count: int, generatedAt: Carbon, includePurchase: bool, includeConsignment: bool}
      */
-    public function data(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false): array
+    public function data(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false, int $photosPerRow = self::MAX_PHOTOS): array
     {
-        $statuses = [
-            WatchStatus::InStock->value,
-            WatchStatus::Reserved->value,
-            WatchStatus::InService->value,
-            WatchStatus::InAuction->value,
-            // Private Sammlung: Eigentum, versichert — gehört in die Liste
-            WatchStatus::PrivateCollection->value,
-        ];
-
-        if ($includeConsignment) {
-            $statuses[] = WatchStatus::Consignment->value;
-        }
-
-        $watches = Watch::query()
-            ->whereIn('status', $statuses)
-            ->with(['brand', 'media', 'serviceRecords', 'transactions'])
-            ->get()
-            ->sortBy(fn (Watch $watch): string => $watch->brand->name.' '.$watch->model_name, SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        $watches = $this->reportWatches($includeConsignment);
 
         $rows = [];
         $total = 0.0;
@@ -124,7 +113,7 @@ class InventoryReportService
                 'purchasePrice' => $includePurchase ? $watch->purchase_price : null,
                 'value' => $value,
                 'valueSource' => $valueSource,
-                'photos' => $this->photoThumbs($watch),
+                'photos' => $this->photoThumbs($watch, $photosPerRow),
             ];
         }
 
@@ -150,6 +139,25 @@ class InventoryReportService
         bool $includePurchase = true,
         bool $maskSerial = false,
     ): string {
+        return Pdf::loadView('pdf.certificate', [
+            'cert' => $this->certificateData($watch, $issuedFor, $includePurchase, $maskSerial),
+            'generatedAt' => now(),
+            'seller' => $this->seller(),
+        ])->output();
+    }
+
+    /**
+     * Datenbasis EINES Zertifikats (genutzt vom Einzel-PDF und von der
+     * Versicherungsmappe, die je Eigentums-Uhr ein Zertifikat anhängt).
+     *
+     * @return array{watch: array<string, mixed>, certNumber: string, issuedFor: string|null}
+     */
+    private function certificateData(
+        Watch $watch,
+        ?string $issuedFor,
+        bool $includePurchase,
+        bool $maskSerial,
+    ): array {
         $watch->loadMissing(['brand', 'caliber', 'media', 'serviceRecords']);
 
         [$value, $valueSource] = $this->replacementValue($watch);
@@ -170,7 +178,7 @@ class InventoryReportService
                 : null,
         ]);
 
-        return Pdf::loadView('pdf.certificate', [
+        return [
             'watch' => [
                 'name' => $watch->fullName(),
                 'brand' => $watch->brand->name,
@@ -198,37 +206,97 @@ class InventoryReportService
                 'value' => $value,
                 'valueSource' => $valueSource,
                 'valuedAt' => $watch->getAttribute('last_valuation_at'),
-                'photos' => $this->photoThumbs($watch),
+                'photos' => $this->photoThumbs($watch, self::CERT_MAX_PHOTOS, self::CERT_PHOTO_WIDTH),
             ],
             // Zertifikat-Nr.: Lagernummer, sonst kompakte ID
             'certNumber' => $watch->stock_number ?? 'CV-'.strtoupper(mb_substr((string) $watch->getKey(), 0, 8)),
             'issuedFor' => $issuedFor,
-            'generatedAt' => now(),
-            'seller' => [
-                'name' => (string) tenant('name'),
-                'street' => tenant('company_street'),
-                'postal_code' => tenant('company_postal_code'),
-                'city' => tenant('company_city'),
-                'tax_number' => tenant('tax_number'),
-                'vat_id' => tenant('vat_id'),
-            ],
+        ];
+    }
+
+    /**
+     * Versicherungsmappe (PDF): vorne die Übersicht aller Uhren im
+     * Eigentum, dahinter je Uhr das komplette Wert-Zertifikat
+     * (Kommissionsware = Fremdeigentum bekommt KEIN Zertifikat).
+     */
+    public function renderPdf(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false, bool $withCertificates = true): string
+    {
+        // Übersicht: nur je ein Titelbild pro Zeile (die Foto-Doku steckt im Zertifikat)
+        $report = $this->data($includeConsignment, $includePurchase, $maskSerial, photosPerRow: 1);
+
+        $certificates = [];
+
+        if ($withCertificates) {
+            $seller = $this->seller();
+
+            // Eigentümer der Mappe = der Betrieb selbst
+            $issuedFor = implode("\n", array_filter([
+                $seller['name'],
+                $seller['street'],
+                trim((string) $seller['postal_code'].' '.(string) $seller['city']),
+            ]));
+
+            foreach ($this->reportWatches($includeConsignment) as $watch) {
+                if ($watch->getAttribute('status') === WatchStatus::Consignment) {
+                    continue;
+                }
+
+                $certificates[] = $this->certificateData($watch, $issuedFor, $includePurchase, $maskSerial);
+            }
+        }
+
+        return Pdf::loadView('pdf.inventory', [
+            'report' => $report,
+            'certificates' => $certificates,
+            'generatedAt' => $report['generatedAt'],
+            'seller' => $this->seller(),
         ])->output();
     }
 
     /**
-     * PDF rendern (dompdf).
+     * Alle Uhren des Versicherungs-Bestands (sortiert nach Marke/Modell).
+     *
+     * @return Collection<int, Watch>
      */
-    public function renderPdf(bool $includeConsignment = false, bool $includePurchase = false, bool $maskSerial = false): string
+    private function reportWatches(bool $includeConsignment): Collection
     {
-        return Pdf::loadView('pdf.inventory', [
-            'report' => $this->data($includeConsignment, $includePurchase, $maskSerial),
-            'seller' => [
-                'name' => (string) tenant('name'),
-                'street' => tenant('company_street'),
-                'postal_code' => tenant('company_postal_code'),
-                'city' => tenant('company_city'),
-            ],
-        ])->output();
+        $statuses = [
+            WatchStatus::InStock->value,
+            WatchStatus::Reserved->value,
+            WatchStatus::InService->value,
+            WatchStatus::InAuction->value,
+            // Private Sammlung: Eigentum, versichert — gehört in die Liste
+            WatchStatus::PrivateCollection->value,
+        ];
+
+        if ($includeConsignment) {
+            $statuses[] = WatchStatus::Consignment->value;
+        }
+
+        return Watch::query()
+            ->whereIn('status', $statuses)
+            ->with(['brand', 'media', 'serviceRecords', 'transactions'])
+            ->get()
+            ->sortBy(fn (Watch $watch): string => $watch->brand->name.' '.$watch->model_name, SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->collect();
+    }
+
+    /**
+     * Betriebsdaten für Kopf und Fußzeile der PDFs.
+     *
+     * @return array{name: string, street: mixed, postal_code: mixed, city: mixed, tax_number: mixed, vat_id: mixed}
+     */
+    private function seller(): array
+    {
+        return [
+            'name' => (string) tenant('name'),
+            'street' => tenant('company_street'),
+            'postal_code' => tenant('company_postal_code'),
+            'city' => tenant('company_city'),
+            'tax_number' => tenant('tax_number'),
+            'vat_id' => tenant('vat_id'),
+        ];
     }
 
     /**
@@ -308,7 +376,7 @@ class InventoryReportService
      *
      * @return array<int, array{data: string, label: string|null}>
      */
-    private function photoThumbs(Watch $watch): array
+    private function photoThumbs(Watch $watch, int $limit = self::MAX_PHOTOS, int $width = 220): array
     {
         $media = $watch->getMedia('photos');
 
@@ -319,12 +387,12 @@ class InventoryReportService
             $slot = $item->getCustomProperty('slot');
 
             return is_string($slot) && isset($slotOrder[$slot]) ? $slotOrder[$slot] : 100;
-        })->take(self::MAX_PHOTOS);
+        })->take($limit);
 
         $thumbs = [];
 
         foreach ($sorted as $item) {
-            $thumb = $this->thumbBase64($item->getPath());
+            $thumb = $this->thumbBase64($item->getPath(), $width);
 
             if ($thumb === null) {
                 continue;
@@ -344,7 +412,7 @@ class InventoryReportService
     /**
      * Kleines JPEG-Thumbnail (Base64) fürs PDF — Fehler liefern null.
      */
-    private function thumbBase64(string $path): ?string
+    private function thumbBase64(string $path, int $width = 220): ?string
     {
         try {
             if (! is_file($path)) {
@@ -357,7 +425,8 @@ class InventoryReportService
                 return null;
             }
 
-            $thumb = imagescale($image, 220);
+            // Nie hochskalieren — kleine Originale bleiben klein
+            $thumb = imagescale($image, min($width, imagesx($image)));
             imagedestroy($image);
 
             if ($thumb === false) {
