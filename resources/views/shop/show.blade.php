@@ -197,6 +197,25 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                            class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-8 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">
                             Jetzt verbindlich kaufen
                         </a>
+
+                        {{-- Vertrauens-Box (Chrono24-Stil): was der Käufer bekommt --}}
+                        <div class="mt-5 rounded-2xl border border-neutral-200 bg-neutral-50/60 px-5 py-4">
+                            <ul class="space-y-2 text-sm text-neutral-700">
+                                @foreach ([
+                                    'Geprüfte und dokumentierte Uhr mit Foto-Dokumentation',
+                                    'Rechnung und Kaufvertrag automatisch per E-Mail',
+                                    'Versicherter Versand nach Zahlungseingang',
+                                    '14 Tage Widerrufsrecht',
+                                ] as $trustPoint)
+                                    <li class="flex items-start gap-2.5">
+                                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-blue-700" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                        </svg>
+                                        {{ $trustPoint }}
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
                     @else
                         <p class="text-2xl font-medium text-neutral-700">Preis auf Anfrage</p>
                     @endif
@@ -373,7 +392,7 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
         @if ($related->isNotEmpty())
             <section class="mt-24">
                 <h2 class="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400">Das könnte Sie auch interessieren</h2>
-                <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
                     @foreach ($related as $relatedWatch)
                         @include('shop.partials.watch-card', ['watch' => $relatedWatch])
                     @endforeach

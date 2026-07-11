@@ -39,6 +39,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -50,6 +51,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -61,15 +63,34 @@ class AppPanelProvider extends PanelProvider
         return $panel
             ->id('app')
             ->path('app')
-            ->brandName('ChronoVault')
+            ->brandName(fn (): string => (string) (tenant('name') ?? 'ChronoVault'))
+            // Marken-Kopf wie im Shop und auf den PDFs: blauer Punkt + Name
+            ->brandLogo(fn (): HtmlString => new HtmlString(
+                '<span style="display:flex;align-items:center;gap:.6rem;">'
+                .'<span style="display:block;height:.6rem;width:.6rem;border-radius:9999px;background:#1d4ed8;"></span>'
+                .'<span style="font-size:.85rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;">'
+                .e((string) (tenant('name') ?? 'ChronoVault'))
+                .'</span></span>'
+            ))
             ->favicon(asset('favicon.ico'))
             ->defaultThemeMode(ThemeMode::Dark)
             ->colors([
                 'primary' => Color::Blue,
                 'gray' => Color::Zinc,
             ])
+            ->viteTheme('resources/css/filament/app/theme.css')
             ->spa()
             ->sidebarCollapsibleOnDesktop()
+            // Globale Suche wie bei modernen SaaS-Tools per Strg/Cmd+K
+            ->globalSearchKeyBindings(['mod+k'])
+            // Feste, logische Reihenfolge der Arbeitsbereiche
+            ->navigationGroups([
+                NavigationGroup::make('Bestand'),
+                NavigationGroup::make('Verkauf'),
+                NavigationGroup::make('Stammdaten')->collapsed(),
+                NavigationGroup::make('Verwaltung')->collapsed(),
+                NavigationGroup::make('Einstellungen'),
+            ])
             // Inhalte immer über die volle Bildschirmbreite — die
             // Standard-Begrenzung verschenkt auf großen Monitoren Platz.
             ->maxContentWidth(Width::Full)

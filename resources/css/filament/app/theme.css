@@ -1,0 +1,56 @@
+/*
+=============================================================================
+Filament-Theme: Tenant-Panel (/app) — Premium-Feinschliff
+=============================================================================
+Basiert auf dem Filament-Standard-Theme; ergänzt dezente Anpassungen im
+ChronoVault-Look (Design-Leitplanken: Dark Mode first, abgerundete Ecken,
+dezente Micro-Animationen). Wird über Vite gebaut und im AppPanelProvider
+per ->viteTheme() eingebunden.
+=============================================================================
+*/
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/App/**/*';
+@source '../../../../resources/views/livewire/**/*';
+@source '../../../../resources/views/mobile/**/*';
+
+/* Karten & Sections: weichere, größere Rundungen (Premium-Look) */
+.fi-section,
+.fi-wi-widget > .fi-section,
+.fi-ta-ctn,
+.fi-fo-tabs {
+    border-radius: 1rem;
+}
+
+/* Sidebar: feiner Trennstrich + etwas mehr Kontrast zum Inhalt */
+.fi-sidebar {
+    border-inline-end: 1px solid rgb(255 255 255 / 0.06);
+}
+
+/* Topbar: leichter Blur wie im Shop-Header */
+.fi-topbar > nav {
+    backdrop-filter: blur(8px);
+}
+
+/* Aktiver Navigationspunkt: blaue Akzentkante links */
+.fi-sidebar-item-active .fi-sidebar-item-btn {
+    position: relative;
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-btn::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -0.5rem;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 9999px;
+    background: var(--primary-500, #3b82f6);
+}
+
+/* Buttons/Inputs: sanfte Übergänge (Micro-Animationen) */
+.fi-btn,
+.fi-input,
+.fi-select-input {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}

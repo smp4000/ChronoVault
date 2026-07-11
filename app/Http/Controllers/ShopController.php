@@ -180,7 +180,7 @@ class ShopController extends Controller
             ->whereKeyNot($watch->getKey())
             ->orderByRaw('CASE WHEN brand_id = ? THEN 0 ELSE 1 END', [$watch->brand_id])
             ->orderByDesc('created_at')
-            ->limit(3)
+            ->limit(4)
             ->get();
 
         return view('shop.show', [
