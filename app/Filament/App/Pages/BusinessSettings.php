@@ -23,13 +23,16 @@ declare(strict_types=1);
 
 namespace App\Filament\App\Pages;
 
+use App\Services\LegalTextService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 
@@ -148,17 +151,20 @@ class BusinessSettings extends Page
                         Textarea::make('imprint')
                             ->label('Impressum')
                             ->rows(10)
-                            ->helperText('Pflicht: Name/Firma, Anschrift, Kontakt, USt-IdNr., Vertretungsberechtigte (§ 5 DDG).'),
+                            ->helperText('Pflicht: Name/Firma, Anschrift, Kontakt, USt-IdNr., Vertretungsberechtigte (§ 5 DDG).')
+                            ->hintAction($this->legalAiAction('imprint', 'imprint', 'Impressum')),
 
                         Textarea::make('privacy_policy')
                             ->label('Datenschutzerklärung')
                             ->rows(10)
-                            ->helperText('Pflicht nach DSGVO — beschreibt, welche Daten der Shop verarbeitet (Anfragen, Käufe, Gebote).'),
+                            ->helperText('Pflicht nach DSGVO — beschreibt, welche Daten der Shop verarbeitet (Anfragen, Käufe, Gebote).')
+                            ->hintAction($this->legalAiAction('privacy', 'privacy_policy', 'Datenschutzerklärung')),
 
                         Textarea::make('revocation_policy')
                             ->label('Widerrufsbelehrung')
                             ->rows(10)
-                            ->helperText('Pflicht bei Verkäufen an Verbraucher im Fernabsatz (14 Tage Widerruf).'),
+                            ->helperText('Pflicht bei Verkäufen an Verbraucher im Fernabsatz (14 Tage Widerruf).')
+                            ->hintAction($this->legalAiAction('revocation', 'revocation_policy', 'Widerrufsbelehrung')),
                     ]),
 
                 Section::make('Benachrichtigungen')
@@ -173,6 +179,105 @@ class BusinessSettings extends Page
                     ]),
             ])
             ->statePath('data');
+    }
+
+    /**
+     * „Mit KI erstellen"-Aktion an den Rechtstext-Feldern: fragt die
+     * nötigen Angaben ab (vorbefüllt aus den Betriebsdaten) und füllt
+     * das Feld mit dem KI-Entwurf (LegalTextService). Gespeichert wird
+     * erst mit dem normalen Speichern-Knopf — der Händler prüft vorher.
+     */
+    private function legalAiAction(string $type, string $targetField, string $label): Action
+    {
+        return Action::make('generate_'.$type)
+            ->label('Mit KI erstellen')
+            ->icon('heroicon-m-sparkles')
+            ->modalHeading($label.' mit KI erstellen')
+            ->modalDescription('Beantworten Sie die Fragen — die KI erstellt daraus einen Entwurf. WICHTIG: Der Entwurf ersetzt keine Rechtsberatung; im Zweifel anwaltlich prüfen lassen.')
+            ->modalSubmitActionLabel('Entwurf erstellen')
+            ->modalWidth('2xl')
+            ->form([
+                TextInput::make('company_name')
+                    ->label('Firma / Name')
+                    ->default(fn (): string => (string) tenant('name'))
+                    ->required(),
+
+                TextInput::make('legal_form')
+                    ->label('Rechtsform')
+                    ->placeholder('z. B. Einzelunternehmen, GmbH, UG')
+                    ->default('Einzelunternehmen')
+                    ->required(),
+
+                TextInput::make('owner_name')
+                    ->label('Inhaber / Vertretungsberechtigter')
+                    ->placeholder('Vor- und Nachname')
+                    ->required(),
+
+                TextInput::make('street')
+                    ->label('Straße und Hausnummer')
+                    ->default(fn () => tenant('company_street'))
+                    ->required(),
+
+                TextInput::make('postal_code')
+                    ->label('PLZ')
+                    ->default(fn () => tenant('company_postal_code'))
+                    ->required(),
+
+                TextInput::make('city')
+                    ->label('Ort')
+                    ->default(fn () => tenant('company_city'))
+                    ->required(),
+
+                TextInput::make('email')
+                    ->label('E-Mail-Adresse')
+                    ->email()
+                    ->default(fn () => tenant('notification_email'))
+                    ->required(),
+
+                TextInput::make('phone')
+                    ->label('Telefon (optional)'),
+
+                TextInput::make('vat_id')
+                    ->label('USt-IdNr. (optional)')
+                    ->default(fn () => tenant('vat_id')),
+
+                TextInput::make('tax_number')
+                    ->label('Steuernummer (optional)')
+                    ->default(fn () => tenant('tax_number')),
+
+                TextInput::make('register')
+                    ->label('Handelsregister (optional)')
+                    ->placeholder('z. B. HRB 12345, Amtsgericht Fulda'),
+
+                Textarea::make('extras')
+                    ->label('Besonderheiten (optional)')
+                    ->rows(2)
+                    ->placeholder('z. B. Newsletter, Ladengeschäft mit Öffnungszeiten …')
+                    ->visible($type === 'privacy'),
+            ])
+            ->action(function (array $data, Set $set) use ($type, $targetField, $label): void {
+                try {
+                    $text = app(LegalTextService::class)->generate($type, $data);
+                } catch (\Throwable $exception) {
+                    report($exception);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('KI-Entwurf fehlgeschlagen')
+                        ->body($exception->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                $set($targetField, $text);
+
+                Notification::make()
+                    ->success()
+                    ->title($label.'-Entwurf erstellt')
+                    ->body('Bitte prüfen und anpassen — danach unten „Speichern" klicken.')
+                    ->send();
+            });
     }
 
     public function save(): void

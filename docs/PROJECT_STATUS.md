@@ -114,7 +114,7 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 ## DSGVO & Rechtliches
 
 - Rechtsseiten `/impressum`, `/datenschutz`, `/widerruf` (`ShopController::legal`, Inhalte aus Tenant-data-JSON `imprint`/`privacy_policy`/`revocation_policy`; leerer Inhalt zeigt Betreiber-Hinweis) + View `shop/legal`
-- Betriebsdaten: Abschnitt „Rechtliches (Shop-Seiten)" mit drei Textareas (Hinweise auf Generatoren/IHK)
+- Betriebsdaten: Abschnitt „Rechtliches (Shop-Seiten)" mit drei Textareas + „Mit KI erstellen"-Hint-Actions (Fragen-Dialog mit vorbefüllten Betriebsdaten → `App\Services\LegalTextService` [Perplexity ohne Web-Suche, Anthropic-Fallback; Plattform-Fakten fest im Prompt: gebrauchte Uhren, nur technisch notwendige Cookies, Hetzner/Cloudflare]; Entwurf landet im Feld, Speichern bleibt manuell; Hinweis „keine Rechtsberatung")
 - Footer: Pflicht-Links Impressum · Datenschutz · Widerruf; Datenschutz-Hinweise an Anfrage- (show), Kauf- (buy, inkl. Widerrufs-Link) und Gebotsformular (lot); Preisvorschlag hatte bereits DSGVO-Checkbox
 - Cookie-Banner bewusst NICHT nötig: der Shop setzt nur technisch notwendige Cookies (Session/CSRF)
 
