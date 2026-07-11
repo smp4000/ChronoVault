@@ -127,6 +127,12 @@ Button-Beschriftung „zahlungspflichtig kaufen" — Button-Lösung (§ 312j BGB
                     Nach dem Kauf erhalten Sie die Kaufbestätigung mit allen
                     Zahlungsinformationen per E-Mail. Der Versand erfolgt nach Zahlungseingang.
                 </p>
+                <p class="mt-2 text-xs leading-relaxed text-neutral-400">
+                    Es gelten unsere
+                    <a href="{{ route('shop.legal.revocation') }}" class="underline hover:text-blue-800">Widerrufsbelehrung</a>
+                    und
+                    <a href="{{ route('shop.legal.privacy') }}" class="underline hover:text-blue-800">Datenschutzerklärung</a>.
+                </p>
             </form>
         @endif
     </div>

@@ -340,6 +340,27 @@ class ShopController extends Controller
     }
 
     /**
+     * Rechtsseiten (Impressum/Datenschutz/Widerruf) — Inhalte kommen
+     * aus den Betriebsdaten des Händlers (Tenant-data-JSON). Fehlender
+     * Text zeigt einen deutlichen Hinweis statt einer leeren Seite.
+     */
+    public function legal(string $page): View
+    {
+        [$title, $tenantKey] = match ($page) {
+            'imprint' => ['Impressum', 'imprint'],
+            'privacy' => ['Datenschutzerklärung', 'privacy_policy'],
+            default => ['Widerrufsbelehrung', 'revocation_policy'],
+        };
+
+        $content = tenant($tenantKey);
+
+        return view('shop.legal', [
+            'title' => $title,
+            'content' => is_string($content) && trim($content) !== '' ? $content : null,
+        ]);
+    }
+
+    /**
      * Empfänger der Anfrage: die in den Betriebsdaten hinterlegte
      * Benachrichtigungs-Adresse; sonst Inhaber, dann Administratoren,
      * als letzter Fallback die Absenderadresse der Plattform.

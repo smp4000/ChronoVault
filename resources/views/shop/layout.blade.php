@@ -72,6 +72,12 @@ Tailwind only (Utility-Klassen, kein Bootstrap), responsiv.
             </div>
             <div class="mt-10 flex flex-col gap-2 border-t border-neutral-200 pt-6 text-xs text-neutral-400 sm:flex-row sm:items-center sm:justify-between">
                 <p>&copy; {{ now()->year }} {{ tenant('name') }} · Alle Preise inkl. MwSt., zzgl. Versand.</p>
+                {{-- Pflicht-Links (Impressumspflicht/DSGVO/Fernabsatz) --}}
+                <p class="flex flex-wrap gap-x-4 gap-y-1">
+                    <a href="{{ route('shop.legal.imprint') }}" class="transition hover:text-blue-800">Impressum</a>
+                    <a href="{{ route('shop.legal.privacy') }}" class="transition hover:text-blue-800">Datenschutz</a>
+                    <a href="{{ route('shop.legal.revocation') }}" class="transition hover:text-blue-800">Widerruf</a>
+                </p>
                 <p>
                     Bereitgestellt über <span class="font-medium text-blue-800">ChronoVault</span>
                     · <a href="/app" class="transition hover:text-blue-800">Händler-Login</a>

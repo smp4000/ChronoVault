@@ -312,6 +312,12 @@ Vanilla-JS (nur src-Tausch) — bewusst ohne Framework-Abhängigkeit.
                                     class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
                                 Anfrage senden
                             </button>
+
+                            <p class="mt-3 text-xs leading-relaxed text-neutral-400">
+                                Mit dem Absenden stimmen Sie der Verarbeitung Ihrer Angaben zur
+                                Beantwortung der Anfrage zu — Details in unserer
+                                <a href="{{ route('shop.legal.privacy') }}" class="underline hover:text-blue-800">Datenschutzerklärung</a>.
+                            </p>
                         </form>
                     </div>
                 @endif

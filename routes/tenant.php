@@ -56,6 +56,18 @@ Route::middleware([
         ->middleware('throttle:5,1')
         ->name('shop.propose');
 
+    // Rechtsseiten (DSGVO/Impressumspflicht) — Inhalte pflegt der
+    // Händler in den Betriebsdaten (Abschnitt Rechtliches).
+    Route::get('/impressum', [ShopController::class, 'legal'])
+        ->defaults('page', 'imprint')
+        ->name('shop.legal.imprint');
+    Route::get('/datenschutz', [ShopController::class, 'legal'])
+        ->defaults('page', 'privacy')
+        ->name('shop.legal.privacy');
+    Route::get('/widerruf', [ShopController::class, 'legal'])
+        ->defaults('page', 'revocation')
+        ->name('shop.legal.revocation');
+
     // Mobile Foto-Aufnahme per QR-Code (Uhren-Formular → Handy) — nur
     // über den signierten Link erreichbar (24 h gültig), kein Login nötig.
     Route::get('/uhren/{watch}/fotos', [WatchPhotoUploadController::class, 'show'])

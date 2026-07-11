@@ -104,6 +104,13 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Widgets\InventoryByStatusWidget` (Doughnut: Bestand nach Status, Modul 9)
 - `App\Widgets\TopBrandsWidget` (Balken: Top 5 Marken nach Einkaufswert unverkauft, Modul 9)
 
+## DSGVO & Rechtliches
+
+- Rechtsseiten `/impressum`, `/datenschutz`, `/widerruf` (`ShopController::legal`, Inhalte aus Tenant-data-JSON `imprint`/`privacy_policy`/`revocation_policy`; leerer Inhalt zeigt Betreiber-Hinweis) + View `shop/legal`
+- Betriebsdaten: Abschnitt „Rechtliches (Shop-Seiten)" mit drei Textareas (Hinweise auf Generatoren/IHK)
+- Footer: Pflicht-Links Impressum · Datenschutz · Widerruf; Datenschutz-Hinweise an Anfrage- (show), Kauf- (buy, inkl. Widerrufs-Link) und Gebotsformular (lot); Preisvorschlag hatte bereits DSGVO-Checkbox
+- Cookie-Banner bewusst NICHT nötig: der Shop setzt nur technisch notwendige Cookies (Session/CSRF)
+
 ## System-Mails
 
 - Passwort-Reset im ChronoVault-Design: `App\Notifications\ResetPasswordNotification` (Container-Bind auf `Filament\Auth\Notifications\ResetPassword` in AppServiceProvider::register — Filament-URL bleibt erhalten, gilt für /admin UND /app) + deutsche View `emails/password-reset` (Anrede, Button, Gültigkeit aus auth.passwords.users.expire, Ignorieren-Hinweis, Fallback-Link)

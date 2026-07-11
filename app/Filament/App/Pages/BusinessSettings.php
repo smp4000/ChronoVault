@@ -25,6 +25,7 @@ namespace App\Filament\App\Pages;
 
 use BackedEnum;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -67,6 +68,9 @@ class BusinessSettings extends Page
             'bank_iban' => tenant('bank_iban'),
             'bank_bic' => tenant('bank_bic'),
             'notification_email' => tenant('notification_email'),
+            'imprint' => tenant('imprint'),
+            'privacy_policy' => tenant('privacy_policy'),
+            'revocation_policy' => tenant('revocation_policy'),
         ]);
     }
 
@@ -135,6 +139,28 @@ class BusinessSettings extends Page
                             ->maxLength(11),
                     ]),
 
+                Section::make('Rechtliches (Shop-Seiten)')
+                    ->description('Diese Texte erscheinen im Shop unter /impressum, /datenschutz und /widerruf (Footer-Links). Vorlagen liefern z. B. die IHK oder Generatoren wie e-recht24.de — Texte hier einfügen, fertig.')
+                    ->icon('heroicon-m-scale')
+                    ->collapsible()
+                    ->collapsed()
+                    ->components([
+                        Textarea::make('imprint')
+                            ->label('Impressum')
+                            ->rows(10)
+                            ->helperText('Pflicht: Name/Firma, Anschrift, Kontakt, USt-IdNr., Vertretungsberechtigte (§ 5 DDG).'),
+
+                        Textarea::make('privacy_policy')
+                            ->label('Datenschutzerklärung')
+                            ->rows(10)
+                            ->helperText('Pflicht nach DSGVO — beschreibt, welche Daten der Shop verarbeitet (Anfragen, Käufe, Gebote).'),
+
+                        Textarea::make('revocation_policy')
+                            ->label('Widerrufsbelehrung')
+                            ->rows(10)
+                            ->helperText('Pflicht bei Verkäufen an Verbraucher im Fernabsatz (14 Tage Widerruf).'),
+                    ]),
+
                 Section::make('Benachrichtigungen')
                     ->description('An diese Adresse gehen Shop-Anfragen, Preisvorschläge und Bestell-Benachrichtigungen. Leer = an die Benutzer mit Rolle „Inhaber" (sonst Administratoren).')
                     ->icon('heroicon-m-envelope')
@@ -168,6 +194,9 @@ class BusinessSettings extends Page
             'bank_iban' => $iban !== '' ? $iban : null,
             'bank_bic' => strtoupper((string) ($data['bank_bic'] ?? '')) ?: null,
             'notification_email' => strtolower(trim((string) ($data['notification_email'] ?? ''))) ?: null,
+            'imprint' => trim((string) ($data['imprint'] ?? '')) ?: null,
+            'privacy_policy' => trim((string) ($data['privacy_policy'] ?? '')) ?: null,
+            'revocation_policy' => trim((string) ($data['revocation_policy'] ?? '')) ?: null,
         ]);
 
         Notification::make()

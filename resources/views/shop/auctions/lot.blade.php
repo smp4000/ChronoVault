@@ -168,7 +168,8 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                         </button>
                         <p class="mt-3 text-xs text-neutral-400">
                             Mit der Abgabe geben Sie ein verbindliches Gebot ab. Ihre Daten
-                            sind nur für das Auktionshaus sichtbar.
+                            sind nur für das Auktionshaus sichtbar — Details in unserer
+                            <a href="{{ route('shop.legal.privacy') }}" class="underline hover:text-blue-800">Datenschutzerklärung</a>.
                         </p>
                     </form>
                 @elseif (! $lot->isOpen())
