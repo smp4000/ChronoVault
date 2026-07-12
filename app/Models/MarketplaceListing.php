@@ -55,6 +55,9 @@ class MarketplaceListing extends Model
         'previous_price',
         'discount_percent',
         'photo_url',
+        'description',
+        'photo_urls',
+        'direct_buy',
         'listed_at',
     ];
 
@@ -65,8 +68,16 @@ class MarketplaceListing extends Model
             'has_papers' => 'boolean',
             'price' => 'decimal:2',
             'previous_price' => 'decimal:2',
+            'photo_urls' => 'array',
+            'direct_buy' => 'boolean',
             'listed_at' => 'datetime',
         ];
+    }
+
+    /** Privat-Angebot? (läuft komplett über die zentrale Plattform) */
+    public function isPrivateSale(): bool
+    {
+        return $this->seller_type === 'private';
     }
 
     /** Formatierter Preis für die Marktplatz-Kachel. */

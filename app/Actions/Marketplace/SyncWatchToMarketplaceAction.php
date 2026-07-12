@@ -76,16 +76,23 @@ class SyncWatchToMarketplaceAction
             $condition = $watch->getAttribute('condition');
             $material = $watch->getAttribute('case_material');
 
-            MarketplaceListing::query()->updateOrCreate(
+            // eBay-Prinzip: privat ODER gewerblich (Tenant-Einstellung)
+            $sellerType = (string) ($tenant->getAttribute('seller_type') ?? 'commercial');
+            $photoUrls = $this->absolutePhotoUrls($watch, $base);
+
+            $listing = MarketplaceListing::query()->updateOrCreate(
                 [
                     'tenant_id' => (string) $tenant->getTenantKey(),
                     'watch_id' => (string) $watch->getKey(),
                 ],
                 [
                     'seller_name' => (string) ($tenant->getAttribute('name') ?? 'Verkäufer'),
-                    // eBay-Prinzip: privat ODER gewerblich (Tenant-Einstellung)
-                    'seller_type' => (string) ($tenant->getAttribute('seller_type') ?? 'commercial'),
+                    'seller_type' => $sellerType,
                     'shop_url' => $base,
+                    // Gewerblich: Detailseite im eigenen Shop des Händlers.
+                    // Privat: zentrale Angebotsseite auf der Plattform
+                    // (Sammelstelle) — wird nach dem Upsert gesetzt, weil
+                    // die Listing-ID erst dann feststeht.
                     'detail_url' => $base.'/uhren/'.$watch->getKey(),
                     'brand_name' => $watch->brand->name,
                     'model_name' => (string) $watch->model_name,
@@ -103,10 +110,22 @@ class SyncWatchToMarketplaceAction
                     'price' => $watch->asking_price,
                     'previous_price' => $watch->previous_asking_price,
                     'discount_percent' => $watch->discountPercent(),
-                    'photo_url' => $this->absolutePhotoUrl($watch, $base),
+                    'photo_url' => $photoUrls[0] ?? null,
+                    'description' => filled($watch->description) ? (string) $watch->description : null,
+                    'photo_urls' => $photoUrls,
+                    // Sofortkauf: je Uhr abschaltbar; Privatverkäufer
+                    // brauchen zusätzlich eine hinterlegte IBAN (der
+                    // Käufer überweist direkt an sie)
+                    'direct_buy' => (bool) $watch->getAttribute('allow_direct_buy')
+                        && ($sellerType !== 'private' || filled($tenant->getAttribute('bank_iban'))),
                     'listed_at' => $watch->created_at ?? now(),
                 ],
             );
+
+            // Privat-Angebote laufen über die zentrale Angebotsseite
+            if ($sellerType === 'private') {
+                $listing->update(['detail_url' => $this->centralBaseUrl().'/angebot/'.$listing->getKey()]);
+            }
         } catch (Throwable $exception) {
             // Marktplatz-Sync darf das Arbeiten im Panel nie blockieren
             report($exception);
@@ -131,20 +150,41 @@ class SyncWatchToMarketplaceAction
      * Foto-URL mit der Domain des Verkäufers — im Web-Request stimmt die
      * Root-URL bereits, im CLI (Backfill) wird sie temporär erzwungen.
      */
-    private function absolutePhotoUrl(Watch $watch, string $base): ?string
+    /**
+     * ALLE Foto-URLs der Uhr mit der Domain des Verkäufers.
+     * Bewusst OHNE URL::forceRootUrl (verstellt die Root-URL des
+     * Prozesses) — stattdessen wird der Host-Teil ersetzt.
+     *
+     * @return array<int, string>
+     */
+    private function absolutePhotoUrls(Watch $watch, string $base): array
     {
-        $url = $watch->firstPhotoUrl();
+        return array_values(array_map(function (string $url) use ($base): string {
+            $path = (string) (parse_url($url, PHP_URL_PATH) ?? '');
+            $query = parse_url($url, PHP_URL_QUERY);
 
-        if ($url === null) {
-            return null;
-        }
+            return $base.$path.(is_string($query) && $query !== '' ? '?'.$query : '');
+        }, $watch->photoUrls()));
+    }
 
-        // Nur Pfad+Query behalten und die Verkäufer-Domain davorsetzen —
-        // bewusst OHNE URL::forceRootUrl: das würde die Root-URL für den
-        // restlichen Prozess verstellen (CLI-Sync, nachfolgende Requests).
-        $path = (string) (parse_url($url, PHP_URL_PATH) ?? '');
-        $query = parse_url($url, PHP_URL_QUERY);
+    /**
+     * Basis-URL der zentralen Plattform (Marktplatz) — Produktions-Domain
+     * aus CENTRAL_DOMAIN, lokal/Tests localhost.
+     */
+    private function centralBaseUrl(): string
+    {
+        // Erste "echte" Central-Domain (Produktions-Domain aus der .env,
+        // via config/tenancy.php) — lokal bleiben nur localhost/127.0.0.1.
+        // KEIN env() zur Laufzeit: unter config:cache liefert das null.
+        $domains = (array) config('tenancy.central_domains', []);
 
-        return $base.$path.(is_string($query) && $query !== '' ? '?'.$query : '');
+        $production = array_values(array_filter(
+            $domains,
+            fn ($domain): bool => ! in_array($domain, ['localhost', '127.0.0.1'], true),
+        ));
+
+        $domain = (string) ($production[0] ?? 'localhost');
+
+        return (app()->isProduction() ? 'https://' : 'http://').$domain;
     }
 }

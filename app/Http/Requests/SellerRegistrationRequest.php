@@ -47,7 +47,9 @@ class SellerRegistrationRequest extends FormRequest
     {
         return [
             'seller_type' => ['required', 'in:private,commercial'],
-            'shop_name' => ['required', 'string', 'min:3', 'max:60'],
+            // Nur Gewerbliche benennen ihr Geschäft — Privatverkäufer
+            // bekommen Seitenname und Adresse aus dem eigenen Namen
+            'shop_name' => ['required_if:seller_type,commercial', 'nullable', 'string', 'min:3', 'max:60'],
             'slug' => [
                 'nullable',
                 'string',
@@ -92,7 +94,7 @@ class SellerRegistrationRequest extends FormRequest
         return [
             'seller_type.required' => 'Bitte wählen Sie, ob Sie privat oder gewerblich verkaufen.',
             'seller_type.in' => 'Bitte wählen Sie, ob Sie privat oder gewerblich verkaufen.',
-            'shop_name.required' => 'Bitte geben Sie einen Namen für Ihre Verkaufsseite an.',
+            'shop_name.required_if' => 'Bitte geben Sie den Namen Ihres Geschäfts an.',
             'shop_name.min' => 'Der Name muss mindestens 3 Zeichen lang sein.',
             'slug.regex' => 'Die Wunsch-Adresse darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten (z. B. mueller-uhren).',
             'slug.min' => 'Die Wunsch-Adresse muss mindestens 3 Zeichen lang sein.',

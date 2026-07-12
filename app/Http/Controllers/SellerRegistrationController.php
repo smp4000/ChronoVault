@@ -46,13 +46,17 @@ class SellerRegistrationController extends Controller
     {
         $data = $request->validated();
 
+        // Privatverkäufer: Seitenname = eigener Name, Adresse wird daraus
+        // erzeugt (TenantObserver) — sie füllen keine Geschäftsfelder aus.
+        $isPrivate = $data['seller_type'] === 'private';
+
         try {
             $tenant = app(CreateTenantAction::class)->execute(
-                name: $data['shop_name'],
+                name: $isPrivate ? $data['owner_name'] : (string) $data['shop_name'],
                 ownerName: $data['owner_name'],
                 ownerEmail: strtolower(trim($data['email'])),
                 ownerPassword: $data['password'],
-                slug: $data['slug'] ?? null,
+                slug: $isPrivate ? null : ($data['slug'] ?? null),
                 sellerType: $data['seller_type'],
             );
         } catch (Throwable $exception) {

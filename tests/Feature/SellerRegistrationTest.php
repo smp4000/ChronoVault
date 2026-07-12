@@ -35,10 +35,10 @@ it('registers a private seller with own domain and owner login', function () {
             ->assertSee('Privat')
             ->assertSee('Gewerblich');
 
+        // Privat: KEINE Geschäftsfelder — Name und Adresse entstehen
+        // automatisch aus dem eigenen Namen
         $this->post('http://localhost/verkaufen', [
             'seller_type' => 'private',
-            'shop_name' => 'Sammlung Weber',
-            'slug' => 'sammlung-weber',
             'owner_name' => 'Christian Weber',
             'email' => 'weber@example.test',
             'password' => 'SuperSicher!123',
@@ -49,13 +49,14 @@ it('registers a private seller with own domain and owner login', function () {
             'privacy' => '1',
         ])
             ->assertOk()
-            ->assertSee('Willkommen, Sammlung Weber!')
-            ->assertSee('sammlung-weber.localhost');
+            ->assertSee('Willkommen, Christian Weber!')
+            ->assertSee('christian-weber.localhost');
 
-        $tenant = Tenant::query()->where('slug', 'sammlung-weber')->firstOrFail();
+        $tenant = Tenant::query()->where('slug', 'christian-weber')->firstOrFail();
 
         expect($tenant->getAttribute('seller_type'))->toBe('private')
-            ->and($tenant->primaryDomain())->toBe('sammlung-weber.localhost');
+            ->and($tenant->getAttribute('name'))->toBe('Christian Weber')
+            ->and($tenant->primaryDomain())->toBe('christian-weber.localhost');
 
         // Owner-Zugang existiert in der frischen Tenant-DB
         $tenant->run(function (): void {

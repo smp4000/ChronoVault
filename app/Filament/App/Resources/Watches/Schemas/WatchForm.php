@@ -532,6 +532,12 @@ class WatchForm
                                             ->inline(false)
                                             ->helperText('Verkaufte Uhren und Uhren im Service verschwinden automatisch. Beim Wechsel auf „Eigentum (Sammlung)" wird die Veröffentlichung entfernt — zum Anbieten einer Eigentums-Uhr hier wieder einschalten.'),
 
+                                        Toggle::make('allow_direct_buy')
+                                            ->label('Sofortkauf erlauben')
+                                            ->inline(false)
+                                            ->default(true)
+                                            ->helperText('Aus = Interessenten können nur anfragen oder einen Preis vorschlagen. Privatverkäufer: Sofortkauf braucht eine hinterlegte Bankverbindung (Betriebsdaten).'),
+
                                         TextInput::make('asking_price')
                                             ->label('Verkaufspreis (Shop)')
                                             ->numeric()

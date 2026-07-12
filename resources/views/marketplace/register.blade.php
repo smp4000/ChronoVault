@@ -65,13 +65,14 @@ eigener Datenbank, Subdomain und Inhaber-Zugang).
                 @error('seller_type') <p class="mt-2 text-xs text-red-600">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Verkaufsseite --}}
-            <div class="space-y-4">
-                <p class="text-sm font-semibold text-neutral-900">Ihre Verkaufsseite</p>
+            {{-- Verkaufsseite — nur für GEWERBLICHE Verkäufer: Privatverkäufer
+                 bekommen Name und Adresse automatisch aus ihrem Namen --}}
+            <div id="cv-shop-section" class="space-y-4">
+                <p class="text-sm font-semibold text-neutral-900">Ihr Geschäft</p>
                 <div>
-                    <label for="shop_name" class="block text-xs font-medium text-neutral-600">Name der Seite *</label>
-                    <input type="text" id="shop_name" name="shop_name" required value="{{ old('shop_name') }}"
-                           placeholder="z. B. Müllers Uhren oder Sammlung C. Weber"
+                    <label for="shop_name" class="block text-xs font-medium text-neutral-600">Name des Geschäfts *</label>
+                    <input type="text" id="shop_name" name="shop_name" value="{{ old('shop_name') }}"
+                           placeholder="z. B. Müllers Uhren"
                            class="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800">
                     @error('shop_name') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 </div>
@@ -149,4 +150,25 @@ eigener Datenbank, Subdomain und Inhaber-Zugang).
             </p>
         </form>
     </div>
+
+    <script>
+        // Privatverkäufer brauchen weder Geschäftsnamen noch Wunsch-Adresse —
+        // beides entsteht automatisch aus ihrem Namen. Der Block erscheint
+        // nur bei der Auswahl „Gewerblich".
+        (function () {
+            var section = document.getElementById('cv-shop-section');
+            var radios = document.querySelectorAll('input[name="seller_type"]');
+
+            function toggleShopSection() {
+                var checked = document.querySelector('input[name="seller_type"]:checked');
+                section.style.display = checked && checked.value === 'commercial' ? '' : 'none';
+            }
+
+            radios.forEach(function (radio) {
+                radio.addEventListener('change', toggleShopSection);
+            });
+
+            toggleShopSection();
+        })();
+    </script>
 @endsection

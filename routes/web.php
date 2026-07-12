@@ -34,6 +34,15 @@ foreach (config('tenancy.central_domains') as $domain) {
         // php artisan route:cache. Views verlinken relativ (url()).
         Route::get('/', [MarketplaceController::class, 'index']);
 
+        // Zentrale Angebotsseite (v. a. Privatverkäufer, eBay-Prinzip):
+        // Anfrage und Preisvorschlag laufen auf der Plattform und werden
+        // in den Mandanten des Verkäufers durchgereicht.
+        Route::get('/angebot/{listing}', [MarketplaceController::class, 'show']);
+        Route::post('/angebot/{listing}/anfrage', [MarketplaceController::class, 'inquire'])
+            ->middleware('throttle:5,1');
+        Route::post('/angebot/{listing}/preisvorschlag', [MarketplaceController::class, 'propose'])
+            ->middleware('throttle:5,1');
+
         // Selbst-Registrierung „Jetzt verkaufen" (privat/gewerblich).
         // Enges Throttle: jede Registrierung provisioniert eine Datenbank.
         Route::get('/verkaufen', [SellerRegistrationController::class, 'create']);
