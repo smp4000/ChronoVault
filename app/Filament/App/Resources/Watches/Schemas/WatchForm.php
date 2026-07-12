@@ -530,7 +530,7 @@ class WatchForm
                                         Toggle::make('is_published')
                                             ->label('Im Shop veröffentlichen')
                                             ->inline(false)
-                                            ->helperText('Verkaufte Uhren und Uhren im Service verschwinden automatisch.'),
+                                            ->helperText('Verkaufte Uhren und Uhren im Service verschwinden automatisch. Beim Wechsel auf „Eigentum (Sammlung)" wird die Veröffentlichung entfernt — zum Anbieten einer Eigentums-Uhr hier wieder einschalten.'),
 
                                         TextInput::make('asking_price')
                                             ->label('Verkaufspreis (Shop)')

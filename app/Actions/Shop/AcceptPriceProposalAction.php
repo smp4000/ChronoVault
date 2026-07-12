@@ -69,7 +69,7 @@ class AcceptPriceProposalAction
                 ->lockForUpdate()
                 ->findOrFail($proposal->getAttribute('watch_id'));
 
-            $sellable = in_array($watch->getAttribute('status'), WatchStatus::sellableStatuses(), true);
+            $sellable = in_array($watch->getAttribute('status'), WatchStatus::shopSellableStatuses(), true);
 
             if (! $watch->is_published || ! $sellable) {
                 throw new RuntimeException('Diese Uhr ist nicht mehr verfügbar — der Vorschlag kann nicht angenommen werden.');

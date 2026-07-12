@@ -59,7 +59,7 @@ class PurchaseWatchAction
 
             $sellable = in_array(
                 $lockedWatch->getAttribute('status'),
-                WatchStatus::sellableStatuses(),
+                WatchStatus::shopSellableStatuses(),
                 true,
             );
 

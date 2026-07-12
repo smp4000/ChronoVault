@@ -519,7 +519,7 @@ class Watch extends Model implements HasMedia
     {
         return $query
             ->where('is_published', true)
-            ->whereIn('status', array_column(WatchStatus::sellableStatuses(), 'value'));
+            ->whereIn('status', array_column(WatchStatus::shopSellableStatuses(), 'value'));
     }
 
     /**
@@ -538,6 +538,9 @@ class Watch extends Model implements HasMedia
             ->whereIn('status', [
                 WatchStatus::InStock->value,
                 WatchStatus::Consignment->value,
+                // Eigentum: nur wenn bewusst veröffentlicht (Statuswechsel
+                // entfernt die Veröffentlichung — siehe WatchObserver)
+                WatchStatus::PrivateCollection->value,
                 WatchStatus::Reserved->value,
                 WatchStatus::InAuction->value,
                 WatchStatus::Sold->value,
@@ -561,7 +564,7 @@ class Watch extends Model implements HasMedia
      */
     public function isBuyableInShop(): bool
     {
-        return in_array($this->getAttribute('status'), WatchStatus::sellableStatuses(), true);
+        return in_array($this->getAttribute('status'), WatchStatus::shopSellableStatuses(), true);
     }
 
     /**

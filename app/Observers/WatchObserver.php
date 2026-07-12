@@ -24,6 +24,7 @@ namespace App\Observers;
 use App\Actions\Marketplace\SyncWatchToMarketplaceAction;
 use App\Actions\Transactions\RecordPurchaseAction;
 use App\Actions\Watches\DownloadWatchPhotosAction;
+use App\Enums\WatchStatus;
 use App\Models\Watch;
 
 class WatchObserver
@@ -55,6 +56,15 @@ class WatchObserver
      */
     public function updating(Watch $watch): void
     {
+        // Wechsel in die private Sammlung („Eigentum") nimmt die Uhr
+        // STANDARDMÄSSIG aus dem Shop — wer eine Eigentums-Uhr doch
+        // anbieten will, aktiviert die Veröffentlichung danach bewusst
+        // neu (Shop und Marktplatz zeigen sie dann wieder).
+        if ($watch->isDirty('status')
+            && $watch->getAttribute('status') === WatchStatus::PrivateCollection) {
+            $watch->setAttribute('is_published', false);
+        }
+
         if (! $watch->isDirty('asking_price')) {
             return;
         }

@@ -32,6 +32,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -79,103 +81,123 @@ class BusinessSettings extends Page
 
     public function form(Schema $schema): Schema
     {
+        // Tabs statt langer Abschnitts-Liste: jeder Bereich ist mit einem
+        // Klick erreichbar, nichts muss gescrollt oder aufgeklappt werden.
         return $schema
             ->components([
-                Section::make('Anschrift & Steuern')
-                    ->description('Pflichtangaben für Rechnungen und Kaufverträge (§ 14 UStG).')
-                    ->icon('heroicon-m-building-office-2')
-                    ->columns(2)
+                Tabs::make('Betriebsdaten')
+                    ->persistTabInQueryString()
                     ->components([
-                        TextInput::make('company_street')
-                            ->label('Straße und Hausnummer')
-                            ->maxLength(255),
+                        Tab::make('Anschrift & Steuern')
+                            ->icon('heroicon-m-building-office-2')
+                            ->components([
+                                Section::make('Anschrift & Steuern')
+                                    ->description('Pflichtangaben für Rechnungen und Kaufverträge (§ 14 UStG).')
+                                    ->icon('heroicon-m-building-office-2')
+                                    ->columns(2)
+                                    ->components([
+                                        TextInput::make('company_street')
+                                            ->label('Straße und Hausnummer')
+                                            ->maxLength(255),
 
-                        TextInput::make('company_postal_code')
-                            ->label('PLZ')
-                            ->maxLength(20),
+                                        TextInput::make('company_postal_code')
+                                            ->label('PLZ')
+                                            ->maxLength(20),
 
-                        TextInput::make('company_city')
-                            ->label('Ort')
-                            ->maxLength(255),
+                                        TextInput::make('company_city')
+                                            ->label('Ort')
+                                            ->maxLength(255),
 
-                        Select::make('tax_mode')
-                            ->label('Besteuerung')
-                            ->options([
-                                'differential' => 'Differenzbesteuerung (§ 25a UStG) — üblich im Gebrauchtuhrenhandel',
-                                'regular' => 'Regelbesteuerung (19 % USt.)',
-                                'small_business' => 'Kleinunternehmer (§ 19 UStG)',
-                            ])
-                            ->default('differential')
-                            ->required()
-                            ->helperText('Bestimmt den Steuerausweis auf Rechnungen und in der E-Rechnung.'),
+                                        Select::make('tax_mode')
+                                            ->label('Besteuerung')
+                                            ->options([
+                                                'differential' => 'Differenzbesteuerung (§ 25a UStG) — üblich im Gebrauchtuhrenhandel',
+                                                'regular' => 'Regelbesteuerung (19 % USt.)',
+                                                'small_business' => 'Kleinunternehmer (§ 19 UStG)',
+                                            ])
+                                            ->default('differential')
+                                            ->required()
+                                            ->helperText('Bestimmt den Steuerausweis auf Rechnungen und in der E-Rechnung.'),
 
-                        TextInput::make('tax_number')
-                            ->label('Steuernummer')
-                            ->maxLength(30)
-                            ->helperText('Steuernummer ODER USt-IdNr. ist Pflicht auf Rechnungen.'),
+                                        TextInput::make('tax_number')
+                                            ->label('Steuernummer')
+                                            ->maxLength(30)
+                                            ->helperText('Steuernummer ODER USt-IdNr. ist Pflicht auf Rechnungen.'),
 
-                        TextInput::make('vat_id')
-                            ->label('USt-IdNr.')
-                            ->placeholder('DE123456789')
-                            ->maxLength(20),
-                    ]),
+                                        TextInput::make('vat_id')
+                                            ->label('USt-IdNr.')
+                                            ->placeholder('DE123456789')
+                                            ->maxLength(20),
+                                    ]),
+                            ]),
 
-                Section::make('Bankverbindung')
-                    ->description('Wird für die Zahlungsinformationen in der Zuschlag-Mail an Auktionsgewinner verwendet (inkl. Überweisungs-QR-Code).')
-                    ->icon('heroicon-m-banknotes')
-                    ->columns(2)
-                    ->components([
-                        TextInput::make('bank_account_holder')
-                            ->label('Kontoinhaber')
-                            ->placeholder('z. B. Welle Uhrenhandel GmbH')
-                            ->maxLength(70)
-                            ->columnSpanFull(),
+                        Tab::make('Bankverbindung')
+                            ->icon('heroicon-m-banknotes')
+                            ->components([
+                                Section::make('Bankverbindung')
+                                    ->description('Wird für die Zahlungsinformationen in der Zuschlag-Mail an Auktionsgewinner verwendet (inkl. Überweisungs-QR-Code).')
+                                    ->icon('heroicon-m-banknotes')
+                                    ->columns(2)
+                                    ->components([
+                                        TextInput::make('bank_account_holder')
+                                            ->label('Kontoinhaber')
+                                            ->placeholder('z. B. Welle Uhrenhandel GmbH')
+                                            ->maxLength(70)
+                                            ->columnSpanFull(),
 
-                        TextInput::make('bank_iban')
-                            ->label('IBAN')
-                            ->placeholder('DE00 0000 0000 0000 0000 00')
-                            ->maxLength(42),
+                                        TextInput::make('bank_iban')
+                                            ->label('IBAN')
+                                            ->placeholder('DE00 0000 0000 0000 0000 00')
+                                            ->maxLength(42),
 
-                        TextInput::make('bank_bic')
-                            ->label('BIC')
-                            ->placeholder('z. B. PBNKDEFF')
-                            ->maxLength(11),
-                    ]),
+                                        TextInput::make('bank_bic')
+                                            ->label('BIC')
+                                            ->placeholder('z. B. PBNKDEFF')
+                                            ->maxLength(11),
+                                    ]),
+                            ]),
 
-                Section::make('Rechtliches (Shop-Seiten)')
-                    ->description('Diese Texte erscheinen im Shop unter /impressum, /datenschutz und /widerruf (Footer-Links). Vorlagen liefern z. B. die IHK oder Generatoren wie e-recht24.de — Texte hier einfügen, fertig.')
-                    ->icon('heroicon-m-scale')
-                    ->collapsible()
-                    ->collapsed()
-                    ->components([
-                        Textarea::make('imprint')
-                            ->label('Impressum')
-                            ->rows(10)
-                            ->helperText('Pflicht: Name/Firma, Anschrift, Kontakt, USt-IdNr., Vertretungsberechtigte (§ 5 DDG).')
-                            ->hintAction($this->legalAiAction('imprint', 'imprint', 'Impressum')),
+                        Tab::make('Rechtliches')
+                            ->icon('heroicon-m-scale')
+                            ->components([
+                                Section::make('Rechtliches (Shop-Seiten)')
+                                    ->description('Diese Texte erscheinen im Shop unter /impressum, /datenschutz und /widerruf (Footer-Links). Vorlagen liefern z. B. die IHK oder Generatoren wie e-recht24.de — Texte hier einfügen, fertig.')
+                                    ->icon('heroicon-m-scale')
+                                    ->components([
+                                        Textarea::make('imprint')
+                                            ->label('Impressum')
+                                            ->rows(10)
+                                            ->helperText('Pflicht: Name/Firma, Anschrift, Kontakt, USt-IdNr., Vertretungsberechtigte (§ 5 DDG).')
+                                            ->hintAction($this->legalAiAction('imprint', 'imprint', 'Impressum')),
 
-                        Textarea::make('privacy_policy')
-                            ->label('Datenschutzerklärung')
-                            ->rows(10)
-                            ->helperText('Pflicht nach DSGVO — beschreibt, welche Daten der Shop verarbeitet (Anfragen, Käufe, Gebote).')
-                            ->hintAction($this->legalAiAction('privacy', 'privacy_policy', 'Datenschutzerklärung')),
+                                        Textarea::make('privacy_policy')
+                                            ->label('Datenschutzerklärung')
+                                            ->rows(10)
+                                            ->helperText('Pflicht nach DSGVO — beschreibt, welche Daten der Shop verarbeitet (Anfragen, Käufe, Gebote).')
+                                            ->hintAction($this->legalAiAction('privacy', 'privacy_policy', 'Datenschutzerklärung')),
 
-                        Textarea::make('revocation_policy')
-                            ->label('Widerrufsbelehrung')
-                            ->rows(10)
-                            ->helperText('Pflicht bei Verkäufen an Verbraucher im Fernabsatz (14 Tage Widerruf).')
-                            ->hintAction($this->legalAiAction('revocation', 'revocation_policy', 'Widerrufsbelehrung')),
-                    ]),
+                                        Textarea::make('revocation_policy')
+                                            ->label('Widerrufsbelehrung')
+                                            ->rows(10)
+                                            ->helperText('Pflicht bei Verkäufen an Verbraucher im Fernabsatz (14 Tage Widerruf).')
+                                            ->hintAction($this->legalAiAction('revocation', 'revocation_policy', 'Widerrufsbelehrung')),
+                                    ]),
+                            ]),
 
-                Section::make('Benachrichtigungen')
-                    ->description('An diese Adresse gehen Shop-Anfragen, Preisvorschläge und Bestell-Benachrichtigungen. Leer = an die Benutzer mit Rolle „Inhaber" (sonst Administratoren).')
-                    ->icon('heroicon-m-envelope')
-                    ->components([
-                        TextInput::make('notification_email')
-                            ->label('E-Mail für Shop-Benachrichtigungen')
-                            ->email()
-                            ->placeholder('z. B. verkauf@ihr-betrieb.de')
-                            ->maxLength(255),
+                        Tab::make('Benachrichtigungen')
+                            ->icon('heroicon-m-envelope')
+                            ->components([
+                                Section::make('Benachrichtigungen')
+                                    ->description('An diese Adresse gehen Shop-Anfragen, Preisvorschläge und Bestell-Benachrichtigungen. Leer = an die Benutzer mit Rolle „Inhaber" (sonst Administratoren).')
+                                    ->icon('heroicon-m-envelope')
+                                    ->components([
+                                        TextInput::make('notification_email')
+                                            ->label('E-Mail für Shop-Benachrichtigungen')
+                                            ->email()
+                                            ->placeholder('z. B. verkauf@ihr-betrieb.de')
+                                            ->maxLength(255),
+                                    ]),
+                            ]),
                     ]),
             ])
             ->statePath('data');

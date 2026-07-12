@@ -101,4 +101,18 @@ enum WatchStatus: string implements HasColor, HasIcon, HasLabel
     {
         return [self::InStock, self::Consignment];
     }
+
+    /**
+     * Status, in denen eine VERÖFFENTLICHTE Uhr im Shop kaufbar ist.
+     * Eigentum (Sammlung) ist bewusst dabei: Standardmäßig bleibt die
+     * Sammlung privat (Statuswechsel entfernt die Veröffentlichung im
+     * WatchObserver) — veröffentlicht der Sammler eine Eigentums-Uhr
+     * aber gezielt, ist sie im Shop sichtbar und kaufbar.
+     *
+     * @return array<self>
+     */
+    public static function shopSellableStatuses(): array
+    {
+        return [self::InStock, self::Consignment, self::PrivateCollection];
+    }
 }

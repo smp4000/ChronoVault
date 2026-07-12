@@ -112,11 +112,12 @@ throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
 - `App\Support\TenantNotifications::recipients()` — zentrale Empfänger-Auflösung (notification_email → Inhaber → Admins → mail.from), genutzt von Shop-Anfragen/Bestellungen/Wunschlisten-Alarm
 - Dashboard: `WishlistWidget` (TableWidget, volle Breite, nur sichtbar wenn Wunschmodelle existieren) — Zielpreis, Marktwert (grün + Haken bei Ziel), letzte Bewertung, Zeilenklick öffnet die Uhr
 - Wunschuhren sind ausgeschlossen aus: Shop (Scopes), Versicherungsliste (Status-Whitelist), Bestandswert-Widget
-- `WatchStatus::PrivateCollection` („Eigentum (Sammlung)", Schloss-Icon): private, versicherte Uhren — NICHT im Shop (Whitelists), aber IMMER in Versicherungsliste und Bestandswert
+- `WatchStatus::PrivateCollection` („Eigentum (Sammlung)", Schloss-Icon): private, versicherte Uhren — IMMER in Versicherungsliste und Bestandswert. SHOP-VERHALTEN: Statuswechsel auf Eigentum setzt `is_published` automatisch auf false (WatchObserver::updating) → standardmäßig raus aus Shop und Marktplatz; wird die Eigentums-Uhr danach BEWUSST wieder veröffentlicht, ist sie im Shop sichtbar UND kaufbar (`WatchStatus::shopSellableStatuses()` = InStock+Consignment+PrivateCollection — genutzt von publishedInShop/visibleInShop/isBuyableInShop und den Kauf-Guards in PurchaseWatchAction/AcceptPriceProposalAction; `sellableStatuses()` bleibt ohne PrivateCollection für die Lager-Kennzahl „Verkaufsbereit")
 
 ## DSGVO & Rechtliches
 
 - Rechtsseiten `/impressum`, `/datenschutz`, `/widerruf` (`ShopController::legal`, Inhalte aus Tenant-data-JSON `imprint`/`privacy_policy`/`revocation_policy`; leerer Inhalt zeigt Betreiber-Hinweis) + View `shop/legal`
+- Betriebsdaten-Seite in TABS gegliedert (Anschrift & Steuern / Bankverbindung / Rechtliches / Benachrichtigungen; `persistTabInQueryString`)
 - Betriebsdaten: Abschnitt „Rechtliches (Shop-Seiten)" mit drei Textareas + „Mit KI erstellen"-Hint-Actions (Fragen-Dialog mit vorbefüllten Betriebsdaten → `App\Services\LegalTextService` [Perplexity ohne Web-Suche, Anthropic-Fallback; Plattform-Fakten fest im Prompt: gebrauchte Uhren, nur technisch notwendige Cookies, Hetzner/Cloudflare]; Entwurf landet im Feld, Speichern bleibt manuell; Hinweis „keine Rechtsberatung")
 - Footer: Pflicht-Links Impressum · Datenschutz · Widerruf; Datenschutz-Hinweise an Anfrage- (show), Kauf- (buy, inkl. Widerrufs-Link) und Gebotsformular (lot); Preisvorschlag hatte bereits DSGVO-Checkbox
 - Cookie-Banner bewusst NICHT nötig: der Shop setzt nur technisch notwendige Cookies (Session/CSRF)

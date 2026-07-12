@@ -31,6 +31,7 @@ use App\Mail\PriceProposalMail;
 use App\Mail\WatchInquiryMail;
 use App\Models\Brand;
 use App\Models\Contact;
+use App\Models\MarketplaceListing;
 use App\Models\PriceProposal;
 use App\Models\Watch;
 use Illuminate\Support\Facades\Mail;
@@ -623,6 +624,53 @@ it('shows a discount with strike price after a price reduction', function () {
             expect($watch->refresh()->previous_asking_price)->toBeNull()
                 ->and($watch->discountPercent())->toBeNull();
         });
+    } finally {
+        tenancy()->end();
+        destroyTenant($tenant);
+    }
+});
+
+it('takes private collection watches out of the shop by default but allows deliberate publishing', function () {
+    $tenant = provisionTenant();
+
+    try {
+        $watchId = null;
+
+        $tenant->run(function () use (&$watchId) {
+            $watchId = Watch::factory()->create([
+                'brand_id' => Brand::where('name', 'Rolex')->firstOrFail()->id,
+                'model_name' => 'Sammlungs-Daytona',
+                'status' => WatchStatus::InStock,
+                'is_published' => true,
+                'asking_price' => 24000,
+            ])->id;
+        });
+
+        $domain = $tenant->primaryDomain();
+
+        // Vorher: normal im Shop
+        $this->get('http://'.$domain.'/')->assertSee('Sammlungs-Daytona');
+
+        // Wechsel auf „Eigentum (Sammlung)" → Veröffentlichung fliegt automatisch raus
+        $tenant->run(function () use ($watchId) {
+            $watch = Watch::findOrFail($watchId);
+            $watch->update(['status' => WatchStatus::PrivateCollection]);
+
+            expect($watch->refresh()->is_published)->toBeFalse();
+        });
+
+        $this->get('http://'.$domain.'/')->assertDontSee('Sammlungs-Daytona');
+        $this->get('http://'.$domain.'/uhren/'.$watchId)->assertNotFound();
+        expect(MarketplaceListing::query()->where('watch_id', $watchId)->exists())->toBeFalse();
+
+        // Bewusst wieder veröffentlichen → zurück im Shop UND kaufbar
+        $tenant->run(function () use ($watchId) {
+            Watch::findOrFail($watchId)->update(['is_published' => true]);
+        });
+
+        $this->get('http://'.$domain.'/')->assertSee('Sammlungs-Daytona');
+        $this->get('http://'.$domain.'/uhren/'.$watchId.'/kaufen')->assertOk();
+        expect(MarketplaceListing::query()->where('watch_id', $watchId)->exists())->toBeTrue();
     } finally {
         tenancy()->end();
         destroyTenant($tenant);
