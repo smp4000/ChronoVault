@@ -53,6 +53,7 @@ class CreateTenantAction
      * @param  string  $ownerEmail  Login-E-Mail des Inhabers
      * @param  string  $ownerPassword  Initialpasswort (bereits validiert!)
      * @param  string|null  $slug  Optionaler Wunsch-Slug; sonst aus dem Namen generiert (TenantObserver)
+     * @param  string  $sellerType  Marktplatz-Verkäufertyp: 'commercial' oder 'private' (eBay-Prinzip)
      */
     public function execute(
         string $name,
@@ -61,14 +62,17 @@ class CreateTenantAction
         string $ownerPassword,
         ?string $slug = null,
         TenantStatus $status = TenantStatus::Trial,
+        string $sellerType = 'commercial',
     ): Tenant {
         // 1. Tenant anlegen — die stancl-Pipeline (CreateDatabase, Migrate,
         //    Seed) läuft hier SYNCHRON mit. Nach dieser Zeile existiert die
-        //    fertige, geseedete Tenant-Datenbank.
+        //    fertige, geseedete Tenant-Datenbank. seller_type landet im
+        //    data-JSON (Custom Columns) und steuert das Marktplatz-Badge.
         $tenant = Tenant::create([
             'name' => $name,
             'slug' => $slug,
             'status' => $status,
+            'seller_type' => $sellerType,
         ]);
 
         // 2. Domain registrieren: slug.localhost (lokal) bzw.

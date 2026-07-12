@@ -45,11 +45,12 @@ des Verkäufers. Tailwind only, responsiv.
 
                 <nav class="ml-auto flex shrink-0 items-center gap-5 text-sm md:ml-0">
                     <a href="{{ url('/') }}"
-                       class="font-medium text-neutral-600 transition hover:text-blue-800">
+                       class="hidden font-medium text-neutral-600 transition hover:text-blue-800 sm:block">
                         Alle Angebote
                     </a>
-                    <a href="/app" class="hidden font-medium text-neutral-600 transition hover:text-blue-800 sm:block">
-                        Verkäufer-Login
+                    <a href="{{ url('/verkaufen') }}"
+                       class="inline-flex items-center rounded-full bg-blue-800 px-4 py-1.5 font-semibold text-white transition hover:bg-blue-700">
+                        Jetzt verkaufen
                     </a>
                 </nav>
             </div>
@@ -104,9 +105,12 @@ des Verkäufers. Tailwind only, responsiv.
                 <div class="text-sm text-neutral-500">
                     <p class="font-medium text-neutral-700">Selbst verkaufen?</p>
                     <p class="mt-2 max-w-xs">
-                        Ob privat oder gewerblich — bald können Sie sich hier
-                        registrieren und Ihre Uhren mit eigener Shop-Seite anbieten.
+                        Ob privat oder gewerblich — erstellen Sie in 2 Minuten Ihre
+                        eigene Verkaufsseite mit eigener Adresse.
                     </p>
+                    <a href="{{ url('/verkaufen') }}" class="mt-2 inline-block font-medium text-blue-800 transition hover:text-blue-600">
+                        Jetzt kostenlos registrieren &rarr;
+                    </a>
                 </div>
             </div>
             <div class="mt-10 flex flex-col gap-2 border-t border-neutral-200 pt-6 text-xs text-neutral-400 sm:flex-row sm:items-center sm:justify-between">
