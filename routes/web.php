@@ -21,12 +21,13 @@
  * =========================================================================
  */
 
+use App\Http\Controllers\MarketplaceController;
 use Illuminate\Support\Facades\Route;
 
 foreach (config('tenancy.central_domains') as $domain) {
     Route::domain($domain)->group(function () {
-        Route::get('/', function () {
-            return view('welcome');
-        });
+        // Startseite der Plattform = der Marktplatz (eBay-Prinzip:
+        // Angebote aller Verkäufer, privat und gewerblich)
+        Route::get('/', [MarketplaceController::class, 'index'])->name('marketplace.index');
     });
 }

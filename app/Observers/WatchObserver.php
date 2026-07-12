@@ -21,6 +21,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Actions\Marketplace\SyncWatchToMarketplaceAction;
 use App\Actions\Transactions\RecordPurchaseAction;
 use App\Actions\Watches\DownloadWatchPhotosAction;
 use App\Models\Watch;
@@ -86,5 +87,20 @@ class WatchObserver
         if ($imageSources !== [] && blank($watch->photos) && $watch->getMedia('photos')->isEmpty()) {
             app(DownloadWatchPhotosAction::class)->execute($watch);
         }
+
+        // Zentralen Marktplatz synchron halten (chrono-save.de)
+        app(SyncWatchToMarketplaceAction::class)->execute($watch);
+    }
+
+    /** Gelöschte Uhren verschwinden vom zentralen Marktplatz. */
+    public function deleted(Watch $watch): void
+    {
+        app(SyncWatchToMarketplaceAction::class)->execute($watch);
+    }
+
+    /** Wiederhergestellte Uhren kommen ggf. zurück auf den Marktplatz. */
+    public function restored(Watch $watch): void
+    {
+        app(SyncWatchToMarketplaceAction::class)->execute($watch);
     }
 }

@@ -35,3 +35,9 @@ Schedule::command('tenants:run', ['auctions:finalize-due'])
 Schedule::command('tenants:run', ['watches:update-market-values'])
     ->dailyAt('00:00')
     ->withoutOverlapping();
+
+// Marktplatz-Spiegel reparieren/auffrischen (Sicherheitsnetz zum
+// Observer — läuft NACH der Wertermittlung, damit Preise aktuell sind).
+Schedule::command('marketplace:sync')
+    ->dailyAt('00:30')
+    ->withoutOverlapping();
