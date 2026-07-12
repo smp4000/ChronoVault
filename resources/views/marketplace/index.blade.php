@@ -21,7 +21,7 @@ dort laufen Kauf, Anfrage und Preisvorschlag.
             </h1>
             <p class="mt-2 text-sm text-neutral-500">
                 {{ $listings->total() }} Treffer auf dem Marktplatz
-                · <a href="{{ route('marketplace.index') }}" class="font-medium text-blue-800 hover:text-blue-600">Suche zurücksetzen</a>
+                · <a href="{{ url('/') }}" class="font-medium text-blue-800 hover:text-blue-600">Suche zurücksetzen</a>
             </p>
         </section>
     @else
@@ -40,16 +40,23 @@ dort laufen Kauf, Anfrage und Preisvorschlag.
         </section>
     @endif
 
-    {{-- Markenfilter --}}
+    {{-- Markenfilter (relative URLs — die Route trägt bewusst keinen Namen) --}}
+    @php
+        $marketplaceUrl = function (array $params): string {
+            $query = http_build_query(array_filter($params));
+
+            return url('/').($query !== '' ? '?'.$query : '');
+        };
+    @endphp
     @if ($brands->count() > 1)
         <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('marketplace.index', array_filter(array_merge($filters, ['marke' => null]))) }}"
+                <a href="{{ $marketplaceUrl(array_merge($filters, ['marke' => null])) }}"
                    class="rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $filters['marke'] ? 'border-neutral-300 text-neutral-600 hover:border-blue-800 hover:text-blue-800' : 'border-blue-800 bg-blue-800 text-white' }}">
                     Alle
                 </a>
                 @foreach ($brands as $brandName)
-                    <a href="{{ route('marketplace.index', array_filter(array_merge($filters, ['marke' => $brandName]))) }}"
+                    <a href="{{ $marketplaceUrl(array_merge($filters, ['marke' => $brandName])) }}"
                        class="rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $filters['marke'] === $brandName ? 'border-blue-800 bg-blue-800 text-white' : 'border-neutral-300 text-neutral-600 hover:border-blue-800 hover:text-blue-800' }}">
                         {{ $brandName }}
                     </a>
@@ -63,7 +70,7 @@ dort laufen Kauf, Anfrage und Preisvorschlag.
         $select = 'rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-700 focus:border-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-800';
     @endphp
     <section class="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-        <form method="GET" action="{{ route('marketplace.index') }}" class="flex flex-wrap items-center gap-3">
+        <form method="GET" action="{{ url('/') }}" class="flex flex-wrap items-center gap-3">
             @foreach (['marke', 'suche'] as $keep)
                 @if ($filters[$keep])
                     <input type="hidden" name="{{ $keep }}" value="{{ $filters[$keep] }}">
@@ -97,7 +104,7 @@ dort laufen Kauf, Anfrage und Preisvorschlag.
                     <h2 class="mt-6 text-lg font-medium text-neutral-900">Keine Treffer für „{{ $search }}"</h2>
                     <p class="mt-2 max-w-sm text-sm text-neutral-500">
                         Versuchen Sie einen anderen Suchbegriff oder
-                        <a href="{{ route('marketplace.index') }}" class="font-medium text-blue-800 hover:text-blue-600">sehen Sie alle Angebote an</a>.
+                        <a href="{{ url('/') }}" class="font-medium text-blue-800 hover:text-blue-600">sehen Sie alle Angebote an</a>.
                     </p>
                 @else
                     <h2 class="mt-6 text-lg font-medium text-neutral-900">Derzeit keine Angebote</h2>

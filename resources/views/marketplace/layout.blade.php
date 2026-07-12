@@ -22,7 +22,7 @@ des Verkäufers. Tailwind only, responsiv.
     <header class="sticky top-0 z-40 border-b border-neutral-200 bg-white/95 backdrop-blur">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="flex h-16 items-center gap-4">
-                <a href="{{ route('marketplace.index') }}" class="group flex shrink-0 items-center gap-3">
+                <a href="{{ url('/') }}" class="group flex shrink-0 items-center gap-3">
                     <span class="block h-2.5 w-2.5 rounded-full bg-blue-800 transition group-hover:bg-blue-600"></span>
                     <span class="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-900">
                         {{ config('app.name', 'ChronoVault') }}
@@ -33,7 +33,7 @@ des Verkäufers. Tailwind only, responsiv.
                 </a>
 
                 {{-- Marktplatz-Suche (Desktop) --}}
-                <form method="GET" action="{{ route('marketplace.index') }}"
+                <form method="GET" action="{{ url('/') }}"
                       class="relative hidden max-w-md flex-1 md:block">
                     <svg class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -44,7 +44,7 @@ des Verkäufers. Tailwind only, responsiv.
                 </form>
 
                 <nav class="ml-auto flex shrink-0 items-center gap-5 text-sm md:ml-0">
-                    <a href="{{ route('marketplace.index') }}"
+                    <a href="{{ url('/') }}"
                        class="font-medium text-neutral-600 transition hover:text-blue-800">
                         Alle Angebote
                     </a>
@@ -55,7 +55,7 @@ des Verkäufers. Tailwind only, responsiv.
             </div>
 
             {{-- Marktplatz-Suche (Mobile) --}}
-            <form method="GET" action="{{ route('marketplace.index') }}" class="relative pb-3 md:hidden">
+            <form method="GET" action="{{ url('/') }}" class="relative pb-3 md:hidden">
                 <svg class="pointer-events-none absolute left-3.5 top-[38%] h-4 w-4 -translate-y-1/2 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>

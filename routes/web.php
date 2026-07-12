@@ -27,7 +27,10 @@ use Illuminate\Support\Facades\Route;
 foreach (config('tenancy.central_domains') as $domain) {
     Route::domain($domain)->group(function () {
         // Startseite der Plattform = der Marktplatz (eBay-Prinzip:
-        // Angebote aller Verkäufer, privat und gewerblich)
-        Route::get('/', [MarketplaceController::class, 'index'])->name('marketplace.index');
+        // Angebote aller Verkäufer, privat und gewerblich).
+        // BEWUSST OHNE Routen-Namen: die Schleife registriert die Route
+        // je Central-Domain mehrfach — doppelte Namen brechen
+        // php artisan route:cache. Views verlinken relativ (url('/')).
+        Route::get('/', [MarketplaceController::class, 'index']);
     });
 }
