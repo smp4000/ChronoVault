@@ -208,10 +208,15 @@ class ProposalReplyService
             'Uhr: '.($watch?->fullName() ?? 'unbekannt'),
             'Angebotspreis im Shop: '.($proposal->asking_price_at_time !== null ? number_format((float) $proposal->asking_price_at_time, 0, ',', '.').' €' : 'auf Anfrage'),
             'Wunschpreis des Kunden: '.number_format((float) $proposal->proposed_price, 0, ',', '.').' €',
-            'Kundenname: '.$proposal->name,
+            // DSGVO (Audit 2026-07-22): Der Kundenname wird BEWUSST NICHT an
+            // den KI-Dienst übermittelt (Datenminimierung, Art. 5 Abs. 1c) —
+            // die Anrede setzt die Mail ohnehin selbst vor den Text.
         ];
 
         if (filled($proposal->message)) {
+            // Die Kundennachricht ist für eine sinnvolle Antwort nötig und
+            // wird als Auftragsverarbeitung in der Datenschutzerklärung
+            // offengelegt (LegalTextService: KI-Dienste-Absatz).
             $lines[] = 'Nachricht des Kunden: "'.$proposal->message.'"';
         }
 

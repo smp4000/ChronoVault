@@ -34,11 +34,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $email = env('CENTRAL_ADMIN_EMAIL');
+        $password = env('CENTRAL_ADMIN_PASSWORD');
+
+        // SICHERHEIT (Audit 2026-07-22): In Produktion NIEMALS mit den
+        // öffentlich bekannten Fallback-Zugangsdaten seeden. Wer der
+        // Deployment-Anleitung folgt, MUSS echte Werte in der .env setzen —
+        // sonst bricht der Seeder hart ab, statt /admin mit
+        // admin@admin.com/password zu öffnen.
+        if (app()->environment('production') && (blank($email) || blank($password))) {
+            throw new \RuntimeException(
+                'Seeder abgebrochen: CENTRAL_ADMIN_EMAIL und CENTRAL_ADMIN_PASSWORD müssen '
+                .'in der Produktions-.env gesetzt sein (siehe docs/DEPLOYMENT.md).'
+            );
+        }
+
         User::firstOrCreate(
-            ['email' => (string) env('CENTRAL_ADMIN_EMAIL', 'admin@admin.com')],
+            ['email' => (string) ($email ?: 'admin@admin.com')],
             [
                 'name' => 'Administrator',
-                'password' => Hash::make((string) env('CENTRAL_ADMIN_PASSWORD', 'password')),
+                'password' => Hash::make((string) ($password ?: 'password')),
             ],
         );
     }

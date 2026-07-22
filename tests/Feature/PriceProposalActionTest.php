@@ -331,8 +331,20 @@ it('lets the customer accept or decline the counter offer via signed links', fun
         // Ohne Signatur: 403
         $this->get('http://'.$domain.'/preisvorschlag/'.$acceptId.'/annehmen')->assertForbidden();
 
-        // Annehmen: Kauf zum Gesamtpreis wird komplett abgewickelt
+        // SICHERHEIT (Audit 2026-07-22): Der GET-Link (aus der Mail) zeigt
+        // NUR die Bestätigungsseite — er darf den Kauf NICHT auslösen
+        // (Mail-Scanner/Prefetch rufen Links automatisch per GET ab).
         $this->get($acceptUrl)
+            ->assertOk()
+            ->assertSee('Angebot verbindlich annehmen?');
+
+        $tenant->run(function () use ($acceptId) {
+            expect(PriceProposal::findOrFail($acceptId)->getAttribute('status'))
+                ->toBe(PriceProposalStatus::Countered);
+        });
+
+        // Erst der POST (Bestätigungs-Button) wickelt den Kauf ab.
+        $this->post($acceptUrl)
             ->assertOk()
             ->assertSee('verbindlich zustande');
 
@@ -351,11 +363,15 @@ it('lets the customer accept or decline the counter offer via signed links', fun
             return str_contains($mail->render(), '4.549,90');
         });
 
-        // Doppelklick auf den Link: bereits abgeschlossen
+        // Doppelklick auf den Link: bereits abgeschlossen (GET und POST)
         $this->get($acceptUrl)->assertOk()->assertSee('bereits abgeschlossen');
+        $this->post($acceptUrl)->assertOk()->assertSee('bereits abgeschlossen');
 
-        // Ablehnen: Vorgang schliessen + Schade-Mail
+        // Ablehnen: GET bestätigt, POST schliesst den Vorgang + Schade-Mail
         $this->get($declineUrl)
+            ->assertOk()
+            ->assertSee('Angebot ablehnen?');
+        $this->post($declineUrl)
             ->assertOk()
             ->assertSee('Schade');
 

@@ -6,6 +6,7 @@ use App\Notifications\ResetPasswordNotification;
 use Filament\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,5 +41,13 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        // Projektweite Passwort-Mindestregel (Audit 2026-07-22): Alle
+        // Stellen, die Password::default()/defaults() nutzen (Benutzer-
+        // verwaltung, Tenant-Provisioning, Verkäufer-Registrierung),
+        // erben damit automatisch diese Policy. Vorher galt nur "min. 8".
+        Password::defaults(fn (): Password => Password::min(12)
+            ->mixedCase()
+            ->numbers());
     }
 }

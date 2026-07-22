@@ -4,27 +4,29 @@
 > Sie wird nach JEDEM abgeschlossenen Arbeitsschritt aktualisiert und dient als
 > Statusblock-Quelle am Anfang jeder Entwicklungs-Session.
 >
-> Letzte Aktualisierung: 2026-07-09 (Modul 8b — Online-Bieten)
+> Letzte Aktualisierung: 2026-07-22 (Sicherheits- & DSGVO-Härtung)
 
 ---
 
 ## Aktueller Stand
 
-**Modul 8b (Online-Bieten) abgeschlossen**
-([Doku](modules/module-08-auctions.md)). Öffentlicher Auktionskatalog
-auf der Tenant-Domain (`/auktionen`, „Auktionen" im Shop-Header):
-Auktionsliste (Läuft/Demnächst/Beendet), Loskacheln mit Schätzpreis/
-Höchstgebot/Zuschlag, Los-Detailseite mit Galerie und Gebotsformular
-(Name + E-Mail, kein Konto — v1). PlaceBidAction erzwingt Bietfenster
-(Online/Hybrid + „Läuft" + Endzeit), Mindestgebot (Höchstgebot +
-Erhöhungsstaffel bzw. Startpreis) und Race-Schutz (lockForUpdate).
-Bieterdaten nie öffentlich; Panel zeigt Höchstgebot-Spalte +
-Gebote-Modal, Zuschlag-Modal mit Höchstgebot vorbefüllt. POST mit
-throttle:10,1. Live verifiziert (Demo-Auktion auf welle.localhost).
-73 Tests grün, PHPStan sauber.
+**Sicherheits- & DSGVO-Härtung abgeschlossen** (Vorgabe des Besitzers:
+„absolut DSGVO-konform und absolut sicher"). Drei parallele Audits
+(öffentliche Endpunkte, DSGVO-Datenflüsse, Konfiguration/Auth) —
+Befunde, Maßnahmen und offene Punkte vollständig in
+**[docs/SECURITY.md](SECURITY.md)** (ab jetzt Pflichtlektüre bei jedem
+neuen Feature). Kernmaßnahmen: Security-Header-Middleware, TRUSTED_PROXIES
+statt `*`, Passwort-Policy min. 12 Zeichen, Seeder-Produktionsschutz,
+Gegenangebot-Annahme von GET auf POST umgestellt (Mail-Scanner-Schutz),
+**automatisiertes DSGVO-Löschkonzept** (PrunePersonalDataCommand, täglich:
+Gebots-IPs 30 Tage, Gebote 180 Tage, erledigte Preisvorschläge 90 Tage),
+KI-Datenminimierung (kein Kundenname an Anthropic/Perplexity, Offenlegung
+im Datenschutz-Prompt), Rechtsseiten + Footer für die zentrale Plattform,
+Transparenzhinweise an Gebots-/Anfrageformularen. 124 Tests grün, PHPStan sauber.
 
-**Nächster Schritt:** Modul 10 (API/Sanctum) ODER Auktions-Ausbau
-(E-Mail-Benachrichtigungen, Live-Gebotsstand) ODER Shop-Ausbau.
+**Nächster Schritt:** Offene Sicherheits-TODOs aus docs/SECURITY.md
+(1: Dokumente-Collection auf privaten Disk!) ODER Modul 10 (API/Sanctum)
+ODER Auktions-/Shop-Ausbau.
 
 ---
 

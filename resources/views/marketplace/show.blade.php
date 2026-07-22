@@ -184,6 +184,11 @@ alles direkt auf der Plattform. Erwartet: $listing, $capA, $capB.
                                     class="mt-4 inline-flex items-center justify-center rounded-full bg-blue-800 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">
                                 Anfrage senden
                             </button>
+                            <p class="mt-3 text-xs text-neutral-400">
+                                Ihre Angaben verwenden wir ausschließlich zur Bearbeitung und
+                                Weiterleitung Ihrer Anfrage an den Verkäufer — Details in der
+                                <a href="{{ url('/datenschutz') }}" class="underline hover:text-blue-800">Datenschutzerklärung</a>.
+                            </p>
                         </form>
                     </div>
                 @endunless

@@ -163,6 +163,10 @@ class LegalTextService
         $lines[] = '- Cookies: AUSSCHLIESSLICH technisch notwendige (Session, CSRF) — kein Tracking, keine Analyse-Tools, keine Werbe-Cookies';
         $lines[] = '- Hosting: Hetzner Online GmbH (Rechenzentrum in Deutschland); Cloudflare als CDN/Schutz vorgeschaltet';
         $lines[] = '- E-Mail-Versand über einen deutschen Mail-Anbieter';
+        $lines[] = '- KI-Dienste als Auftragsverarbeiter: Anthropic PBC und Perplexity AI Inc. (beide USA, '
+            .'Drittlandübermittlung auf Basis von Standardvertragsklauseln/DPF) — verarbeitet werden '
+            .'Uhrendaten (Referenznummern, Marktwerte) sowie bei Antwort-Entwürfen auf Preisvorschläge '
+            .'der Nachrichtentext des Kunden (OHNE Namen); keine Speicherung zu Trainingszwecken beauftragt';
 
         if (filled($answers['extras'] ?? null)) {
             $lines[] = '- Besonderheiten laut Betreiber: '.$answers['extras'];

@@ -41,3 +41,10 @@ Schedule::command('tenants:run', ['watches:update-market-values'])
 Schedule::command('marketplace:sync')
     ->dailyAt('00:30')
     ->withoutOverlapping();
+
+// DSGVO-Löschkonzept (Audit 2026-07-22): täglich je Mandant —
+// Gebots-IPs anonymisieren, abgelaufene Gebote und abgeschlossene
+// Preisvorschläge löschen (Fristen: App\Console\Commands\PrunePersonalDataCommand).
+Schedule::command('tenants:run', ['chronovault:prune-personal-data'])
+    ->dailyAt('01:00')
+    ->withoutOverlapping();

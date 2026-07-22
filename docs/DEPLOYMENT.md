@@ -178,6 +178,18 @@ DB_PASSWORD=<Datenbank-Passwort aus CloudPanel>
 QUEUE_CONNECTION=database
 SESSION_DRIVER=database   # falls lokal so; sonst Wert aus lokaler .env übernehmen
 
+# SICHERHEIT (Pflicht in Produktion, Audit 2026-07-22)
+# Zentraler Admin: Seeder BRICHT AB, wenn diese beiden fehlen.
+CENTRAL_ADMIN_EMAIL=admin@ihre-domain.de
+CENTRAL_ADMIN_PASSWORD=<langes zufälliges Passwort, min. 12 Zeichen>
+# Session-Cookie nur über HTTPS ausliefern:
+SESSION_SECURE_COOKIE=true
+# Nur echten Proxys vertrauen: lokaler nginx + Cloudflare-IP-Ranges
+# (aktuelle Liste: https://www.cloudflare.com/ips/). Ohne diese Zeile
+# gelten nur Loopback/private Netze — hinter Cloudflare PFLICHT,
+# sonst stimmen Client-IPs (Rate-Limits, Gebots-IPs) nicht:
+TRUSTED_PROXIES=127.0.0.1,173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22
+
 # Mail (wie lokal, Strato)
 MAIL_MAILER=smtp
 MAIL_HOST=smtp.strato.de

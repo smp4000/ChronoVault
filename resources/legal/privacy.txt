@@ -1,0 +1,33 @@
+[PLATZHALTER — VOR PRODUKTIVGANG DURCH DEN BETREIBER AUSFÜLLEN/PRÜFEN]
+
+Datenschutzerklärung der Plattform
+
+1. Verantwortlicher
+[Firmenname, Anschrift, E-Mail — identisch zum Impressum]
+
+2. Hosting und Infrastruktur
+Diese Plattform wird bei der Hetzner Online GmbH (Deutschland) betrieben;
+Cloudflare ist als CDN/Schutzdienst vorgeschaltet (Auftragsverarbeitung).
+Beim Aufruf werden technisch notwendige Server-Logs (IP-Adresse, Zeitpunkt,
+aufgerufene Seite) zur Betriebssicherheit verarbeitet (Art. 6 Abs. 1 lit. f
+DSGVO) und nach kurzer Frist gelöscht.
+
+3. Cookies
+Es werden ausschließlich technisch notwendige Cookies gesetzt (Session,
+CSRF-Schutz). Eine Einwilligung ist hierfür nicht erforderlich
+(§ 25 Abs. 2 TDDDG). Es findet kein Tracking statt.
+
+4. Anfragen und Preisvorschläge zu Angeboten
+Ihre Angaben (Name, E-Mail, Nachricht, ggf. Wunschpreis) werden ausschließlich
+zur Bearbeitung und Weiterleitung an den jeweiligen Verkäufer verarbeitet
+(Art. 6 Abs. 1 lit. b DSGVO). Der Verkäufer ist für die weitere Verarbeitung
+selbst verantwortlich; seine Datenschutzerklärung finden Sie in dessen Shop.
+
+5. Verkäufer-Registrierung
+Bei der Registrierung verarbeiten wir die angegebenen Betriebs- und
+Kontaktdaten zur Bereitstellung Ihrer Verkaufsseite (Art. 6 Abs. 1 lit. b DSGVO).
+
+6. Ihre Rechte
+Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der
+Verarbeitung, Datenübertragbarkeit sowie Widerspruch (Art. 15–21 DSGVO) und
+das Recht auf Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO).

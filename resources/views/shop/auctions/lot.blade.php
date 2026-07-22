@@ -168,7 +168,8 @@ Ablehnungen der PlaceBidAction erscheinen als Fehler am Betragsfeld.
                         </button>
                         <p class="mt-3 text-xs text-neutral-400">
                             Mit der Abgabe geben Sie ein verbindliches Gebot ab. Ihre Daten
-                            sind nur für das Auktionshaus sichtbar — Details in unserer
+                            sind nur für das Auktionshaus sichtbar. Zur Missbrauchs-Vorbeugung
+                            speichern wir Ihre IP-Adresse für 30 Tage — Details in unserer
                             <a href="{{ route('shop.legal.privacy') }}" class="underline hover:text-blue-800">Datenschutzerklärung</a>.
                         </p>
                     </form>

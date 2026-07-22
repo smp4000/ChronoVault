@@ -292,11 +292,11 @@ class ShopController extends Controller
     }
 
     /**
-     * Kunden-Entscheidung zum Gegenangebot (signierter Link aus der
-     * CounterOfferMail): Annahme wickelt den Kauf zum Gesamtpreis
-     * (Angebot + Versand) komplett ab — Verkauf, Rechnung, Kaufvertrag,
-     * Zahlungs-Mail. Ablehnung schließt den Vorgang und schickt eine
-     * freundliche „Schade"-Mail.
+     * Schritt 1 (GET, signierter Link aus der CounterOfferMail): Zeigt NUR
+     * die Bestätigungsseite mit den Angebotsdetails. Die verbindliche
+     * Entscheidung passiert erst per POST (submitProposalDecision) —
+     * Sicherheitsentscheidung gegen Link-Prefetching durch Mail-Scanner
+     * (Audit 2026-07-22): ein GET darf keinen Kauf auslösen.
      */
     public function proposalDecision(string $proposalId, string $decision): View
     {
@@ -307,6 +307,34 @@ class ShopController extends Controller
         $status = $proposal->getAttribute('status');
 
         // Bereits abgeschlossen (z. B. Link doppelt geklickt)?
+        if (! $status instanceof PriceProposalStatus || ! $status->isOpen()) {
+            return view('shop.proposal-decision', [
+                'success' => $status === PriceProposalStatus::Accepted,
+                'heading' => 'Dieser Vorgang ist bereits abgeschlossen',
+                'text' => 'Ihre Entscheidung wurde schon verarbeitet — bei Fragen antworten Sie einfach auf unsere E-Mail.',
+            ]);
+        }
+
+        return view('shop.proposal-confirm', [
+            'proposal' => $proposal,
+            'decision' => $decision,
+        ]);
+    }
+
+    /**
+     * Schritt 2 (POST): Die verbindliche Kunden-Entscheidung. Annahme
+     * wickelt den Kauf zum Gesamtpreis (Angebot + Versand) komplett ab —
+     * Verkauf, Rechnung, Kaufvertrag, Zahlungs-Mail. Ablehnung schließt
+     * den Vorgang und schickt eine freundliche „Schade"-Mail.
+     */
+    public function submitProposalDecision(string $proposalId, string $decision): View
+    {
+        $proposal = PriceProposal::query()
+            ->with('watch.brand')
+            ->findOrFail($proposalId);
+
+        $status = $proposal->getAttribute('status');
+
         if (! $status instanceof PriceProposalStatus || ! $status->isOpen()) {
             return view('shop.proposal-decision', [
                 'success' => $status === PriceProposalStatus::Accepted,

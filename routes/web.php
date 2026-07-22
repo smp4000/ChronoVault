@@ -48,5 +48,14 @@ foreach (config('tenancy.central_domains') as $domain) {
         Route::get('/verkaufen', [SellerRegistrationController::class, 'create']);
         Route::post('/verkaufen', [SellerRegistrationController::class, 'store'])
             ->middleware('throttle:5,60');
+
+        // Rechtsseiten der PLATTFORM (DSGVO-Audit 2026-07-22): Der
+        // Marktplatz ist selbst Diensteanbieter — Impressum und
+        // Datenschutzerklärung sind Pflicht, unabhängig von den
+        // Rechtsseiten der einzelnen Verkäufer-Shops.
+        Route::get('/impressum', [MarketplaceController::class, 'legal'])
+            ->defaults('page', 'imprint');
+        Route::get('/datenschutz', [MarketplaceController::class, 'legal'])
+            ->defaults('page', 'privacy');
     });
 }

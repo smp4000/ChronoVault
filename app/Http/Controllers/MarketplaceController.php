@@ -176,4 +176,30 @@ class MarketplaceController extends Controller
     {
         return Tenant::query()->findOrFail($listing->tenant_id);
     }
+
+    /**
+     * Rechtsseiten der ZENTRALEN Plattform (DSGVO-Audit 2026-07-22:
+     * der Marktplatz selbst ist Diensteanbieter und braucht eigenes
+     * Impressum + Datenschutzerklärung — unabhängig von den Rechtsseiten
+     * der einzelnen Verkäufer-Shops).
+     *
+     * Inhalte pflegt der Plattform-Betreiber als einfache Textdateien in
+     * resources/legal/ (kein DB-Zugriff, kein Deployment-Risiko). Fehlt
+     * eine Datei, erscheint ein deutlicher Hinweis statt einer leeren Seite.
+     */
+    public function legal(string $page): View
+    {
+        [$title, $file] = match ($page) {
+            'imprint' => ['Impressum', 'imprint.txt'],
+            default => ['Datenschutzerklärung', 'privacy.txt'],
+        };
+
+        $path = resource_path('legal/'.$file);
+        $content = is_file($path) ? trim((string) file_get_contents($path)) : '';
+
+        return view('marketplace.legal', [
+            'title' => $title,
+            'content' => $content !== '' ? $content : null,
+        ]);
+    }
 }

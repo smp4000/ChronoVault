@@ -79,10 +79,20 @@ Route::middleware([
 
     // Kunden-Entscheidung zum Gegenangebot (Buttons in der Mail) — nur
     // über den signierten Link erreichbar (14 Tage gültig).
+    //
+    // SICHERHEIT (Audit 2026-07-22): Der GET-Link zeigt NUR eine
+    // Bestätigungsseite. Die verbindliche Entscheidung (Kauf!) läuft per
+    // POST — sonst könnten Mail-Sicherheits-Scanner und Link-Prefetching
+    // (Outlook SafeLinks, Virenscanner) ein Gegenangebot ungewollt
+    // automatisch annehmen. Die Signatur gilt für beide Methoden.
     Route::get('/preisvorschlag/{proposal}/{decision}', [ShopController::class, 'proposalDecision'])
         ->middleware('signed')
         ->whereIn('decision', ['annehmen', 'ablehnen'])
         ->name('shop.proposal.decision');
+    Route::post('/preisvorschlag/{proposal}/{decision}', [ShopController::class, 'submitProposalDecision'])
+        ->middleware(['signed', 'throttle:10,1'])
+        ->whereIn('decision', ['annehmen', 'ablehnen'])
+        ->name('shop.proposal.decision.submit');
 
     // Öffentlicher Auktionskatalog (Modul 8b) — Gebots-POST mit Throttle
     // gegen Skript-Missbrauch (10 Gebote/Minute je IP reichen jedem Bieter).
